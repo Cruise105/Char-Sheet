@@ -14,7 +14,7 @@ export const PARTY_FILE = 'charsheet-party.json';
 const DAY = 1440, DAWN = 6 * 60;
 
 // What the last read found, for the Linked apps settings
-export const sources = { sn: null, mi: null, seed: null, read: 0, error: '' };
+export const sources = { sn: null, mi: null, seed: null, read: 0, error: '', miCounts: {}, miSaved: '', seedOk: null };
 
 // The magic item app's item list lives in its own data.js on the same site
 async function loadSeed() {
@@ -26,8 +26,9 @@ async function loadSeed() {
     const json = t.slice(t.indexOf('=') + 1).trim().replace(/;\s*$/, '');
     const seed = JSON.parse(json);
     sources.seed = new Map(seed.items.map(i => [i.id, i]));
+    sources.seedOk = true;
     return sources.seed;
-  } catch { return null; }
+  } catch { sources.seedOk = false; return null; }
 }
 
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
@@ -90,7 +91,8 @@ function miView(mi, seed, holder) {
   if (seed) for (const [id, i] of seed) items.set(id, i);
   for (const c of st.custom || []) items.set(c.id, c);
   const get = id => { const i = items.get(id); const e = st.edits?.[id]; return i ? (e ? { ...i, ...e } : i) : null; };
-  const list = (st.inv || []).filter(x => x.holder === holder.id).map(x => {
+  const held = (st.inv || []).filter(x => x.holder === holder.id);
+  const list = held.map(x => {
     const i = get(x.itemId); if (!i) return null;
     const a = i.attune || {};
     // value deliberately left out: players shouldn't know what items are worth
@@ -100,7 +102,7 @@ function miView(mi, seed, holder) {
       attuned: !!x.attuned, desc: i.desc || '', weight: weightLb(i.weight),
     };
   }).filter(Boolean);
-  return { items: list, limit: Number(holder.limit) || 3 };
+  return { items: list, limit: Number(holder.limit) || 3, held: held.length };
 }
 
 // Dawn counter from Session Notes' clock (minutes; dawn is 6:00)
@@ -118,6 +120,7 @@ export async function runBridge(io) {
     const [sn, mi] = await Promise.all([io.readAppdata(SN_FILE), io.readAppdata(MI_FILE)]);
     sources.sn = sn?.app === 'session-notes' ? sn : null;
     sources.mi = mi?.app === 'omnithel-items' ? mi : null;
+    sources.miSaved = sources.mi?.stamp ? new Date(sources.mi.stamp).toLocaleString() : '';
   } catch (e) {
     if (e.auth || e.scope) throw e;
     sources.error = e.message; return { changed: [] };
@@ -137,6 +140,7 @@ export async function runBridge(io) {
     if (sources.sn) put('sn', snView(sources.sn, pc));
     if (sources.mi) {
       const v = miView(sources.mi, seed, holder);
+      sources.miCounts[c.id] = v ? { held: v.held, shown: v.items.length } : null;
       put('magicItems', v ? v.items : []);
       if (v && Number(c.attuneMax) !== v.limit) { c.attuneMax = v.limit; stamp(c, 'attuneMax'); dirty = true; }
     }

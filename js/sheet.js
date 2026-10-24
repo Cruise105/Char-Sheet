@@ -574,6 +574,9 @@ function pageInventory(c) {
     <div class="coinfoot"><span class="sub">100 coins weigh 1 lb · ${calc('coinwt')}</span>
     <button class="btn small" type="button" data-act="consolidate">Consolidate into gold, silver, copper</button></div>
     <p class="hint">10 copper = 1 silver · 5 silver = 1 electrum · 2 electrum = 1 gold · 10 gold = 1 platinum. Consolidating leaves platinum alone.</p>`)}
+  ${(c.magicItems || []).length ? panel('Magic items from your DM', `<div class="tablewrap"><table class="inv"><thead><tr><th>Item</th><th>Weight</th><th>Attunement</th></tr></thead><tbody>
+    ${c.magicItems.map(m => `<tr><td><details class="mi"><summary><b>${esc(m.name)}</b></summary><p class="sub">${esc(m.type || '')}</p>${fmt(m.desc)}</details></td><td class="num">${m.weight ? `${m.weight} lb` : '—'}</td><td>${m.attuned ? '<span class="attb">Attuned</span>' : esc(m.attune || 'None')}</td></tr>`).join('')}
+    </tbody></table></div><p class="hint">Your DM manages these in the magic item app.</p>`, 'invcat') : ''}
   <div class="invgrid">${cats}</div>`;
 }
 

@@ -635,9 +635,9 @@ async function renderLinked() {
   if (!src.read) { box.innerHTML = `<p class="hint">Connect Google Drive and sync once. Your device then reads Session Notes and the magic item app and links each sheet to the same character there, by name.</p>`; return; }
   const sel = (c, app, list, cur) => `<select class="f" data-link="${app}" data-char="${c.id}"><option value="">${cur ? 'Match by name' : 'Match by name (none found)'}</option><option value="none" ${links[c.id]?.[app] === 'none' ? 'selected' : ''}>Not linked</option>${list.map(o => `<option value="${esc(o.id)}" ${links[c.id]?.[app] === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>`;
   box.innerHTML = `${src.error ? `<p class="warn">${esc(src.error)}</p>` : ''}
-    <p class="hint">${src.sn ? 'Session Notes found.' : 'Session Notes not found in your Drive.'} ${src.mi ? 'Magic item app found.' : 'Magic item app not found in your Drive (turn on its Google Drive sync).'}</p>
+    <p class="hint">${src.sn ? 'Session Notes found.' : 'Session Notes not found in your Drive.'} ${src.mi ? `Magic item app found${src.miSaved ? `, last saved to Drive ${esc(src.miSaved)}` : ''}.` : 'Magic item app not found in your Drive (turn on its Google Drive sync).'}${src.mi && src.seedOk === false ? " Couldn't load the magic item list from the magic-items site." : ''}</p>
     <table class="links"><thead><tr><th>Sheet</th><th>Session Notes</th><th>Magic items</th></tr></thead><tbody>
-    ${chars.map(c => { const r = B.resolvedLinks(c, links); return `<tr><td>${esc(c.name || 'Unnamed')}</td><td>${sel(c, 'sn', opts.sn, r.sn)}${r.sn ? `<small>${esc(r.sn.name)}</small>` : ''}</td><td>${sel(c, 'mi', opts.mi, r.mi)}${r.mi ? `<small>${esc(r.mi.name)}</small>` : ''}</td></tr>`; }).join('')}
+    ${chars.map(c => { const r = B.resolvedLinks(c, links); return `<tr><td>${esc(c.name || 'Unnamed')}</td><td>${sel(c, 'sn', opts.sn, r.sn)}${r.sn ? `<small>${esc(r.sn.name)}</small>` : ''}</td><td>${sel(c, 'mi', opts.mi, r.mi)}${r.mi ? `<small>${esc(r.mi.name)}${(() => { const n = src.miCounts[c.id]; if (!n) return ''; return n.held === n.shown ? ` · ${n.held} item${n.held === 1 ? '' : 's'}` : ` · ${n.held} held, only ${n.shown} found in the item list`; })()}</small>` : ''}</td></tr>`; }).join('')}
     </tbody></table>`;
 }
 function openSettings() {
