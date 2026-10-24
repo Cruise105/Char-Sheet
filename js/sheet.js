@@ -432,12 +432,13 @@ export function lookPanel(c) {
       <button type="button" class="linkbtn" data-act="accent" data-v="">Palette default</button></div>
 
     <h3>Heading font</h3>
-    <div class="fonts">${Object.entries(HEAD_FONTS).map(([k, [n, fam]]) => `<button type="button" class="fontbtn ${t.head === k ? 'on' : ''}" data-act="font" data-w="head" data-v="${k}" style="font-family:${esc(fam)}">${esc(c.name || n)}</button>`).join('')}</div>
+    <div class="fonts">${Object.entries(HEAD_FONTS).map(([k, [n, fam]]) => `<button type="button" class="fontbtn ${t.head === k ? 'on' : ''}" data-act="font" data-w="head" data-v="${k}" style="font-family:${esc(fam)}" title="${esc(n)}">${esc(c.name || n)}</button>`).join('')}</div>
     <h3>Text font</h3>
-    <div class="fonts two">${Object.entries(BODY_FONTS).map(([k, [n, fam]]) => `<button type="button" class="fontbtn body ${t.body === k ? 'on' : ''}" data-act="font" data-w="body" data-v="${k}" style="font-family:${esc(fam)}">${esc(n)}</button>`).join('')}</div>
+    <div class="fonts">${['Sans', 'Serif'].map(g => `<span class="lbl grp">${g === 'Sans' ? 'Sans serif' : 'Serif'}</span>${Object.entries(BODY_FONTS).filter(([, f]) => (g === 'Sans' ? f[2].startsWith('Sans') : !f[2].startsWith('Sans'))).map(([k, [n, fam, kind]]) => `<button type="button" class="fontbtn body ${t.body === k ? 'on' : ''}" data-act="font" data-w="body" data-v="${k}" style="font-family:${esc(fam)}">${esc(n)}<small>${esc(kind.includes('easy') ? 'Made for easy reading' : kind === 'Slab serif' ? 'Slab serif' : '')}</small></button>`).join('')}`).join('')}</div>
 
     <h3>Frame</h3>
-    <div class="frames">${Object.entries(FRAMES).map(([k, n]) => `<button type="button" class="framebtn ${t.frame === k ? 'on' : ''}" data-act="frame" data-v="${k}" data-frame-demo="${k}">${n}</button>`).join('')}</div>
+    <div class="frames">${Object.entries(FRAMES).map(([k, n]) => `<button type="button" class="framebtn ${t.frame === k ? 'on' : ''}" data-act="frame" data-v="${k}" aria-label="${esc(n)} frame">
+      <span class="panel fdemo" data-fd="${k}"><span class="ph">${esc(n)}</span><i></i><i></i></span></button>`).join('')}</div>
 
     <h3>Background picture</h3>
     <div class="bgpick">

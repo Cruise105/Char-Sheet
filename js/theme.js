@@ -35,22 +35,49 @@ export const CLASS_ACCENTS = [
 export const HEAD_FONTS = {
   alegreya: ['Alegreya', '"Alegreya", Georgia, serif'],
   cinzel: ['Cinzel', '"Cinzel", "Alegreya", serif'],
+  cinzeldeco: ['Cinzel Decorative', '"Cinzel Decorative", "Cinzel", serif'],
+  marcellus: ['Marcellus SC', '"Marcellus SC", "Alegreya", serif'],
   fell: ['IM Fell English', '"IM Fell English", "Alegreya", serif'],
+  fondamento: ['Fondamento', '"Fondamento", "Alegreya", serif'],
+  almendra: ['Almendra', '"Almendra", "Alegreya", serif'],
+  medieval: ['MedievalSharp', '"MedievalSharp", "Alegreya", serif'],
   uncial: ['Uncial Antiqua', '"Uncial Antiqua", "Alegreya", serif'],
+  metamorphous: ['Metamorphous', '"Metamorphous", "Alegreya", serif'],
+  macondo: ['Macondo', '"Macondo", "Alegreya", serif'],
   gothic: ['Grenze Gotisch', '"Grenze Gotisch", "Alegreya", serif'],
+  fraktur: ['UnifrakturMaguntia', '"UnifrakturMaguntia", "Alegreya", serif'],
+  pirata: ['Pirata One', '"Pirata One", "Alegreya", serif'],
+  rocker: ['New Rocker', '"New Rocker", "Alegreya", serif'],
+  berkshire: ['Berkshire Swash', '"Berkshire Swash", "Alegreya", serif'],
   eczar: ['Eczar', '"Eczar", "Alegreya", serif'],
+  creepster: ['Creepster', '"Creepster", "Alegreya", serif'],
 };
+// Text fonts: [name, stack, kind]
 export const BODY_FONTS = {
-  sans: ['Alegreya Sans', '"Alegreya Sans", system-ui, sans-serif'],
-  serif: ['Alegreya', '"Alegreya", Georgia, serif'],
+  sans: ['Alegreya Sans', '"Alegreya Sans", system-ui, sans-serif', 'Sans'],
+  atkinson: ['Atkinson Hyperlegible', '"Atkinson Hyperlegible", system-ui, sans-serif', 'Sans, made for easy reading'],
+  lexend: ['Lexend', '"Lexend", system-ui, sans-serif', 'Sans, made for easy reading'],
+  nunito: ['Nunito', '"Nunito", system-ui, sans-serif', 'Sans'],
+  fira: ['Fira Sans', '"Fira Sans", system-ui, sans-serif', 'Sans'],
+  signika: ['Signika', '"Signika", system-ui, sans-serif', 'Sans'],
+  josefin: ['Josefin Sans', '"Josefin Sans", system-ui, sans-serif', 'Sans'],
+  philosopher: ['Philosopher', '"Philosopher", system-ui, sans-serif', 'Sans'],
+  serif: ['Alegreya', '"Alegreya", Georgia, serif', 'Serif'],
+  lora: ['Lora', '"Lora", Georgia, serif', 'Serif'],
+  crimson: ['Crimson Pro', '"Crimson Pro", Georgia, serif', 'Serif'],
+  garamond: ['EB Garamond', '"EB Garamond", Georgia, serif', 'Serif'],
+  spectral: ['Spectral', '"Spectral", Georgia, serif', 'Serif'],
+  vollkorn: ['Vollkorn', '"Vollkorn", Georgia, serif', 'Serif'],
+  merriweather: ['Merriweather', '"Merriweather", Georgia, serif', 'Serif'],
+  baskerville: ['Libre Baskerville', '"Libre Baskerville", Georgia, serif', 'Serif'],
+  bitter: ['Bitter', '"Bitter", Georgia, serif', 'Slab serif'],
+  literata: ['Literata', '"Literata", Georgia, serif', 'Serif'],
 };
 
 export const FRAMES = {
-  clean: 'Clean',
-  parchment: 'Parchment',
-  metal: 'Forged metal',
-  arcane: 'Arcane',
-  none: 'Borderless',
+  clean: 'Clean', none: 'Borderless', parchment: 'Parchment', scroll: 'Scroll', torn: 'Torn page', sketch: 'Ink sketch',
+  metal: 'Forged metal', stone: 'Carved stone', wood: 'Oak', leather: 'Stitched leather', chain: 'Chainmail', gilded: 'Gilded',
+  arcane: 'Arcane', filigree: 'Filigree', gothic: 'Gothic arch', banner: 'Banner', glow: 'Glowing rune', glass: 'Frosted glass',
 };
 
 const hex = h => {
