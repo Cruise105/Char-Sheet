@@ -20,8 +20,13 @@ export const sources = { sn: null, mi: null, seed: null, read: 0, error: '', miC
 async function loadSeed() {
   if (sources.seed) return sources.seed;
   try {
-    const r = await fetch('../magic-items/data.js', { cache: 'no-cache' });
-    if (!r.ok) return null;
+    // GitHub Pages addresses follow the repository name's capitals (yours is Magic-Items); try both spellings
+    let r = null;
+    for (const path of ['../Magic-Items/data.js', '../magic-items/data.js']) {
+      try { r = await fetch(path, { cache: 'no-cache' }); } catch { r = null; }
+      if (r?.ok) break;
+    }
+    if (!r?.ok) { sources.seedOk = false; return null; }
     const t = await r.text();
     const json = t.slice(t.indexOf('=') + 1).trim().replace(/;\s*$/, '');
     const seed = JSON.parse(json);
