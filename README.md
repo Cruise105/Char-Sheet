@@ -54,6 +54,14 @@ On a sheet, type or pick a race, class, subclass or background from the suggesti
 
 The library lives in your Drive folder as "Table Library", and sharing a sheet with a player shares the library with them too (read-only). Players open both at once from **Open shared files**.
 
+## Spells, Level Up and rests
+
+- **Spells page:** each class and subclass list, sorted by level. Tap ★ to mark spells known or prepared; subclass spells (domain, oath) are marked **Always**. Tap a name to read it, **Cast** to spend points or a slot. "Spells from other lists" covers racial spells, feats and Magical Secrets.
+- **Spell points (Table Rules):** DMG costs and pool. The first 3 casts each of 5th and 6th level per long rest need no save; after that, and on every 7th to 9th level cast, the app asks for the strain save (DC 10 + spell level) and adds exhaustion on a failure. Warlocks keep their Pact Magic slots either way.
+- **Level up:** under the character name. Roll the hit die or take the average; a roll below the average counts as the average. At Ability Score Improvement levels it asks for scores or a feat, and at the subclass level it asks for the subclass. New features fill in.
+- **Short rest** spends hit dice one at a time (roll at the table, type it in). **Long rest** restores everything.
+- **Table Rules switches** (DM, in Settings): spell points or slots, and Active or standard initiative. Players get the change with the Table Library. In Active Initiative the Initiative box becomes the Interrupt Point; taking HP damage recharges a spent one.
+
 ## How syncing works
 
 - Each device saves instantly to itself, then syncs with Drive a few seconds after changes and checks for others' changes about every 30 seconds.

@@ -20,6 +20,7 @@
     <nav class="seg pages sheetonly" aria-label="Sheet pages">
       <button type="button" data-page="sheet" aria-pressed="true">Sheet</button>
       <button type="button" data-page="character" aria-pressed="false">Character</button>
+      <button type="button" data-page="spells" aria-pressed="false">Spells</button>
       <button type="button" data-page="inventory" aria-pressed="false">Inventory</button>
     </nav>
     <span class="spacer"></span>
@@ -71,6 +72,10 @@
       <p class="hint">The DM keeps every sheet in a folder in their Google Drive and shares each one with its player. Players see only their own sheet.</p>
     </div>
     <div class="set">
+      <h3>Table Rules</h3>
+      <div id="tableRules"></div>
+    </div>
+    <div class="set">
       <h3>Google Drive</h3>
       <div id="syncInfo"></div>
     </div>
@@ -101,6 +106,7 @@
 </dialog>
 
 <dialog id="entryDlg" class="wide"><div class="dlg"><div class="body"></div><div class="row end"><button class="btn primary" type="button" data-close>Close</button></div></div></dialog>
+<dialog id="actDlg"><div class="dlg"><div class="body"></div></div></dialog>
 <dialog id="chooseDlg"><div class="dlg"><p class="q"></p><div class="opts row col"></div></div></dialog>
 
 <script type="module" src="js/app.js"></script>

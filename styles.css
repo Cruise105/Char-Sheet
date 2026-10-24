@@ -286,6 +286,58 @@ table.inv input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accen
 table.inv .f.n{max-width:none}
 .invfoot{display:flex;justify-content:space-between;align-items:center}
 
+/* ---------- level up + rests ---------- */
+.restbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.lusec{border-top:1px solid var(--line);padding-top:8px}
+.lusec h3{margin:0 0 6px;font:700 1.05rem/1.2 var(--head)}
+.lugain{font-size:1.15rem;font-weight:700;margin:8px 0 0}
+.lugain small{font-weight:400;color:var(--muted)}
+.pickrows{display:grid;gap:2px}
+.pickrows .chk.off{opacity:.5}
+.hdspend{display:grid;grid-template-columns:1fr 80px auto;gap:8px;align-items:center;padding:6px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
+.hdspend small{color:var(--muted)}
+.restlog,.restlist{margin:6px 0;padding-left:20px}
+.restlist li{margin:4px 0}
+.trrow{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:8px}
+
+/* ---------- Interrupt Point ---------- */
+.ipt .token{width:30px;height:30px;border-radius:50%;border:3px solid var(--accent);background:var(--accent)}
+.ipt[data-state="spent"] .token{background:transparent;border-style:dashed;border-color:var(--muted)}
+.ipt[data-state="recharging"] .token{background:conic-gradient(var(--accent) 0 50%,transparent 50% 100%)}
+.ipt .ipl{font-size:1.15rem!important}
+.ipt small{font-size:.7rem;line-height:1.2}
+
+/* ---------- spells ---------- */
+.spcols{grid-template-columns:minmax(0,1fr) minmax(0,1.6fr)}
+.castline{display:flex;flex-wrap:wrap;gap:4px 14px;align-items:baseline;padding:6px 0;border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
+.spts{display:grid;gap:8px;margin-top:10px}
+.sptnum{display:flex;align-items:baseline;gap:8px}
+.sptnum b{font:700 2.4rem/1 var(--head);color:var(--ink)}
+.sptnum small{color:var(--muted)}
+.sptbar{height:10px;border-radius:99px;background:color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden}
+.sptbar i{display:block;height:100%;background:var(--accent)}
+.strains{display:grid;gap:4px}
+.strain{display:block;padding:4px 8px;border-radius:6px;background:var(--accent-soft)}
+.strain.out{outline:1px solid var(--danger)}
+.slotgrid{display:grid;gap:6px;margin-top:10px}
+.slotrow{display:grid;grid-template-columns:80px 1fr;align-items:center;gap:8px}
+.slotrow.pact{grid-template-columns:1fr;margin-top:10px}
+.spf{display:flex;margin-bottom:4px}
+.spf button{flex:1}
+.splvl h4{font:700 1.05rem/1.2 var(--head);margin:14px 0 4px;color:var(--ink);border-bottom:1px solid var(--line);padding-bottom:4px}
+.splvl h4 small{font:400 .8rem var(--body);color:var(--muted)}
+.splvl.beyond{opacity:.6}
+.sprow{display:grid;grid-template-columns:36px minmax(0,1fr) auto auto auto;gap:6px;align-items:center;min-height:44px;border-bottom:1px solid color-mix(in srgb,var(--line) 40%,transparent)}
+.star{width:34px;height:34px;border-radius:50%;border:1px solid var(--line);background:transparent;color:var(--muted);font-size:1.1rem;cursor:pointer;padding:0}
+.star.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.always{font-size:.65rem;text-align:center;border:1px solid var(--accent);color:var(--accent);border-radius:6px;padding:2px 0;line-height:1.1}
+.spname{border:0;background:none;text-align:left;cursor:pointer;font-weight:700;padding:6px 0;min-height:40px}
+.sprow.mine .spname{color:var(--ink)}
+.tag{font-style:normal;font-weight:500;font-size:.72rem;border:1px solid var(--line);border-radius:4px;padding:0 4px;color:var(--muted)}
+.spmeta{color:var(--muted);font-size:.82rem;white-space:nowrap}
+.strainbox{border:2px solid var(--accent);border-radius:10px;padding:10px 12px}
+.strainbox h3{margin:0 0 4px}
+
 /* ---------- library pickers on the sheet ---------- */
 .pick{display:flex;align-items:center;gap:4px;min-width:0}
 .pick .f{flex:1}
@@ -300,10 +352,10 @@ table.inv .f.n{max-width:none}
 /* ---------- library screen ---------- */
 .libview{display:grid;grid-template-columns:minmax(260px,340px) 1fr;min-height:0;position:relative;z-index:1}
 .libside{display:flex;flex-direction:column;gap:8px;padding:12px;border-right:1px solid var(--line);background:var(--panel-solid);min-height:0}
-.libtypes{display:grid;grid-template-columns:repeat(3,1fr)}
-.libtypes button{padding:0 4px;font-size:.9rem;border-top:1px solid var(--line)}
-.libtypes button:nth-child(-n+3){border-top:0}
-.libtypes button:nth-child(4){border-left:0}
+.libtypes{display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--line)}
+.libtypes button{padding:0 4px;font-size:.88rem;background:var(--raise)}
+.libtypes button+button{border-left:0}
+.libtypes button[aria-pressed="true"]{background:var(--accent)}
 .liblist{list-style:none;margin:0;padding:0;overflow:auto;flex:1;border-top:1px solid var(--line)}
 .liblist li{border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
 .liblist button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-height:48px;padding:6px 8px;border:0;background:none;cursor:pointer;text-align:left}
@@ -337,6 +389,7 @@ table.inv .f.n{max-width:none}
 .rowsf{display:grid;gap:6px}
 .erow{display:flex;gap:6px;align-items:center}
 .erow.big{align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--raise)}
+.boolf{align-self:end}
 .stackf{display:grid;gap:6px;flex:1;min-width:0}
 dialog.wide{width:min(820px,96vw)}
 #entryDlg .body{max-height:72dvh;overflow:auto}
@@ -406,6 +459,7 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 
 /* ---------- portrait tablet / laptop half-screen ---------- */
 @media (max-width:1150px){
+  .spcols{grid-template-columns:minmax(0,1fr) minmax(0,1.4fr)}
   .cols{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}
   .colC{grid-column:1/-1;grid-template-columns:repeat(2,minmax(0,1fr))}
   .cols.three{grid-template-columns:repeat(2,minmax(0,1fr))}
@@ -437,6 +491,10 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
   .hpquick{grid-template-columns:1fr 1fr 1fr}
   .hpquick .f{grid-column:1/-1}
   .coins{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .spcols{grid-template-columns:1fr}
+  .sprow{grid-template-columns:36px minmax(0,1fr) auto}
+  .sprow .spmeta{display:none}
+  .pages button{padding:0 6px}
   .atkedit{grid-template-columns:1fr 1fr}
   .atkedit .checks{grid-column:1/-1}
   .spellbox,.abdc{grid-template-columns:1fr 1fr}

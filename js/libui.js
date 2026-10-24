@@ -55,6 +55,13 @@ export function entryHtml(e) {
     const ft = L.get(e.feat); add('Background feat', ft ? `<button class="linkbtn" type="button" data-libopen="${ft.id}">${esc(ft.name)}</button>` : (e.feat ? 'Missing from the library' : ''));
   }
   if (e.type === 'feat') add('Prerequisite', esc(e.prereq));
+  if (e.type === 'spell') {
+    add('Level', `${e.level ? `Level ${e.level}` : 'Cantrip'} ${esc(e.school || '')}`.trim());
+    add('Casting time', esc(e.time) + (e.ritual ? ' (ritual)' : ''));
+    add('Range', esc(e.range)); add('Components', esc(e.components) + (e.material ? ` (${esc(e.material)})` : ''));
+    add('Duration', (e.conc ? 'Concentration, ' : '') + esc(e.duration));
+    add('Lists', [...(e.classes || []), ...(e.subclasses || [])].map(id => L.get(id)?.name).filter(Boolean).map(esc).join(', '));
+  }
   if (e.type === 'language') { add('Type', esc(e.kind)); add('Script', esc(e.script)); add('Typical speakers', esc(e.speakers)); }
   const list = (title, items, lvl) => items?.length ? `<h3>${title}</h3>${items.map(f => `<section class="lfeat"><h4>${lvl ? `<span class="lv">${f.lvl}</span>` : ''}${esc(f.name)}</h4>${para(f.text)}</section>`).join('')}` : '';
   return `
@@ -64,6 +71,7 @@ export function entryHtml(e) {
       ${facts.length ? `<dl class="facts">${facts.join('')}</dl>` : ''}
       ${e.type === 'background' && e.feature?.name ? `<h3>Feature: ${esc(e.feature.name)}</h3>${para(e.feature.text)}` : ''}
       ${e.desc ? para(e.desc) : ''}
+      ${e.higher ? `<p><b>At Higher Levels.</b></p>${para(e.higher)}` : ''}
       ${e.langNote ? para(e.langNote) : ''}
       ${list('Traits', e.traits)}
       ${list('Features by level', e.features, true)}
@@ -81,7 +89,7 @@ function render() {
       <input class="f" type="search" data-lq value="${esc(st.q)}" placeholder="Search ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}" aria-label="Search">
       ${dm ? `<button class="btn primary" type="button" data-lnew>New ${L.typeName(st.type).toLowerCase()}</button>` : ''}
       <ul class="liblist">${items.map(e => `<li><button type="button" data-lsel="${e.id}" aria-current="${e.id === st.sel}">
-        <span>${esc(e.name)}${e.parent && e.type === 'race' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'subclass' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}</span>
+        <span>${esc(e.name)}${e.parent && e.type === 'race' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'subclass' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'spell' ? ` <small>${e.level ? `Lv ${e.level}` : 'Cantrip'}</small>` : ''}</span>
         <small class="srcb">${e.builtIn ? 'SRD' : e.overridesSrd ? 'SRD, edited' : esc(e.src || 'Yours')}</small></button></li>`).join('') || '<li class="empty">Nothing here yet.</li>'}</ul>
     </aside>
     <section class="libmain">${st.draft || sel ? `<button class="linkbtn libback" type="button" data-lback>All ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}</button>` : ''}${st.draft ? editorHtml(st.draft) : sel ? `
@@ -99,8 +107,14 @@ const FIELDS = {
     ['resist', 'Resistances and immunities', 'resist'], ['traits', 'Traits', 'named'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   class: [['name', 'Name'], ['src', 'Book and page'], ['hd', 'Hit die', 'hd'], ['saves', 'Saving throws', 'saves'], ['armor', 'Armor', 'armor'], ['weapons', 'Weapons', 'weapons'],
     ['weaponsOther', 'Other weapons'], ['tools', 'Tools'], ['skillChoice', 'Skill choice', 'text', 'Choose two from …'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
+    ['caster', 'Spellcasting type', 'casterSel'], ['asi', 'Ability Score Improvement levels', 'numlist', '4, 8, 12, 16, 19'],
     ['subclassLevel', 'Subclass chosen at level', 'num'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
-  subclass: [['name', 'Name'], ['parent', 'Class', 'classSel'], ['src', 'Book and page'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+  subclass: [['name', 'Name'], ['parent', 'Class', 'classSel'], ['src', 'Book and page'], ['caster', 'Makes the class a spellcaster', 'casterSub'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
+    ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+  spell: [['name', 'Name'], ['level', 'Level (0 = cantrip)', 'num'], ['school', 'School'], ['src', 'Book and page'], ['time', 'Casting time'], ['range', 'Range'],
+    ['components', 'Components', 'text', 'V, S, M'], ['material', 'Material'], ['duration', 'Duration'], ['conc', 'Concentration', 'bool'], ['ritual', 'Ritual', 'bool'],
+    ['classes', 'Class spell lists', 'classMulti'], ['subclasses', 'Subclass lists (domain, oath, expanded spells)', 'subMulti'],
+    ['desc', 'Full text', 'area'], ['higher', 'At Higher Levels', 'area'], ['note', 'Table Rules note', 'area']],
   background: [['name', 'Name'], ['src', 'Book and page'], ['skills', 'Skill proficiencies', 'skills'], ['tools', 'Tools'], ['languages', 'Languages'],
     ['feature.name', 'Feature name'], ['feature.text', 'Feature text', 'area'], ['feat', 'Assigned feat', 'featSel'], ['equipment', 'Equipment', 'area'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   feat: [['name', 'Name'], ['src', 'Book and page'], ['prereq', 'Prerequisite'], ['desc', 'Full text', 'area'], ['note', 'Table Rules note', 'area']],
@@ -117,6 +131,12 @@ function editorHtml(d) {
       case 'num': return `<label class="hf">${lab}<input class="f n" data-f="${path}" data-num inputmode="numeric" value="${esc(v)}"></label>`;
       case 'hd': return `<label class="hf">${lab}<select class="f" data-f="${path}" data-num>${opt([6, 8, 10, 12].map(n => [n, `d${n}`]), v)}</select></label>`;
       case 'abilSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'None'], ...ABILS], v)}</select></label>`;
+      case 'casterSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'Not a spellcaster'], ['full', 'Full caster (Wizard, Cleric…)'], ['half', 'Half caster (Paladin, Ranger)'], ['artificer', 'Half caster, rounded up (Artificer)'], ['third', 'Third caster'], ['pact', 'Pact Magic (Warlock)']], v)}</select></label>`;
+      case 'casterSub': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'No'], ['third', 'Yes, third caster (Eldritch Knight, Arcane Trickster)']], v)}</select></label>`;
+      case 'numlist': return `<label class="hf">${lab}<input class="f" data-f="${path}" data-numlist value="${esc((v || []).join(', '))}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
+      case 'bool': return `<label class="hf chk boolf"><input type="checkbox" data-fbool="${path}" ${v ? 'checked' : ''}><span>${label}</span></label>`;
+      case 'classMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('class').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)}</span></label>`).join('')}</fieldset>`;
+      case 'subMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('subclass').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)} <small>${esc(L.get(x.parent)?.name || '')}</small></span></label>`).join('')}<span class="hint">Spells on a subclass list count as always prepared.</span></fieldset>`;
       case 'langKind': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['Standard', 'Standard'], ['Exotic', 'Exotic'], ['Secret', 'Secret']], v)}</select></label>`;
       case 'raceParent': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'Not a subrace'], ...L.all('race').filter(r => !r.parent && r.id !== d.id).map(r => [r.id, r.name])], v)}</select></label>`;
       case 'classSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'Choose a class'], ...L.all('class').map(r => [r.id, r.name])], v)}</select></label>`;
@@ -158,7 +178,8 @@ function onInput(e) {
     return;
   }
   const d = st.draft; if (!d) return;
-  if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
+  if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
+  else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
   else if (el.dataset.fbool) setPath(d, el.dataset.fbool, el.checked);
   else if (el.dataset.fset && e.type === 'change') {
     const set = new Set(getPath(d, el.dataset.fset) || []);

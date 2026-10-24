@@ -7,6 +7,7 @@ import * as sync from './sync.js';
 import * as L from './library.js';
 import { resolvePicks, syncAuto } from './autofill.js';
 import { initLibrary, showLibrary, entryHtml } from './libui.js';
+import * as M from './magic.js';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -138,6 +139,238 @@ function picked() {
     bits.push(...added.names);
     if (bits.length) toast(`Added ${bits.join(', ')}.`);
   }
+}
+
+/* ---------- level up, rests, casting ---------- */
+const ABN = Object.fromEntries(R.ABILS);
+function actDialog(draw, onClick, onInput) {
+  const dlg = $('#actDlg');
+  const paint = () => { dlg.querySelector('.body').innerHTML = draw(); };
+  paint();
+  dlg.onclick = e => { if (e.target === dlg || e.target.closest('[data-close]')) return dlg.close(); onClick?.(e, paint); };
+  dlg.oninput = e => onInput?.(e, paint);
+  dlg.onchange = e => onInput?.(e, paint);
+  dlg.onclose = () => renderSheet();
+  dlg.showModal();
+  return dlg;
+}
+
+function levelUp() {
+  const c = state.cur;
+  const st = { idx: c.classes.length === 1 ? 0 : -1, newName: '', roll: '', avg: false, asi: 'asi', asiA: 'str', asiB: 'str', feat: '', sub: '', bonus: c.hpPerLevel ?? '' };
+  const conMod = () => R.amod(c, 'con');
+  const row = () => st.idx === 'new' ? null : c.classes[st.idx];
+  const clsOf = () => st.idx === 'new' ? L.findByName('class', st.newName) : L.get(row()?.clsId);
+  const die = () => Number(st.idx === 'new' ? (clsOf()?.hd || 8) : (clsOf()?.hd || row()?.hd || 8));
+  const newLvl = () => st.idx === 'new' ? 1 : (Number(row()?.level) || 0) + 1;
+  const avg = () => Math.floor(die() / 2) + 1;
+  const gain = () => {
+    const r = Number(st.roll) || 0;
+    if (!st.avg && !r) return null;
+    const base = st.avg ? avg() : Math.max(r, avg());
+    return Math.max(1, base + conMod() + (Number(st.bonus) || 0));
+  };
+  const isAsi = () => (clsOf()?.asi || [4, 8, 12, 16, 19]).includes(newLvl());
+  const needsSub = () => { const k = clsOf(); return k && !row()?.subId && newLvl() >= (k.subclassLevel || 3) && L.subclassesOf(k.id).length; };
+  const draw = () => {
+    const total = R.totalLevel(c) + 1;
+    const r = Number(st.roll) || 0, g = gain();
+    const choose = `<span class="lbl">Which class gains the level?</span><div class="pickrows">${c.classes.map((k, i) => `<label class="chk"><input type="radio" name="lc" value="${i}" ${st.idx === i ? 'checked' : ''}><span>${esc(k.name || 'Class')} ${esc(k.level)} → ${Number(k.level) + 1}</span></label>`).join('')}
+      <label class="chk"><input type="radio" name="lc" value="new" ${st.idx === 'new' ? 'checked' : ''}><span>A new class (multiclass)</span></label>
+      ${st.idx === 'new' ? `<input class="f" data-lu="newName" list="dl-class" value="${esc(st.newName)}" placeholder="Class name" autocomplete="off">` : ''}</div>`;
+    if (st.idx === -1) return `<h2>Level up</h2>${choose}`;
+    return `<h2>Level up to ${total}</h2>
+      ${c.classes.length > 1 || st.idx === 'new' ? choose : `<p class="sub">${esc(row().name || 'Class')} ${esc(row().level)} → ${newLvl()}</p>`}
+      <div class="lusec"><h3>Hit points</h3>
+        <div class="row"><label class="hf"><span class="lbl">Roll your d${die()}</span><input class="f n" data-lu="roll" inputmode="numeric" value="${esc(st.roll)}" placeholder="1–${die()}"></label>
+        <button class="btn ${st.avg ? 'primary' : ''}" type="button" data-lu-avg>Take average (${avg()})</button></div>
+        <label class="hf"><span class="lbl">Extra HP per level (Dwarven Toughness, Tough…)</span><input class="f n" data-lu="bonus" inputmode="numeric" value="${esc(st.bonus)}" placeholder="0"></label>
+        <p class="lugain">${g == null ? 'Roll or take the average.' : `${!st.avg && r && r < avg() ? `A ${r} is under the average, so you get ${avg()}. ` : ''}+${g} HP <small>(${st.avg || r < avg() ? avg() : r} ${conMod() >= 0 ? '+' : '−'} ${Math.abs(conMod())} Con${Number(st.bonus) ? ` + ${Number(st.bonus)}` : ''})</small>`}</p>
+      </div>
+      ${needsSub() ? `<div class="lusec"><h3>Choose your subclass</h3><select class="f" data-lu="sub"><option value="">Choose…</option>${L.subclassesOf(clsOf().id).map(s => `<option value="${esc(s.name)}" ${st.sub === s.name ? 'selected' : ''}>${esc(s.name)}</option>`).join('')}</select></div>` : ''}
+      ${isAsi() ? `<div class="lusec"><h3>Ability Score Improvement or feat</h3>
+        <div class="seg"><button type="button" data-lu-asi="asi" aria-pressed="${st.asi === 'asi'}">Ability scores</button><button type="button" data-lu-asi="feat" aria-pressed="${st.asi === 'feat'}">Feat</button></div>
+        ${st.asi === 'asi' ? `<p class="hint">Pick the same ability twice for +2.</p><div class="row">
+          <label class="hf"><span class="lbl">+1 to</span><select class="f" data-lu="asiA">${R.ABILS.map(([k, n]) => `<option value="${k}" ${st.asiA === k ? 'selected' : ''}>${n} (${R.score(c, k)})</option>`).join('')}</select></label>
+          <label class="hf"><span class="lbl">+1 to</span><select class="f" data-lu="asiB">${R.ABILS.map(([k, n]) => `<option value="${k}" ${st.asiB === k ? 'selected' : ''}>${n} (${R.score(c, k)})</option>`).join('')}</select></label></div>
+          ${['asiA', 'asiB'].some(x => R.score(c, st[x]) + (st.asiA === st.asiB ? 2 : 1) > 20) ? '<p class="warn">That would take a score past 20.</p>' : ''}`
+        : `<input class="f" data-lu="feat" list="dl-feats" value="${esc(st.feat)}" placeholder="Feat name" autocomplete="off"><datalist id="dl-feats">${L.all('feat').map(f => `<option value="${esc(f.name)}"></option>`).join('')}</datalist>
+          ${L.findByName('feat', st.feat)?.prereq ? `<p class="hint">Prerequisite: ${esc(L.findByName('feat', st.feat).prereq)}</p>` : ''}`}
+      </div>` : ''}
+      <div class="row end"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-lu-go ${g == null || (st.idx === 'new' && !st.newName.trim()) ? 'disabled' : ''}>Level up</button></div>`;
+  };
+  actDialog(draw, (e, paint) => {
+    if (e.target.closest('[data-lu-avg]')) { st.avg = !st.avg; return paint(); }
+    const asi = e.target.closest('[data-lu-asi]'); if (asi) { st.asi = asi.dataset.luAsi; return paint(); }
+    if (e.target.closest('[data-lu-go]')) {
+      const g = gain(); if (g == null) return;
+      const total = R.totalLevel(c) + 1;
+      const asiNow = isAsi();
+      if (st.idx === 'new') {
+        const k = clsOf();
+        c.classes.push({ name: k?.name || st.newName.trim(), sub: '', clsId: k?.id || '', subId: '', level: 1, hd: k?.hd || 8, hdUsed: 0 });
+      } else row().level = newLvl();
+      const target = st.idx === 'new' ? c.classes[c.classes.length - 1] : row();
+      if (st.sub) target.sub = st.sub;
+      c.hp.max = (Number(c.hp.max) || 0) + g; c.hp.cur = (Number(c.hp.cur) || 0) + g;
+      c.hpPerLevel = st.bonus;
+      stamp(c, 'hp.max'); stamp(c, 'hp.cur'); stamp(c, 'hpPerLevel');
+      if (asiNow) {
+        if (st.asi === 'asi') {
+          for (const a of [st.asiA, st.asiB]) { c.abil[a].adj.push({ src: 'ASI', note: `Level ${total}`, v: 1, id: uid() }); stamp(c, `abil.${a}`); }
+        } else if (st.feat.trim()) {
+          const f = L.findByName('feat', st.feat);
+          c.feats.push({ name: f?.name || st.feat.trim(), text: f ? [f.prereq ? `Prerequisite: ${f.prereq}` : '', f.desc].filter(Boolean).join('\n\n') : '', src: `Level ${total}`, id: uid() });
+          stamp(c, 'feats');
+        }
+      }
+      resolvePicks(c);
+      const added = syncAuto(c);
+      save(c);
+      $('#actDlg').close();
+      toast(`Level ${total}! +${g} HP${added.features ? `, ${added.features} new feature${added.features === 1 ? '' : 's'}` : ''}.`);
+    }
+  }, (e, paint) => {
+    const el = e.target;
+    if (el.name === 'lc') { st.idx = el.value === 'new' ? 'new' : Number(el.value); st.sub = ''; return paint(); }
+    const k = el.dataset.lu; if (!k) return;
+    st[k] = el.value;
+    if (k === 'roll') st.avg = false;
+    if (e.type === 'change' || ['asiA', 'asiB', 'sub'].includes(k) || (k === 'newName' && L.findByName('class', el.value)) || (k === 'feat' && L.findByName('feat', el.value))) {
+      const pos = el.selectionStart; paint();
+      const again = $(`#actDlg [data-lu="${k}"]`); if (again && document.activeElement !== again && el.tagName === 'INPUT') { again.focus(); try { again.setSelectionRange(pos, pos); } catch { /* number field */ } }
+    } else {
+      // keep typing smooth: update just the result line
+      const g = $('#actDlg .lugain'); if (g) { const tmp = document.createElement('div'); tmp.innerHTML = draw(); g.innerHTML = tmp.querySelector('.lugain')?.innerHTML || ''; }
+      const go = $('#actDlg [data-lu-go]'); if (go) go.disabled = gain() == null || (st.idx === 'new' && !st.newName.trim());
+    }
+  });
+}
+
+function shortRest() {
+  const c = state.cur;
+  const log = [];
+  const draw = () => `<h2>Short rest</h2>
+    <p class="hint">Spend hit dice one at a time: roll at the table, type the number, tap Spend. Your Con modifier (${R.sign(R.amod(c, 'con'))}) is added for you.</p>
+    <p class="sub">HP ${c.hp.cur} of ${c.hp.max}</p>
+    ${c.classes.map((k, i) => { const left = Math.max(0, (Number(k.level) || 0) - (Number(k.hdUsed) || 0)); return `
+      <div class="hdspend"><span><b>d${esc(k.hd)}</b> ${esc(k.name || '')} <small>${left} left</small></span>
+        <input class="f n" data-hd="${i}" inputmode="numeric" placeholder="Roll" ${left ? '' : 'disabled'} aria-label="Hit die roll">
+        <button class="btn small" type="button" data-hdgo="${i}" ${left ? '' : 'disabled'}>Spend</button></div>`; }).join('')}
+    ${log.length ? `<ul class="restlog">${log.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
+    <p class="hint">Finishing the rest refills short-rest features${M.casterInfo(c).pact.slots ? ' and Pact Magic slots' : ''}.</p>
+    <div class="row end"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-sr-done>Finish short rest</button></div>`;
+  actDialog(draw, (e, paint) => {
+    const go = e.target.closest('[data-hdgo]');
+    if (go) {
+      const i = Number(go.dataset.hdgo), k = c.classes[i];
+      const roll = parseInt($(`#actDlg [data-hd="${i}"]`).value, 10);
+      if (!roll || roll < 1 || roll > Number(k.hd)) { toast(`Type your d${k.hd} roll (1 to ${k.hd}).`); return; }
+      const heal = Math.max(0, roll + R.amod(c, 'con'));
+      k.hdUsed = (Number(k.hdUsed) || 0) + 1;
+      c.hp.cur = Math.min(Number(c.hp.max) || 0, (Number(c.hp.cur) || 0) + heal);
+      stamp(c, 'classes'); stamp(c, 'hp.cur'); save(c);
+      log.push(`d${k.hd}: rolled ${roll} ${R.amod(c, 'con') >= 0 ? '+' : '−'} ${Math.abs(R.amod(c, 'con'))} = ${heal} HP`);
+      return paint();
+    }
+    if (e.target.closest('[data-sr-done]')) {
+      let n = 0;
+      for (const f of c.limited || []) if (f.rec === 'Short rest' && Number(f.left) !== Number(f.total)) { f.left = f.total; n++; }
+      M.restoreShort(c);
+      stamp(c, 'limited'); stamp(c, 'magic'); save(c);
+      $('#actDlg').close();
+      toast(`Short rest done.${n ? ` Refilled ${n} feature${n === 1 ? '' : 's'}.` : ''}`);
+    }
+  });
+}
+
+function longRest() {
+  const c = state.cur;
+  const st = { ate: true };
+  const totalHd = c.classes.reduce((t, k) => t + (Number(k.level) || 0), 0);
+  const regain = Math.max(1, Math.floor(totalHd / 2));
+  const draw = () => `<h2>Long rest</h2>
+    <ul class="restlist">
+      <li>HP back to full (${c.hp.max}) and temporary HP cleared</li>
+      <li>Regain up to ${regain} spent hit dice</li>
+      <li>Refill all limited features</li>
+      ${M.casterInfo(c).level || M.casterInfo(c).pact.slots ? `<li>Refill ${L.tableSettings().spellMode === 'points' ? 'spell points and the strain-free 5th and 6th level casts' : 'spell slots'}</li>` : ''}
+      <li>Reset death saves</li>
+      ${Number(c.exhaustion) ? '<li>Lower exhaustion by 1 (if you had food and water)</li>' : ''}
+    </ul>
+    ${Number(c.exhaustion) ? `<label class="chk"><input type="checkbox" data-ate ${st.ate ? 'checked' : ''}><span>Had food and water</span></label>` : ''}
+    <div class="row end"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-lr-go>Finish long rest</button></div>`;
+  actDialog(draw, e => {
+    if (!e.target.closest('[data-lr-go]')) return;
+    c.hp.cur = Number(c.hp.max) || 0; c.hp.temp = 0;
+    let left = regain;
+    for (const k of [...c.classes].sort((a, b) => Number(b.hd) - Number(a.hd))) { const back = Math.min(left, Number(k.hdUsed) || 0); k.hdUsed = (Number(k.hdUsed) || 0) - back; left -= back; }
+    for (const f of c.limited || []) f.left = f.total;
+    c.death = { s: 0, f: 0 };
+    if (Number(c.exhaustion) && st.ate) c.exhaustion = Number(c.exhaustion) - 1;
+    M.restoreAll(c);
+    c.ip = 'ready';
+    for (const p of ['hp.cur', 'hp.temp', 'classes', 'limited', 'death', 'exhaustion', 'magic', 'ip']) stamp(c, p);
+    save(c);
+    $('#actDlg').close();
+    toast('Long rest done. You wake refreshed.');
+  }, e => { if (e.target.matches('[data-ate]')) st.ate = e.target.checked; });
+}
+
+function castSpell(id) {
+  const c = state.cur, s = L.get(id); if (!s) return;
+  const mode = L.tableSettings().spellMode;
+  const info = M.casterInfo(c);
+  const sc = M.spellClass(c, s);
+  const pactOk = info.pact.slots && sc?.cls?.caster === 'pact';
+  const abil = L.get(sc?.k?.subId)?.spellAbil || sc?.cls?.spellAbil || c.spell?.abil || '';
+  const levels = [];
+  for (let l = Number(s.level) || 1; l <= Math.max(info.maxLevel, 0); l++) levels.push(l);
+  const st = { lvl: pactOk ? info.pact.level : levels[0], pact: !!pactOk, done: null };
+  const draw = () => {
+    if (st.done) {
+      const d = st.done;
+      return `<h2>${esc(s.name)}</h2><p>Cast at level ${d.lvl}${d.how === 'points' ? ` for ${d.cost} spell points` : d.how === 'pact' ? ' with a Pact Magic slot' : ' with a spell slot'}.${s.conc ? ' <b>Concentration.</b>' : ''}</p>
+        ${d.strain ? `<div class="strainbox"><h3>Strain save</h3><p>Make a ${ABN[abil] || 'spellcasting ability'} saving throw, <b>DC ${M.strainDc(d.lvl)}</b>. The spell is cast either way.</p>
+          <div class="row"><button class="btn" type="button" data-strain="ok">Saved</button><button class="btn danger" type="button" data-strain="fail">Failed: +${M.strainExhaustion(d.lvl)} exhaustion</button></div></div>`
+        : `${d.freeLeft != null ? `<p class="hint">${Math.max(0, d.freeLeft - 1)} of ${M.FREE_STRAIN} level ${d.lvl} casts left before the strain save.</p>` : ''}<div class="row end"><button class="btn primary" type="button" data-close>Done</button></div>`}`;
+    }
+    const opts = [];
+    if (pactOk) opts.push(`<label class="chk"><input type="radio" name="cl" value="pact" ${st.pact ? 'checked' : ''}><span>Pact Magic slot (level ${info.pact.level}) · ${Math.max(0, info.pact.slots - M.ensureMagic(c).pact)} left</span></label>`);
+    if (mode === 'points' || !pactOk || info.level) for (const l of levels) {
+      const p = M.planCast(c, l, mode);
+      const extra = mode === 'points' ? `${M.COST[l]} points${p.ok && p.strain ? ' · strain save' : p.freeLeft != null ? ` · ${p.freeLeft} before strain` : ''}` : `${Math.max(0, (info.slots[l - 1] || 0) - (Number(M.ensureMagic(c).slots[l]) || 0))} slots left`;
+      opts.push(`<label class="chk ${p.ok ? '' : 'off'}"><input type="radio" name="cl" value="${l}" ${!st.pact && st.lvl === l ? 'checked' : ''} ${p.ok ? '' : 'disabled'}><span>Level ${l} · ${extra}</span></label>`);
+    }
+    const plan = M.planCast(c, st.lvl, mode, st.pact);
+    return `<h2>Cast ${esc(s.name)}</h2>
+      <p class="sub">${s.level ? `Level ${s.level}` : 'Cantrip'} ${esc(s.school || '')}${s.conc ? ' · Concentration' : ''}${s.ritual ? ' · Ritual' : ''}</p>
+      ${opts.length ? `<div class="pickrows">${opts.join('')}</div>` : '<p class="warn">You have no way to cast this spell yet.</p>'}
+      ${plan.ok ? '' : `<p class="warn">${esc(plan.reason)}</p>`}
+      ${s.higher ? `<p class="hint"><b>At Higher Levels.</b> ${esc(s.higher)}</p>` : ''}
+      <div class="row end"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-cast-go ${plan.ok && opts.length ? '' : 'disabled'}>Cast</button></div>`;
+  };
+  actDialog(draw, (e, paint) => {
+    if (e.target.closest('[data-cast-go]')) {
+      const plan = M.planCast(c, st.lvl, mode, st.pact);
+      if (!plan.ok) return toast(plan.reason);
+      M.applyCast(c, st.lvl, plan);
+      stamp(c, 'magic'); save(c);
+      st.done = { ...plan, lvl: st.lvl };
+      return paint();
+    }
+    const sb = e.target.closest('[data-strain]');
+    if (sb) {
+      if (sb.dataset.strain === 'fail') {
+        const add = M.strainExhaustion(st.done.lvl);
+        c.exhaustion = Math.min(6, (Number(c.exhaustion) || 0) + add); stamp(c, 'exhaustion'); save(c);
+        toast(`Exhaustion is now level ${c.exhaustion}.`);
+      } else toast('You hold the strain.');
+      $('#actDlg').close();
+    }
+  }, (e, paint) => {
+    if (e.target.name === 'cl') { if (e.target.value === 'pact') { st.pact = true; st.lvl = info.pact.level; } else { st.pact = false; st.lvl = Number(e.target.value); } paint(); }
+  });
 }
 
 /* ---------- the sheet view ---------- */
@@ -375,8 +608,19 @@ async function deleteChar(id) {
 }
 
 /* ---------- settings dialog ---------- */
+function renderTableRules() {
+  const box = $('#tableRules'), t = L.tableSettings();
+  if (state.settings.role === 'dm') {
+    box.innerHTML = `<div class="trrow"><span>Spellcasting</span><div class="seg" role="group" aria-label="Spellcasting"><button type="button" data-ts="spellMode" data-v="points" aria-pressed="${t.spellMode === 'points'}">Spell points</button><button type="button" data-ts="spellMode" data-v="slots" aria-pressed="${t.spellMode === 'slots'}">Spell slots</button></div></div>
+      <div class="trrow"><span>Initiative</span><div class="seg" role="group" aria-label="Initiative"><button type="button" data-ts="initiative" data-v="active" aria-pressed="${t.initiative === 'active'}">Active Initiative</button><button type="button" data-ts="initiative" data-v="standard" aria-pressed="${t.initiative === 'standard'}">Standard</button></div></div>
+      <p class="hint">These apply to every sheet at the table. Players get the change with the Table Library.</p>`;
+  } else {
+    box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'} and ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'}.</p>`;
+  }
+}
 function openSettings() {
   const dlg = $('#settingsDlg');
+  renderTableRules();
   for (const b of dlg.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
   sync.renderStatus();
   dlg.showModal();
@@ -388,6 +632,7 @@ const sheetCtx = {
   rerender: () => renderSheet(),
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
+  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine',
 };
 
 async function start() {
@@ -424,9 +669,12 @@ async function start() {
       state.settings.role = r.dataset.role; saveSettings();
       for (const b of sd.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
       sync.renderStatus();
+      renderTableRules();
       if (app.dataset.view === 'home') showHome();
       if (app.dataset.view === 'library') showLibrary();
     }
+    const ts = e.target.closest('[data-ts]');
+    if (ts) { L.setTableSetting(ts.dataset.ts, ts.dataset.v).then(() => { renderTableRules(); if (state.cur) renderSheet(); }); }
     if (e.target.closest('#exportAll')) exportAll();
     if (e.target.closest('[data-close]')) sd.close();
   });

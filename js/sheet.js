@@ -4,6 +4,7 @@ import { getPath, setPath, stamp, uid } from './model.js';
 import { PRESETS, CLASS_ACCENTS, HEAD_FONTS, BODY_FONTS, FRAMES, applyTheme } from './theme.js';
 import * as L from './library.js';
 import { choicesFor } from './autofill.js';
+import * as M from './magic.js';
 
 let ctx; // { save(c), toast(msg), rerender() }
 export function initSheet(helpers) { ctx = helpers; }
@@ -20,6 +21,14 @@ const sel = (c, p, opts, extra = '') => `<select class="f" data-k="${p}" ${extra
 const fmt = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 const calc = (key, arg = '') => `<span data-calc="${key}" data-arg="${arg}"></span>`;
 const panel = (title, body, cls = '', extra = '') => `<section class="panel ${cls}" ${extra}><h3 class="ph">${title}</h3>${body}</section>`;
+// Active Initiative (Darker Dungeons): one Interrupt Point, Ready / Spent / Recharging
+function interruptPoint(c) {
+  const st = ['ready', 'spent', 'recharging'].includes(c.ip) ? c.ip : 'ready';
+  const label = { ready: 'Ready', spent: 'Spent', recharging: 'Recharging' }[st];
+  const hint = { ready: 'Tap when you use it', spent: 'Taking HP damage recharges it', recharging: 'Usable next round. Tap at the start of the round.' }[st];
+  return `<button class="stat ipt" type="button" data-act="ip" data-state="${st}" aria-label="Interrupt Point: ${label}. ${hint}">
+    <span class="lbl">Interrupt Point</span><i class="token" aria-hidden="true"></i><b class="ipl">${label}</b><small>${hint}</small></button>`;
+}
 const ABIL_OPTS = [['', '—'], ...R.ABILS.map(([k, n]) => [k, n])];
 
 /* ---------- page: the main sheet ---------- */
@@ -37,6 +46,11 @@ function header(c) {
     <div class="nameblock">
       <input class="charname" data-k="name" value="${esc(c.name)}" placeholder="Character name" autocomplete="off" spellcheck="false">
       <div class="lvlline">Level ${calc('level')} · Proficiency ${calc('prof')}</div>
+      <div class="restbar">
+        <button class="btn small primary" type="button" data-act="levelup">Level up</button>
+        <button class="btn small" type="button" data-act="shortrest">Short rest</button>
+        <button class="btn small" type="button" data-act="longrest">Long rest</button>
+      </div>
     </div>
     <div class="headgrid">
       <div class="hf wide"><span class="lbl">Class &amp; level</span><div data-list="classes">${classes}</div>
@@ -108,7 +122,7 @@ function combat(c) {
   <section class="panel combatcore">
     <div class="trio">
       <button class="stat ac" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
-      <label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>
+      ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
       <label class="stat"><span class="lbl">Speed</span><input class="f center" data-k="speed" value="${esc(c.speed)}" autocomplete="off"></label>
     </div>
     <div class="hpbox">
@@ -264,6 +278,81 @@ function pageSheet(c) {
   </div>`;
 }
 
+/* ---------- page: spells ---------- */
+function pageSpells(c) {
+  const mode = L.tableSettings().spellMode;
+  const info = M.casterInfo(c), m = M.ensureMagic(c);
+  const filter = ctx.spellFilter || 'mine';
+  const casters = (c.classes || []).map(k => ({ k, cls: L.get(k.clsId), sub: L.get(k.subId) }))
+    .map(x => ({ ...x, abil: x.sub?.spellAbil || x.cls?.spellAbil })).filter(x => x.abil);
+  const ABN = Object.fromEntries(R.ABILS);
+  const statLine = casters.map(x => `<div class="castline"><b>${esc(x.cls.name)}</b><span>${ABN[x.abil]}</span><span>Save DC <b>${R.saveDc(c, x.abil)}</b></span><span>Attack <b>${R.sign(R.spellAttack(c, x.abil))}</b></span></div>`).join('')
+    || '<p class="empty">Pick a spellcasting class on the Sheet page and its spells show up here.</p>';
+
+  let resource = '';
+  if (mode === 'points' && info.points) {
+    const { max, left } = M.pointsLeft(c);
+    const strain = [5, 6].filter(l => l <= info.maxLevel).map(l => {
+      const used = Number(m.strain[l]) || 0;
+      return `<span class="strain ${used >= M.FREE_STRAIN ? 'out' : ''}">Level ${l}: ${Math.max(0, M.FREE_STRAIN - used)} of ${M.FREE_STRAIN} casts before the strain save</span>`;
+    }).join('');
+    resource = `<div class="spts">
+      <div class="sptnum"><span class="lbl">Spell points</span><b>${left}</b><small>of ${max}</small></div>
+      <div class="sptbar"><i style="width:${max ? (left / max) * 100 : 0}%"></i></div>
+      <div class="row"><button class="btn small" type="button" data-act="sp" data-d="-1" aria-label="Spend 1 point">−1</button><button class="btn small" type="button" data-act="sp" data-d="1" aria-label="Get 1 point back">+1</button>
+      <label class="mini">Max override <input class="f n" data-k="magic.maxOverride" data-type="num" inputmode="numeric" value="${esc(m.maxOverride ?? '')}" placeholder="${info.points}" data-rerender></label></div>
+      ${strain ? `<div class="strains">${strain}<span class="hint">Levels 7 to 9 always need the save. Strain save: DC 10 + spell level; a failure adds exhaustion equal to half the spell level.</span></div>` : ''}
+      <p class="hint">Cost by spell level: ${Object.entries(M.COST).filter(([l]) => Number(l) <= info.maxLevel).map(([l, v]) => `${l}: ${v}`).join(' · ')}</p>
+    </div>`;
+  } else if (mode === 'slots' && info.slots.length) {
+    resource = `<div class="slotgrid">${info.slots.map((n, i) => {
+      const lvl = i + 1, used = Number(m.slots[lvl]) || 0;
+      return `<div class="slotrow"><span class="lbl">Level ${lvl}</span><div class="uses">${Array.from({ length: n }, (_, k) => `<button type="button" class="use ${k < n - used ? 'on' : ''}" data-act="slot" data-l="${lvl}" data-on="${k < n - used ? 1 : 0}" aria-label="Level ${lvl} slot ${k + 1}: ${k < n - used ? 'available, tap to use' : 'used, tap to get back'}"></button>`).join('')}</div></div>`;
+    }).join('')}</div>`;
+  }
+  if (info.pact.slots) {
+    resource += `<div class="slotrow pact"><span class="lbl">Pact Magic (level ${info.pact.level} slots, back on a short rest)</span><div class="uses">${Array.from({ length: info.pact.slots }, (_, k) => `<button type="button" class="use ${k < info.pact.slots - m.pact ? 'on' : ''}" data-act="pactslot" data-on="${k < info.pact.slots - m.pact ? 1 : 0}" aria-label="Pact slot ${k + 1}"></button>`).join('')}</div></div>`;
+  }
+
+  const mine = new Set(c.mySpells || []);
+  const other = (c.otherSpells || []).map(id => L.get(id)).filter(Boolean);
+  const avail = [...M.availableSpells(c), ...other.filter(s => !M.availableSpells(c).some(x => x.id === s.id))];
+  const maxLvl = M.maxCastLevel(c);
+  const shown = avail.filter(s => filter === 'all' || mine.has(s.id) || M.alwaysPrepared(c, s));
+  const groups = [];
+  for (let l = 0; l <= 9; l++) {
+    const list = shown.filter(s => Number(s.level) === l).sort((a, b) => a.name.localeCompare(b.name));
+    if (!list.length) continue;
+    const head = l === 0 ? 'Cantrips' : `Level ${l}${mode === 'points' ? ` · ${M.COST[l]} points` : ''}`;
+    groups.push(`<section class="splvl ${l > maxLvl && l > 0 ? 'beyond' : ''}"><h4>${head}${l > maxLvl && l > 0 ? ' <small>not yet</small>' : ''}</h4>${list.map(s => {
+      const always = M.alwaysPrepared(c, s), isMine = mine.has(s.id) || always;
+      const isOther = other.some(o => o.id === s.id);
+      return `<div class="sprow ${isMine ? 'mine' : ''}">
+        ${always ? '<span class="always" title="Always prepared (subclass)">Always</span>' : `<button type="button" class="star ${isMine ? 'on' : ''}" data-act="mine" data-id="${s.id}" aria-pressed="${isMine}" aria-label="${isMine ? 'Remove from' : 'Add to'} my spells: ${esc(s.name)}">★</button>`}
+        <button type="button" class="spname" data-act="libview" data-id="${s.id}">${esc(s.name)}${s.conc ? ' <i class="tag">C</i>' : ''}${s.ritual ? ' <i class="tag">R</i>' : ''}${isOther ? ' <i class="tag">other list</i>' : ''}</button>
+        <span class="spmeta">${esc(s.time || '')} · ${esc(s.range || '')}</span>
+        ${l > 0 ? `<button class="btn small" type="button" data-act="cast" data-id="${s.id}">Cast</button>` : '<span></span>'}
+        ${isOther ? `<button class="x" type="button" data-act="otherdel" data-id="${s.id}" aria-label="Remove">×</button>` : ''}
+      </div>`;
+    }).join('')}</section>`);
+  }
+  return `
+  <div class="cols spcols">
+    <div class="col">
+      ${panel('Spellcasting', `${statLine}${resource}<p class="hint">Table Rules: ${mode === 'points' ? 'spell points' : 'spell slots'}. Your DM sets this for the whole table.</p>`)}
+      ${panel('Spells from other lists', `<p class="hint">Racial spells, feats, Magical Secrets and the like.</p>
+        <div class="row"><input class="f" id="otherSpell" list="dl-allspells" placeholder="Spell name" autocomplete="off" style="flex:1"><button class="btn small" type="button" data-act="otherspell">Add</button></div>
+        <datalist id="dl-allspells">${L.all('spell').map(s => `<option value="${esc(s.name)}">${s.level ? `Level ${s.level}` : 'Cantrip'}</option>`).join('')}</datalist>`)}
+    </div>
+    <div class="col">
+      ${panel('Spells', `
+        <div class="seg spf" role="group" aria-label="Which spells"><button type="button" data-act="spfilter" data-v="mine" aria-pressed="${filter === 'mine'}">My spells</button><button type="button" data-act="spfilter" data-v="all" aria-pressed="${filter === 'all'}">Everything I can learn</button></div>
+        <p class="hint">${filter === 'mine' ? 'Tap ★ under "Everything I can learn" to add spells you know or have prepared.' : 'Tap ★ to mark spells you know or have prepared. Tap a name to read it.'}</p>
+        ${groups.join('') || `<p class="empty">${filter === 'mine' ? 'No spells marked yet.' : 'No spells for your classes in the library yet.'}</p>`}`)}
+    </div>
+  </div>`;
+}
+
 /* ---------- page: character ---------- */
 function imgSlot(c, path, label) {
   const src = getPath(c, path);
@@ -367,7 +456,7 @@ export function lookPanel(c) {
 
 /* ---------- render + live math ---------- */
 export function renderPage(root, c, page) {
-  root.innerHTML = page === 'character' ? pageCharacter(c) : page === 'inventory' ? pageInventory(c) : pageSheet(c);
+  root.innerHTML = page === 'character' ? pageCharacter(c) : page === 'inventory' ? pageInventory(c) : page === 'spells' ? pageSpells(c) : pageSheet(c);
   root.dataset.page = page;
   updateCalcs(root, c);
 }
@@ -516,6 +605,7 @@ function act(b, c, root) {
         const fromTemp = Math.min(Number(hp.temp) || 0, amt);
         hp.temp = (Number(hp.temp) || 0) - fromTemp;
         hp.cur = Math.max(0, (Number(hp.cur) || 0) - (amt - fromTemp));
+        if (amt - fromTemp > 0 && c.ip === 'spent') { c.ip = 'recharging'; stamp(c, 'ip'); }
         stamp(c, 'hp.temp'); stamp(c, 'hp.cur');
         ctx.toast(fromTemp ? `Took ${amt}: ${fromTemp} from temp HP, ${amt - fromTemp} from HP.` : `Took ${amt} damage.`);
       } else if (d.how === 'heal') {
@@ -535,6 +625,31 @@ function act(b, c, root) {
     case 'imgdel': setPath(c, d.p, ''); return touch(d.p);
     case 'abil': return ctx.openAbility(d.a);
     case 'libview': return ctx.viewEntry(d.id);
+    case 'levelup': return ctx.levelUp();
+    case 'shortrest': return ctx.shortRest();
+    case 'longrest': return ctx.longRest();
+    case 'ip': { const st = c.ip || 'ready'; c.ip = st === 'ready' ? 'spent' : 'ready'; return touch('ip'); }
+    case 'cast': return ctx.cast(d.id);
+    case 'mine': {
+      const set = new Set(c.mySpells || []);
+      set.has(d.id) ? set.delete(d.id) : set.add(d.id);
+      c.mySpells = [...set]; return touch('mySpells');
+    }
+    case 'spfilter': ctx.spellFilter = d.v; return ctx.rerender();
+    case 'slot': {
+      const m = M.ensureMagic(c), lvl = Number(d.l), have = M.casterInfo(c).slots[lvl - 1] || 0;
+      m.slots[lvl] = Math.max(0, Math.min(have, (Number(m.slots[lvl]) || 0) + (d.on === '1' ? 1 : -1))); return touch('magic');
+    }
+    case 'pactslot': { const m = M.ensureMagic(c), have = M.casterInfo(c).pact.slots; m.pact = Math.max(0, Math.min(have, m.pact + (d.on === '1' ? 1 : -1))); return touch('magic'); }
+    case 'sp': { const m = M.ensureMagic(c); const { max } = M.pointsLeft(c); m.spent = Math.max(0, Math.min(max, m.spent - Number(d.d))); return touch('magic'); }
+    case 'otherspell': {
+      const inp = document.querySelector('#otherSpell'); const sp = L.findByName('spell', inp?.value);
+      if (!sp) { ctx.toast('Pick a spell from the suggestions.'); inp?.focus(); return; }
+      c.otherSpells = [...new Set([...(c.otherSpells || []), sp.id])];
+      c.mySpells = [...new Set([...(c.mySpells || []), sp.id])];
+      stamp(c, 'otherSpells'); ctx.toast(`Added ${sp.name}.`); return touch('mySpells');
+    }
+    case 'otherdel': c.otherSpells = (c.otherSpells || []).filter(x => x !== d.id); c.mySpells = (c.mySpells || []).filter(x => x !== d.id); stamp(c, 'otherSpells'); return touch('mySpells');
     case 'ac': return ctx.openAc();
     // Look drawer
     case 'preset': c.theme.preset = d.v; return themeTouch(c, 'theme.preset');

@@ -5,13 +5,15 @@ import { uid } from './model.js';
 
 export const TYPES = [
   ['race', 'Races', 'Race'], ['class', 'Classes', 'Class'], ['subclass', 'Subclasses', 'Subclass'],
-  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['language', 'Languages', 'Language'],
+  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'],
 ];
 export const typeName = t => (TYPES.find(x => x[0] === t) || [])[2] || t;
 
 let srd = new Map();
 // custom: { entries: {id: entry}, deleted: {id: time}, updated }
-let custom = { entries: {}, deleted: {}, updated: 0 };
+// settings: the table-wide switches the DM controls (synced to players with the library)
+const DEFAULT_SETTINGS = { spellMode: 'points', initiative: 'active', updated: 0 };
+let custom = { entries: {}, deleted: {}, updated: 0, settings: { ...DEFAULT_SETTINGS } };
 let merged = new Map();
 const listeners = new Set();
 
@@ -22,7 +24,7 @@ export async function loadLibrary() {
     srd = new Map(data.entries.map(e => [e.id, { ...e, builtIn: true }]));
   } catch { srd = new Map(); }
   const saved = await db.getMeta('library');
-  if (saved) custom = { entries: {}, deleted: {}, updated: 0, ...saved };
+  if (saved) custom = { entries: {}, deleted: {}, updated: 0, ...saved, settings: { ...DEFAULT_SETTINGS, ...(saved.settings || {}) } };
   rebuild();
 }
 function rebuild() {
@@ -75,11 +77,12 @@ export function blank(type) {
   const armor = { light: false, medium: false, heavy: false, shields: false }, weapons = { simple: false, martial: false };
   switch (type) {
     case 'race': return { ...base, parent: '', speed: 30, size: 'Medium', vision: '', abil: [], abilNote: '', languages: '', langNote: '', skills: [], armor, weapons, weaponsOther: '', tools: '', resist: [], traits: [] };
-    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', spellAbil: '', subclassLevel: 3, features: [] };
-    case 'subclass': return { ...base, parent: '', flavor: '', features: [] };
+    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, features: [] };
+    case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', features: [] };
     case 'background': return { ...base, skills: [], tools: '', languages: '', feature: { name: '', text: '' }, feat: '', equipment: '' };
     case 'feat': return { ...base, prereq: '' };
     case 'language': return { ...base, kind: 'Standard', script: '', speakers: '' };
+    case 'spell': return { ...base, level: 1, school: '', time: '1 action', range: '', components: 'V, S', material: '', duration: 'Instantaneous', conc: false, ritual: false, higher: '', classes: [], subclasses: [] };
   }
   return base;
 }
@@ -100,15 +103,21 @@ export async function mergeCustom(remote) {
     else { delete custom.entries[id]; custom.deleted[id] = rd; }
     changed = true;
   }
+  if ((remote.settings?.updated || 0) > (custom.settings?.updated || 0)) { custom.settings = { ...DEFAULT_SETTINGS, ...remote.settings }; changed = true; }
   if (changed) { custom.updated = Math.max(custom.updated, remote.updated || 0); await db.setMeta('library', custom); rebuild(); }
   return changed;
 }
 // A player's copy is read-only: take the DM's file as it is
 export async function replaceCustom(remote) {
   if (remote?.app !== 'charsheet-library') return false;
-  custom = { entries: remote.entries || {}, deleted: remote.deleted || {}, updated: remote.updated || 0 };
+  custom = { entries: remote.entries || {}, deleted: remote.deleted || {}, updated: remote.updated || 0, settings: { ...DEFAULT_SETTINGS, ...(remote.settings || {}) } };
   await db.setMeta('library', custom);
   rebuild();
   return true;
+}
+export const tableSettings = () => ({ ...DEFAULT_SETTINGS, ...(custom.settings || {}) });
+export async function setTableSetting(key, val) {
+  custom.settings = { ...tableSettings(), [key]: val, updated: Date.now() };
+  await persist();
 }
 export const customCount = () => Object.keys(custom.entries).length;
