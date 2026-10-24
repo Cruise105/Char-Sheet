@@ -91,7 +91,7 @@ function render() {
       ${dm ? `<button class="btn primary" type="button" data-lnew>New ${L.typeName(st.type).toLowerCase()}</button>` : ''}
       <ul class="liblist">${items.map(e => `<li><button type="button" data-lsel="${e.id}" aria-current="${e.id === st.sel}">
         <span>${esc(e.name)}${e.parent && e.type === 'race' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'subclass' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'spell' ? ` <small>${e.level ? `Lv ${e.level}` : 'Cantrip'}</small>` : ''}</span>
-        <small class="srcb">${e.builtIn ? 'SRD' : e.overridesSrd ? 'SRD, edited' : esc(e.src || 'Yours')}</small></button></li>`).join('') || '<li class="empty">Nothing here yet.</li>'}</ul>
+        <small class="srcb">${e.builtIn ? 'SRD' : esc(e.src || (e.overridesSrd ? 'SRD, edited' : 'Yours'))}</small></button></li>`).join('') || '<li class="empty">Nothing here yet.</li>'}</ul>
     </aside>
     <section class="libmain">${st.draft || sel ? `<button class="linkbtn libback" type="button" data-lback>All ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}</button>` : ''}${st.draft ? editorHtml(st.draft) : sel ? `
       ${dm ? `<div class="row libacts"><button class="btn" type="button" data-ledit>Edit</button><button class="btn" type="button" data-ldup>Duplicate</button>
