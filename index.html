@@ -1,0 +1,102 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#121821">
+<title>Character Sheets</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div class="app" id="app" data-view="home">
+  <header class="topbar">
+    <button class="btn icon sheetonly" id="backBtn" type="button" aria-label="All characters">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+    </button>
+    <h1 id="title">Characters</h1>
+    <nav class="seg pages sheetonly" aria-label="Sheet pages">
+      <button type="button" data-page="sheet" aria-pressed="true">Sheet</button>
+      <button type="button" data-page="character" aria-pressed="false">Character</button>
+      <button type="button" data-page="inventory" aria-pressed="false">Inventory</button>
+    </nav>
+    <span class="spacer"></span>
+    <button class="btn primary homeonly" id="newBtn" type="button">New character</button>
+    <button class="btn sheetonly" id="lookBtn" type="button">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3a9 9 0 1 0 0 18c1 0 1.6-.8 1.6-1.6 0-.5-.2-.8-.5-1.1-.3-.3-.4-.7-.4-1.1 0-.9.7-1.6 1.6-1.6H16a5 5 0 0 0 5-5c0-4.1-4-7.6-9-7.6z"/><circle cx="7.5" cy="11" r="1.2"/><circle cx="10.5" cy="7" r="1.2"/><circle cx="15" cy="7.5" r="1.2"/></svg>
+      <span class="lbltext">Look</span>
+    </button>
+    <button class="btn" id="redBtn" type="button" aria-pressed="false" title="Red light mode for combat lighting">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.5 10.9c.6.5 1 1.2 1 2V16h5v-.1c0-.8.4-1.5 1-2A6 6 0 0 0 12 3z"/></svg>
+      <span class="lbltext">Red light</span>
+    </button>
+    <button class="btn syncbtn" id="syncBtn" type="button" hidden data-state="off" aria-label="Sync">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M17.5 19a4.5 4.5 0 0 0 .5-8.97A6 6 0 0 0 6.34 9.1 4 4 0 0 0 6.5 19z"/></svg>
+      <i class="dot" aria-hidden="true"></i>
+    </button>
+    <button class="btn icon" id="settingsBtn" type="button" aria-label="Settings">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>
+    </button>
+  </header>
+
+  <main class="home" id="home">
+    <ul class="cards" id="charList"></ul>
+    <div class="homeempty" id="homeEmpty" hidden></div>
+    <button class="btn primary newbig" id="newBtn2" type="button">New character</button>
+  </main>
+
+  <div class="sheet" id="sheetwrap">
+    <div class="bglayer" aria-hidden="true"></div>
+    <div class="page" id="page"></div>
+  </div>
+  <aside class="look" id="look" hidden aria-label="Look"></aside>
+</div>
+
+<dialog id="settingsDlg">
+  <div class="dlg">
+    <div class="dlghead"><h2>Settings</h2><button class="btn icon" type="button" data-close aria-label="Close">×</button></div>
+    <div class="set">
+      <h3>Who's using this device</h3>
+      <div class="seg" role="group" aria-label="Role">
+        <button type="button" data-role="player">Player</button>
+        <button type="button" data-role="dm">Dungeon Master</button>
+      </div>
+      <p class="hint">The DM keeps every sheet in a folder in their Google Drive and shares each one with its player. Players see only their own sheet.</p>
+    </div>
+    <div class="set">
+      <h3>Google Drive</h3>
+      <div id="syncInfo"></div>
+    </div>
+    <div class="set">
+      <h3>Backup</h3>
+      <p class="hint">A backup file holds every character on this device. Loading one merges it in; nothing here is deleted.</p>
+      <div class="row">
+        <button class="btn" type="button" id="exportAll">Save backup file</button>
+        <label class="btn"><input type="file" id="importFile" accept=".json,application/json" hidden>Load backup or character file</label>
+      </div>
+    </div>
+    <p class="credits">Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, licensed under CC BY 4.0. Fonts under the SIL Open Font License.</p>
+  </div>
+</dialog>
+
+<dialog id="abilDlg"><div class="dlg"><div class="body"></div><div class="row end"><button class="btn primary" type="button" data-close>Done</button></div></div></dialog>
+<dialog id="acDlg"><div class="dlg"><div class="body"></div><div class="row end"><button class="btn primary" type="button" data-close>Done</button></div></div></dialog>
+
+<dialog id="shareDlg">
+  <form class="dlg" method="dialog">
+    <h2>Share <span class="who"></span></h2>
+    <p class="hint">The player gets edit access to this one sheet in your Character Sheets folder. They won't see anyone else's.</p>
+    <label class="hf"><span class="lbl">Player's Google email</span><input class="f" type="email" required autocomplete="off" placeholder="name@gmail.com"></label>
+    <p class="hint current"></p>
+    <p class="status" role="status"></p>
+    <div class="row end"><button class="btn ghost" type="button" onclick="this.closest('dialog').close()">Cancel</button><button class="btn primary" type="submit">Share</button></div>
+  </form>
+</dialog>
+
+<dialog id="chooseDlg"><div class="dlg"><p class="q"></p><div class="opts row col"></div></div></dialog>
+
+<script type="module" src="js/app.js"></script>
+</body>
+</html>

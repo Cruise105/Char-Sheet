@@ -1,2 +1,57 @@
-# Character-Sheet
-A digital, customizable, character sheet for 5e (2014)
+# Character Sheets
+
+Customizable D&D 5e (2014) character sheets for your table. Runs in Chrome, installs to the home screen, works offline, and syncs through Google Drive. Stage 1: the full sheet, Inventory Tracker, automatic math, the Look options, red light, and Drive sharing.
+
+## Put it online (about 10 minutes, same as the Bestiary)
+
+1. On GitHub, click **+** → **New repository**. Name it `charsheet`, set it to **Public**, tick **Add a README file**, and click **Create repository**.
+2. Unzip `charsheet.zip` on your PC.
+3. In the new repository, click **Add file** → **Upload files**. Drag in **everything** from inside the unzipped folder, including the `js`, `fonts` and `icons` folders. Click **Commit changes**.
+4. Repository **Settings** → **Pages** → Branch **main**, **/ (root)** → **Save**.
+5. A minute later it's live at `https://cruise105.github.io/charsheet/`.
+
+## One-time Google setup (about 10 minutes)
+
+This uses the same Google Cloud project and sign-in key as your Bestiary and Session Notes. Three additions:
+
+1. **Turn on the file picker.** In Google Cloud Console, open your project → **APIs & Services** → **Library**. Search for **Google Picker API** and click **Enable**.
+2. **Make an API key for the picker.** **APIs & Services** → **Credentials** → **Create credentials** → **API key**. Then click the new key to restrict it:
+   - Application restrictions: **Websites**, and add `https://cruise105.github.io/*`
+   - API restrictions: **Restrict key** → tick **Google Picker API**
+   - Save, then copy the key.
+   Open `js/config.js`, paste the key between the quotes on the `PICKER_API_KEY` line, and upload that one file to the repository again.
+3. **Add your wife as a test user.** **Google Auth Platform** (or **OAuth consent screen**) → **Audience** → **Test users** → **Add users** → her Gmail address. Do the same for each player later.
+
+When anyone signs in the first time, Google shows "Google hasn't verified this app." That's expected for a personal app in testing. Tap **Continue**.
+
+## Your device (the DM)
+
+1. Open the app → **Settings** (gear) → **Who's using this device: Dungeon Master**.
+2. **Connect Google Drive**. The app makes a folder in your Drive called **Character Sheets**.
+3. Make a character (or have a player make theirs first, see below), then on its card tap **Share with player** and enter their Gmail. They get edit access to that one sheet only.
+
+Every sheet in the folder shows up on your device, and you can open and edit any of them.
+
+## Your wife's tablet (a player)
+
+1. Open `https://cruise105.github.io/charsheet/` in Chrome → **⋮** → **Add to home screen** → **Install**.
+2. **Settings** → **Player** → **Connect Google Drive**.
+
+Then one of these:
+
+- **You already shared her character:** in Settings tap **Open a shared character** and pick it.
+- **She made her character on her tablet first:** you make a character with just her character's name and share it with her. On her tablet she taps **Link to Drive** on her character card, picks that sheet, and chooses **This device's** version. From then on the two copies are one.
+
+## How syncing works
+
+- Each device saves instantly to itself, then syncs with Drive a few seconds after changes and checks for others' changes about every 30 seconds.
+- If you and a player change different parts of the sheet at the same time, both changes are kept. If you both change the same field, the later edit wins. A list (one inventory section, the attacks) counts as one field.
+- The sync dot on the top bar: green synced, yellow syncing, gray signed out or offline, red a problem (tap it to see what).
+
+## Updating the app later
+
+Upload the new files to the same repository (all of them, every time, so nothing new is missed). On the PC, press Ctrl+Shift+R once. Installed tablets update the next time they open while online.
+
+## Credits
+
+Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Fonts: Alegreya, Alegreya Sans, Cinzel, IM Fell English, Uncial Antiqua, Grenze Gotisch and Eczar, all under the SIL Open Font License.
