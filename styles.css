@@ -11,6 +11,51 @@
 @font-face{font-family:"Grenze Gotisch";src:url(fonts/grenze-gotisch-latin-700-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
 @font-face{font-family:"Eczar";src:url(fonts/eczar-latin-600-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
 
+@font-face{font-family:"Cinzel Decorative";src:url(fonts/cinzel-decorative-latin-700-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"MedievalSharp";src:url(fonts/medievalsharp-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Pirata One";src:url(fonts/pirata-one-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"UnifrakturMaguntia";src:url(fonts/unifrakturmaguntia-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Metamorphous";src:url(fonts/metamorphous-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Almendra";src:url(fonts/almendra-latin-700-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Macondo";src:url(fonts/macondo-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"New Rocker";src:url(fonts/new-rocker-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Berkshire Swash";src:url(fonts/berkshire-swash-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Fondamento";src:url(fonts/fondamento-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Marcellus SC";src:url(fonts/marcellus-sc-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Creepster";src:url(fonts/creepster-latin-400-normal.woff2) format("woff2");font-weight:400 900;font-display:swap}
+@font-face{font-family:"Lora";src:url(fonts/lora-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Lora";src:url(fonts/lora-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Crimson Pro";src:url(fonts/crimson-pro-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Crimson Pro";src:url(fonts/crimson-pro-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"EB Garamond";src:url(fonts/eb-garamond-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"EB Garamond";src:url(fonts/eb-garamond-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Spectral";src:url(fonts/spectral-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Spectral";src:url(fonts/spectral-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Vollkorn";src:url(fonts/vollkorn-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Vollkorn";src:url(fonts/vollkorn-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Merriweather";src:url(fonts/merriweather-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Merriweather";src:url(fonts/merriweather-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Libre Baskerville";src:url(fonts/libre-baskerville-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Libre Baskerville";src:url(fonts/libre-baskerville-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Bitter";src:url(fonts/bitter-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Bitter";src:url(fonts/bitter-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Literata";src:url(fonts/literata-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Literata";src:url(fonts/literata-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Atkinson Hyperlegible";src:url(fonts/atkinson-hyperlegible-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Lexend";src:url(fonts/lexend-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Lexend";src:url(fonts/lexend-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Nunito";src:url(fonts/nunito-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Fira Sans";src:url(fonts/fira-sans-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Fira Sans";src:url(fonts/fira-sans-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Philosopher";src:url(fonts/philosopher-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Philosopher";src:url(fonts/philosopher-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Signika";src:url(fonts/signika-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Signika";src:url(fonts/signika-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+@font-face{font-family:"Josefin Sans";src:url(fonts/josefin-sans-latin-400-normal.woff2) format("woff2");font-weight:400 600;font-display:swap}
+@font-face{font-family:"Josefin Sans";src:url(fonts/josefin-sans-latin-700-normal.woff2) format("woff2");font-weight:700;font-display:swap}
+
 /* Defaults (Night palette). Each character's Look overrides these on <body>. */
 :root{
   --page:#121821; --panel:rgba(27,35,48,.88); --panel-solid:#1b2330; --raise:rgba(37,48,67,.94); --line:#34425a;
@@ -24,7 +69,7 @@ body[data-tone="light"]{--focus:#1f5fbf;--danger:#a3242f}
 
 *{box-sizing:border-box}
 html,body{margin:0;height:100%}
-body{background:var(--page);color:var(--text);font:400 var(--base)/1.4 var(--body);font-variant-numeric:lining-nums;-webkit-tap-highlight-color:transparent;overflow:hidden}
+body{background:var(--page);color:var(--text);font:400 var(--base)/1.4 var(--body);font-variant-numeric:lining-nums;font-feature-settings:"lnum" 1;-webkit-tap-highlight-color:transparent;overflow:hidden}
 button,input,select,textarea{font:inherit;color:inherit}
 :focus-visible{outline:3px solid var(--focus);outline-offset:2px}
 [hidden]{display:none!important}
@@ -91,25 +136,78 @@ small{font-size:.8em}
 .ph{font:700 1.02rem/1.2 var(--head);margin:0 0 8px;color:var(--ink);display:flex;align-items:center;gap:8px}
 .ph::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--accent),transparent)}
 
-body[data-frame="parchment"] .panel{border:3px double var(--line);border-radius:3px;box-shadow:inset 0 0 18px rgba(0,0,0,.18)}
-body[data-frame="parchment"] .ph{justify-content:center;text-align:center}
-body[data-frame="parchment"] .ph::before,body[data-frame="parchment"] .ph::after{content:"";flex:1;height:0;border-top:1px solid var(--line);background:none;max-width:none}
+/* Big numbers use the text font with standard numerals: some decorative heading fonts draw digits that misread (10 as IO) */
+.abil .am,.stat b,.big,.hpcur,.sptnum b,.abilsum b,.lugain,.sv,.abil .as,.slash{font-family:var(--body)!important;font-variant-numeric:lining-nums tabular-nums;font-feature-settings:"lnum" 1,"tnum" 1}
+.abil .am,.stat b,.big,.hpcur,.sptnum b,.abilsum b{font-weight:700}
 
-body[data-frame="metal"] .panel{border:1px solid rgba(0,0,0,.5);border-radius:6px;
+/* frame styles: each applies to every panel of a character using it, and to its own preview in the Look panel */
+:is(body[data-frame="parchment"] .panel:not(.fdemo),.fdemo[data-fd="parchment"]){border:3px double var(--line);border-radius:3px;box-shadow:inset 0 0 18px rgba(0,0,0,.18)}
+:is(body[data-frame="parchment"] .panel:not(.fdemo),.fdemo[data-fd="parchment"]) .ph{justify-content:center;text-align:center}
+:is(body[data-frame="parchment"] .panel:not(.fdemo),.fdemo[data-fd="parchment"]) .ph::before,:is(body[data-frame="parchment"] .panel:not(.fdemo),.fdemo[data-fd="parchment"]) .ph::after{content:"";flex:1;height:0;border-top:1px solid var(--line);background:none}
+
+:is(body[data-frame="scroll"] .panel:not(.fdemo),.fdemo[data-fd="scroll"]){border:0;border-top:10px solid var(--line);border-bottom:10px solid var(--line);border-radius:16px/8px;box-shadow:inset 0 9px 8px -7px rgba(0,0,0,.45),inset 0 -9px 8px -7px rgba(0,0,0,.45)}
+:is(body[data-frame="scroll"] .panel:not(.fdemo),.fdemo[data-fd="scroll"]) .ph{justify-content:center;font-style:italic}
+:is(body[data-frame="scroll"] .panel:not(.fdemo),.fdemo[data-fd="scroll"]) .ph::after{display:none}
+
+:is(body[data-frame="torn"] .panel:not(.fdemo),.fdemo[data-fd="torn"]){border:0;border-radius:2px;padding-bottom:22px;-webkit-mask:linear-gradient(#000 0 0) top/100% calc(100% - 9px) no-repeat,conic-gradient(from -45deg at bottom,#000 90deg,transparent 0) bottom/18px 9px repeat-x;mask:linear-gradient(#000 0 0) top/100% calc(100% - 9px) no-repeat,conic-gradient(from -45deg at bottom,#000 90deg,transparent 0) bottom/18px 9px repeat-x}
+:is(body[data-frame="torn"] .panel:not(.fdemo),.fdemo[data-fd="torn"]) .ph::after{background:var(--line)}
+
+:is(body[data-frame="sketch"] .panel:not(.fdemo),.fdemo[data-fd="sketch"]){border:2px solid color-mix(in srgb,var(--text) 75%,transparent);border-radius:255px 15px 225px 15px/15px 225px 15px 255px;padding:12px 14px 14px}
+:is(body[data-frame="sketch"] .panel:not(.fdemo),.fdemo[data-fd="sketch"]) .ph::after{background:none;height:0;border-top:2px solid color-mix(in srgb,var(--text) 50%,transparent);border-radius:50%}
+
+:is(body[data-frame="metal"] .panel:not(.fdemo),.fdemo[data-fd="metal"]){border:1px solid rgba(0,0,0,.5);border-radius:6px;
   background:radial-gradient(circle at 7px 7px,var(--line) 2px,transparent 2.6px),radial-gradient(circle at calc(100% - 7px) 7px,var(--line) 2px,transparent 2.6px),radial-gradient(circle at 7px calc(100% - 7px),var(--line) 2px,transparent 2.6px),radial-gradient(circle at calc(100% - 7px) calc(100% - 7px),var(--line) 2px,transparent 2.6px),linear-gradient(180deg,rgba(255,255,255,.06),rgba(0,0,0,.12)),var(--panel);
   box-shadow:inset 0 1px 0 rgba(255,255,255,.14),inset 0 -1px 0 rgba(0,0,0,.35),0 2px 0 rgba(0,0,0,.3);padding:12px 16px 14px}
-body[data-frame="metal"] .ph{font-variant:small-caps;letter-spacing:.04em}
-body[data-frame="metal"] .ph::after{background:var(--line);height:2px}
+:is(body[data-frame="metal"] .panel:not(.fdemo),.fdemo[data-fd="metal"]) .ph{font-variant:small-caps;letter-spacing:.04em}
+:is(body[data-frame="metal"] .panel:not(.fdemo),.fdemo[data-fd="metal"]) .ph::after{background:var(--line);height:2px}
 
-body[data-frame="arcane"] .panel{border:1px solid var(--accent-soft);border-radius:2px;
-  background:linear-gradient(var(--accent),var(--accent)) 0 0/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 0 0/2px 16px no-repeat,
-  linear-gradient(var(--accent),var(--accent)) 100% 0/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 100% 0/2px 16px no-repeat,
-  linear-gradient(var(--accent),var(--accent)) 0 100%/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 0 100%/2px 16px no-repeat,
-  linear-gradient(var(--accent),var(--accent)) 100% 100%/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 100% 100%/2px 16px no-repeat,var(--panel)}
-body[data-frame="arcane"] .ph::before{content:"✦";color:var(--accent);font-size:.8em}
+:is(body[data-frame="stone"] .panel:not(.fdemo),.fdemo[data-fd="stone"]){border:4px solid var(--line);border-radius:3px;background:repeating-linear-gradient(135deg,rgba(255,255,255,.03) 0 2px,transparent 2px 7px),repeating-linear-gradient(45deg,rgba(0,0,0,.05) 0 3px,transparent 3px 9px),var(--panel);box-shadow:inset 2px 2px 0 rgba(255,255,255,.1),inset -2px -2px 0 rgba(0,0,0,.35),0 3px 0 rgba(0,0,0,.35)}
+:is(body[data-frame="stone"] .panel:not(.fdemo),.fdemo[data-fd="stone"]) .ph{font-variant:small-caps;letter-spacing:.08em;justify-content:center}
+:is(body[data-frame="stone"] .panel:not(.fdemo),.fdemo[data-fd="stone"]) .ph::after{display:none}
 
-body[data-frame="none"] .panel{border-color:transparent;border-radius:14px}
-body[data-frame="none"] .ph::after{display:none}
+:is(body[data-frame="wood"] .panel:not(.fdemo),.fdemo[data-fd="wood"]){border:7px solid #6b4423;border-image:repeating-linear-gradient(90deg,#6b4423 0 7px,#7d522c 7px 10px,#5a391d 10px 16px,#734a26 16px 21px) 7;background:repeating-linear-gradient(90deg,rgba(120,80,40,.06) 0 3px,transparent 3px 11px),var(--panel)}
+:is(body[data-frame="wood"] .panel:not(.fdemo),.fdemo[data-fd="wood"]) .ph::after{background:#7d522c;height:2px}
+
+:is(body[data-frame="leather"] .panel:not(.fdemo),.fdemo[data-fd="leather"]){border:2px solid var(--line);border-radius:12px;outline:2px dashed color-mix(in srgb,var(--muted) 80%,transparent);outline-offset:-9px;padding:14px 16px 16px;box-shadow:inset 0 0 22px rgba(0,0,0,.25)}
+:is(body[data-frame="leather"] .panel:not(.fdemo),.fdemo[data-fd="leather"]) .ph::after{display:none}
+
+:is(body[data-frame="chain"] .panel:not(.fdemo),.fdemo[data-fd="chain"]){border:5px dotted var(--muted);border-radius:6px;outline:1px solid var(--line);outline-offset:-10px;padding:14px 16px 16px}
+:is(body[data-frame="chain"] .panel:not(.fdemo),.fdemo[data-fd="chain"]) .ph::after{background:repeating-linear-gradient(90deg,var(--muted) 0 4px,transparent 4px 7px);height:2px}
+
+:is(body[data-frame="gilded"] .panel:not(.fdemo),.fdemo[data-fd="gilded"]){border:2px solid var(--accent);border-radius:4px;outline:1px solid var(--accent);outline-offset:-7px;padding:14px 16px 16px;box-shadow:0 0 0 1px rgba(0,0,0,.4),inset 0 0 14px var(--accent-soft)}
+:is(body[data-frame="gilded"] .panel:not(.fdemo),.fdemo[data-fd="gilded"]) .ph{justify-content:center;color:var(--accent)}
+:is(body[data-frame="gilded"] .panel:not(.fdemo),.fdemo[data-fd="gilded"]) .ph::after{display:none}
+
+:is(body[data-frame="arcane"] .panel:not(.fdemo),.fdemo[data-fd="arcane"]){border:1px solid var(--accent-soft);border-radius:2px;background:linear-gradient(var(--accent),var(--accent)) 0 0/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 0 0/2px 16px no-repeat,linear-gradient(var(--accent),var(--accent)) 100% 0/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 100% 0/2px 16px no-repeat,linear-gradient(var(--accent),var(--accent)) 0 100%/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 0 100%/2px 16px no-repeat,linear-gradient(var(--accent),var(--accent)) 100% 100%/16px 2px no-repeat,linear-gradient(var(--accent),var(--accent)) 100% 100%/2px 16px no-repeat,var(--panel)}
+:is(body[data-frame="arcane"] .panel:not(.fdemo),.fdemo[data-fd="arcane"]) .ph::before{content:"✦";color:var(--accent);font-size:.8em}
+
+:is(body[data-frame="filigree"] .panel:not(.fdemo),.fdemo[data-fd="filigree"]){border:1px solid var(--line);border-radius:4px;padding:14px 16px 16px;
+  background:radial-gradient(circle at 0 0,transparent 10px,var(--accent) 11px,transparent 12.5px) 0 0/24px 24px no-repeat,radial-gradient(circle at 100% 0,transparent 10px,var(--accent) 11px,transparent 12.5px) 100% 0/24px 24px no-repeat,radial-gradient(circle at 0 100%,transparent 10px,var(--accent) 11px,transparent 12.5px) 0 100%/24px 24px no-repeat,radial-gradient(circle at 100% 100%,transparent 10px,var(--accent) 11px,transparent 12.5px) 100% 100%/24px 24px no-repeat,var(--panel)}
+:is(body[data-frame="filigree"] .panel:not(.fdemo),.fdemo[data-fd="filigree"]) .ph{justify-content:center;font-style:italic}
+:is(body[data-frame="filigree"] .panel:not(.fdemo),.fdemo[data-fd="filigree"]) .ph::before,:is(body[data-frame="filigree"] .panel:not(.fdemo),.fdemo[data-fd="filigree"]) .ph::after{content:"❧";flex:none;background:none;height:auto;color:var(--accent);font-style:normal}
+:is(body[data-frame="filigree"] .panel:not(.fdemo),.fdemo[data-fd="filigree"]) .ph::before{transform:scaleX(-1)}
+
+:is(body[data-frame="gothic"] .panel:not(.fdemo),.fdemo[data-fd="gothic"]){border:2px solid var(--line);border-radius:48% 48% 6px 6px/26px 26px 6px 6px;padding-top:16px}
+:is(body[data-frame="gothic"] .panel:not(.fdemo),.fdemo[data-fd="gothic"]) .ph{justify-content:center}
+:is(body[data-frame="gothic"] .panel:not(.fdemo),.fdemo[data-fd="gothic"]) .ph::before,:is(body[data-frame="gothic"] .panel:not(.fdemo),.fdemo[data-fd="gothic"]) .ph::after{content:"✠";flex:none;background:none;height:auto;color:var(--accent);font-size:.8em}
+
+:is(body[data-frame="banner"] .panel:not(.fdemo),.fdemo[data-fd="banner"]){border:1px solid var(--line);border-radius:6px;padding-top:0}
+:is(body[data-frame="banner"] .panel:not(.fdemo),.fdemo[data-fd="banner"]) .ph{justify-content:center;margin:0 -6px 10px;padding:7px 22px;background:var(--accent);color:var(--accent-ink);clip-path:polygon(0 0,100% 0,calc(100% - 12px) 50%,100% 100%,0 100%,12px 50%)}
+:is(body[data-frame="banner"] .panel:not(.fdemo),.fdemo[data-fd="banner"]) .ph::after{display:none}
+
+:is(body[data-frame="glow"] .panel:not(.fdemo),.fdemo[data-fd="glow"]){border:1px solid var(--accent);border-radius:12px;box-shadow:0 0 12px color-mix(in srgb,var(--accent) 70%,transparent),inset 0 0 12px var(--accent-soft)}
+:is(body[data-frame="glow"] .panel:not(.fdemo),.fdemo[data-fd="glow"]) .ph{color:var(--accent);text-shadow:0 0 8px color-mix(in srgb,var(--accent) 60%,transparent)}
+:is(body[data-frame="glow"] .panel:not(.fdemo),.fdemo[data-fd="glow"]) .ph::after{box-shadow:0 0 6px var(--accent)}
+
+:is(body[data-frame="glass"] .panel:not(.fdemo),.fdemo[data-fd="glass"]){background:color-mix(in srgb,var(--panel-solid) 38%,transparent);-webkit-backdrop-filter:blur(12px) saturate(1.3);backdrop-filter:blur(12px) saturate(1.3);border:1px solid rgba(255,255,255,.2);border-radius:16px;box-shadow:0 8px 24px rgba(0,0,0,.22),inset 0 1px 0 rgba(255,255,255,.18)}
+:is(body[data-frame="glass"] .panel:not(.fdemo),.fdemo[data-fd="glass"]) .ph::after{background:rgba(255,255,255,.25)}
+
+:is(body[data-frame="none"] .panel:not(.fdemo),.fdemo[data-fd="none"]){border-color:transparent;border-radius:14px}
+:is(body[data-frame="none"] .panel:not(.fdemo),.fdemo[data-fd="none"]) .ph::after{display:none}
+
+/* red light: keep the shapes, drop color and textures */
+html[data-red="1"] .panel{border-image:none!important;text-shadow:none!important;-webkit-backdrop-filter:none!important;backdrop-filter:none!important}
+html[data-red="1"] body[data-frame="wood"] .panel:not(.fdemo){border-color:#fff}
 
 /* ---------- fields ---------- */
 .f{width:100%;min-width:0;min-height:40px;padding:6px 8px;border:0;border-bottom:1px solid var(--line);border-radius:6px 6px 0 0;background:var(--accent-soft);background:color-mix(in srgb,var(--panel-solid) 55%,transparent)}
@@ -144,6 +242,7 @@ select.f{cursor:pointer}
 .headgrid .wide{grid-column:1/-1}
 .clsrow{display:grid;grid-template-columns:minmax(0,1.2fr) minmax(0,1.4fr) auto auto auto;gap:6px;align-items:center;margin-bottom:4px}
 .clsrow .mini select{width:auto}
+body[data-frame="banner"] .panel.tiny .ph{font-size:.82rem;padding:6px 14px;margin:0 -4px 8px}
 
 /* ---------- main sheet columns ---------- */
 .cols{display:grid;grid-template-columns:minmax(0,1.1fr) minmax(0,1.25fr) minmax(0,1fr);gap:12px;align-items:start}
@@ -195,7 +294,7 @@ button.stat{cursor:pointer}
 .hpbox{display:grid;gap:8px;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--raise)}
 .hpnums{display:grid;grid-template-columns:1.4fr auto 1fr 1fr;gap:8px;align-items:end}
 .hpnums .f.n{max-width:none}
-.hpcur{font:700 1.9rem/1 var(--head)!important;min-height:52px}
+.hpcur{font:700 1.9rem/1 var(--body)!important;min-height:52px}
 .slash{font:400 2rem/1 var(--head);color:var(--muted);padding-bottom:6px}
 .hpquick{display:grid;grid-template-columns:minmax(80px,1fr) repeat(3,auto);gap:6px}
 .hpquick .f.n{max-width:none}
@@ -413,13 +512,17 @@ dialog.wide{width:min(820px,96vw)}
 .fonts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
 .fontbtn{min-height:48px;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;font-size:1.15rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .fontbtn.body{font-size:1rem}
-.fontbtn.on,.framebtn.on{outline:2px solid var(--accent);outline-offset:1px}
-.frames{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
-.framebtn{min-height:44px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer}
-.framebtn[data-frame-demo="parchment"]{border:3px double var(--line);border-radius:3px}
-.framebtn[data-frame-demo="metal"]{box-shadow:inset 0 1px 0 rgba(255,255,255,.15),0 2px 0 rgba(0,0,0,.3)}
-.framebtn[data-frame-demo="arcane"]{border-color:var(--accent);border-radius:2px}
-.framebtn[data-frame-demo="none"]{border-color:transparent}
+.fontbtn.on{outline:2px solid var(--accent);outline-offset:1px}
+.frames{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.framebtn{display:block;padding:4px;border:0;border-radius:10px;background:transparent;cursor:pointer;text-align:left}
+.framebtn.on{outline:2px solid var(--accent);outline-offset:1px}
+.fdemo{display:block;min-height:64px;pointer-events:none}
+.fdemo .ph{font-size:.9rem;margin:0 0 6px}
+.fdemo i{display:block;height:6px;border-radius:3px;background:var(--line);margin:4px 0;width:80%}
+.fdemo i+i{width:55%}
+.fontbtn small{display:block;font:400 .72rem var(--body);color:var(--muted);margin-top:2px}
+.fontbtn.body{white-space:normal;line-height:1.2;padding:6px 8px;text-align:left}
+.fonts .grp{grid-column:1/-1;margin:6px 0 0}
 .bgpick{display:grid;gap:8px}
 .bgpick img{width:100%;max-height:180px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
 .bgpick .empty{font-style:normal}

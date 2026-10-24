@@ -1,6 +1,6 @@
 # Character Sheets
 
-Customizable D&D 5e (2014) character sheets for your table. Runs in Chrome, installs to the home screen, works offline, and syncs through Google Drive. Includes the full sheet, Inventory Tracker, automatic math, 21 palettes and the other Look options, red light, Drive sharing, and the Library with auto-fill.
+Customizable D&D 5e (2014) character sheets for your table. Runs in Chrome, installs to the home screen, works offline, and syncs through Google Drive. Includes the full sheet, Inventory Tracker, automatic math, the Look options (21 palettes, 18 heading fonts, 18 text fonts, 18 frames), red light, Drive sharing, and the Library with auto-fill.
 
 ## Put it online (about 10 minutes, same as the Bestiary)
 
@@ -74,4 +74,4 @@ Upload the new files to the same repository (all of them, every time, so nothing
 
 ## Credits
 
-Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Fonts: Alegreya, Alegreya Sans, Cinzel, IM Fell English, Uncial Antiqua, Grenze Gotisch and Eczar, all under the SIL Open Font License.
+Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Fonts: all under the SIL Open Font License (see the LICENSE files in the fonts folder). Fonts nobody has picked yet download the first time they're chosen, then work offline.

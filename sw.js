@@ -1,6 +1,6 @@
-// Offline support: every app file is cached on first visit, then served from the device.
+// Offline support: the app's files are cached on first visit, then served from the device.
 // When you publish an update, bump VERSION so devices pick up the new files on their next launch.
-const VERSION = 'charsheet-v3';
+const VERSION = 'charsheet-v4';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/model.js', './js/rules.js', './js/sheet.js', './js/theme.js', './js/sync.js', './js/config.js', './js/library.js', './js/autofill.js', './js/libui.js', './js/magic.js', './data/srd.json',
@@ -19,7 +19,11 @@ self.addEventListener('activate', e => {
     .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
     .then(() => self.clients.claim()));
 });
+// Anything not cached at install (the extra fonts) is saved the first time it's used, so it works offline after that
 self.addEventListener('fetch', e => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
-  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request)));
+  e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(res => {
+    if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); }
+    return res;
+  })));
 });
