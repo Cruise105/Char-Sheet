@@ -385,6 +385,41 @@ table.inv input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accen
 table.inv .f.n{max-width:none}
 .invfoot{display:flex;justify-content:space-between;align-items:center}
 
+/* ---------- XP ---------- */
+.wide2{grid-column:span 2}
+.milestone{margin:6px 0 0;color:var(--muted);font-style:italic}
+.nextlvl{min-height:40px;display:flex;align-items:center;padding:0 8px;font-weight:700;font-variant-numeric:tabular-nums}
+.xpbar{height:5px;border-radius:99px;background:color-mix(in srgb,var(--line) 60%,transparent);overflow:hidden}
+.xpbar i{display:block;height:100%;background:var(--accent)}
+.xpadd .row{flex-wrap:nowrap}
+.xpadd .f.n{max-width:110px}
+.f.xpf{max-width:none}
+.readybadge{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:999px;border:2px solid var(--accent);color:var(--accent);font-weight:700;font-size:.88rem}
+
+/* ---------- reminders ---------- */
+.reminders{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:4px}
+.reminders li{padding:5px 8px 5px 10px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 6px 6px 0;font-size:.9rem}
+.turnrem .reminders{margin-bottom:0}
+.remedit{display:grid;grid-template-columns:minmax(0,180px) 1fr;gap:6px;align-items:end}
+.remrow{flex-wrap:nowrap}
+.remrow .mini select{width:auto}
+
+/* ---------- arrange ---------- */
+#arrangeBtn[aria-pressed="true"]{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.arrangehint{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:10px 12px;border-radius:10px;border:2px dashed var(--accent);background:var(--panel-solid);position:sticky;top:0;z-index:3}
+.arrangehint b{color:var(--accent)}
+.sec{display:grid;gap:0;min-width:0}
+.app.arranging .sec{border:2px dashed color-mix(in srgb,var(--accent) 55%,transparent);border-radius:12px;padding:4px}
+.arrbar{display:flex;flex-wrap:wrap;align-items:center;gap:4px;padding:2px 2px 6px;font-size:.88rem;font-weight:700}
+.arrbar span{flex:1 1 90px;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.colA .arrbar span{flex-basis:100%;order:-1}
+.arrbar button{min-width:36px;min-height:36px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;font-size:1rem}
+.arrbar button:disabled{opacity:.35;cursor:default}
+.arrbar .handle{cursor:grab;touch-action:none;font-size:1.2rem;background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}
+.sec.dragging{opacity:.35}
+.dragghost{position:fixed;z-index:20;pointer-events:none;opacity:.92;box-shadow:0 16px 40px rgba(0,0,0,.45);border-radius:12px;max-height:260px;overflow:hidden}
+.col[data-col],.stack[data-col]{min-height:60px}
+
 /* ---------- level up + rests ---------- */
 .restbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
 .lusec{border-top:1px solid var(--line);padding-top:8px}
@@ -578,7 +613,10 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 /* ---------- phone ---------- */
 @media (max-width:700px){
   :root{--base:16px}
-  .topbar{flex-wrap:wrap}
+  .topbar{flex-wrap:wrap;gap:6px;padding-left:8px;padding-right:8px}
+  .topbar .btn.icon,#lookBtn,#redBtn,#arrangeBtn,.syncbtn{width:40px;min-height:40px}
+  .topbar h1{flex:1;min-width:0}
+  .topbar .spacer{display:none}
   .topbar h1{max-width:52vw;font-size:1.15rem}
   .pages{order:10;width:100%;display:flex}
   .pages button{flex:1}

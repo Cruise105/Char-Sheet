@@ -2,7 +2,7 @@
 import * as L from './library.js';
 import { getPath, setPath } from './model.js';
 import { ABILS, SKILLS, DEFENSE_KINDS } from './rules.js';
-import { esc } from './sheet.js';
+import { esc, REMIND_ON } from './sheet.js';
 
 let ctx; // { toast, isDm(), confirm }
 const st = { type: 'race', q: '', sel: null, draft: null };
@@ -147,8 +147,8 @@ function editorHtml(d) {
       case 'weapons': return `<fieldset class="hf checks"><legend class="lbl">${label}</legend>${Object.entries(WEAP_L).map(([k, n]) => `<label class="chk"><input type="checkbox" data-fbool="${path}.${k}" ${v?.[k] ? 'checked' : ''}><span>${n.replace(' weapons', '')}</span></label>`).join('')}</fieldset>`;
       case 'abil': return rows(path, label, v, (r, i) => `<select class="f" data-f="${path}.${i}.a">${opt(ABILS, r.a)}</select><input class="f n" data-f="${path}.${i}.v" data-num inputmode="numeric" value="${esc(r.v)}" aria-label="Amount">`, { a: 'str', v: 1 });
       case 'resist': return rows(path, label, v, (r, i) => `<select class="f" data-f="${path}.${i}.kind">${opt(DEFENSE_KINDS.map(([k, n]) => [k, n.replace(/s$/, '')]), r.kind)}</select><input class="f" data-f="${path}.${i}.what" value="${esc(r.what)}" placeholder="Fire" aria-label="Damage type or condition">`, { kind: 'res', what: '' });
-      case 'named': return rows(path, label, v, (r, i) => `<div class="stackf"><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Name" aria-label="Name"><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea></div>`, { name: '', text: '' }, true);
-      case 'leveled': return rows(path, label, v, (r, i) => `<div class="stackf"><div class="row"><label class="mini">Level <input class="f n" data-f="${path}.${i}.lvl" data-num inputmode="numeric" value="${esc(r.lvl)}"></label><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Feature name" aria-label="Name" style="flex:1"></div><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea></div>`, { lvl: 1, name: '', text: '' }, true);
+      case 'named': return rows(path, label, v, (r, i) => `<div class="stackf"><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Name" aria-label="Name"><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { name: '', text: '' }, true);
+      case 'leveled': return rows(path, label, v, (r, i) => `<div class="stackf"><div class="row"><label class="mini">Level <input class="f n" data-f="${path}.${i}.lvl" data-num inputmode="numeric" value="${esc(r.lvl)}"></label><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Feature name" aria-label="Name" style="flex:1"></div><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { lvl: 1, name: '', text: '' }, true);
       default: return `<label class="hf">${lab}<input class="f" data-f="${path}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
     }
   };

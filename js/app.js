@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { newCharacter, upgrade, merge, stamp, uid } from './model.js';
 import * as R from './rules.js';
-import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc } from './sheet.js';
+import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor } from './sheet.js';
 import { PRESETS } from './theme.js';
 import * as sync from './sync.js';
 import * as L from './library.js';
@@ -330,7 +330,9 @@ function castSpell(id) {
   const draw = () => {
     if (st.done) {
       const d = st.done;
+      const concRem = s.conc ? remindersFor(c, 'conc') : [];
       return `<h2>${esc(s.name)}</h2><p>Cast at level ${d.lvl}${d.how === 'points' ? ` for ${d.cost} spell points` : d.how === 'pact' ? ' with a Pact Magic slot' : ' with a spell slot'}.${s.conc ? ' <b>Concentration.</b>' : ''}</p>
+        ${concRem.length ? `<ul class="reminders">${concRem.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}
         ${d.strain ? `<div class="strainbox"><h3>Strain save</h3><p>Make a ${ABN[abil] || 'spellcasting ability'} saving throw, <b>DC ${M.strainDc(d.lvl)}</b>. The spell is cast either way.</p>
           <div class="row"><button class="btn" type="button" data-strain="ok">Saved</button><button class="btn danger" type="button" data-strain="fail">Failed: +${M.strainExhaustion(d.lvl)} exhaustion</button></div></div>`
         : `${d.freeLeft != null ? `<p class="hint">${Math.max(0, d.freeLeft - 1)} of ${M.FREE_STRAIN} level ${d.lvl} casts left before the strain save.</p>` : ''}<div class="row end"><button class="btn primary" type="button" data-close>Done</button></div>`}`;
@@ -375,6 +377,7 @@ function castSpell(id) {
 
 /* ---------- the sheet view ---------- */
 async function openCharacter(id) {
+  sheetCtx.arranging = false;
   const c = await db.get(id);
   if (!c) return toast("That character isn't on this device.");
   state.cur = upgrade(c);
@@ -392,6 +395,8 @@ function renderSheet() {
   const c = state.cur; if (!c) return;
   titleChanged();
   for (const b of document.querySelectorAll('[data-page]')) b.setAttribute('aria-pressed', String(b.dataset.page === state.page));
+  $('#arrangeBtn').setAttribute('aria-pressed', String(!!sheetCtx.arranging));
+  app.classList.toggle('arranging', !!sheetCtx.arranging);
   const openDetails = [...document.querySelectorAll('#page details[open]')].map(d => d.querySelector('[data-k]')?.dataset.k).filter(Boolean);
   const scroll = $('#sheetwrap').scrollTop;
   renderPage($('#page'), c, state.page);
@@ -612,10 +617,11 @@ function renderTableRules() {
   const box = $('#tableRules'), t = L.tableSettings();
   if (state.settings.role === 'dm') {
     box.innerHTML = `<div class="trrow"><span>Spellcasting</span><div class="seg" role="group" aria-label="Spellcasting"><button type="button" data-ts="spellMode" data-v="points" aria-pressed="${t.spellMode === 'points'}">Spell points</button><button type="button" data-ts="spellMode" data-v="slots" aria-pressed="${t.spellMode === 'slots'}">Spell slots</button></div></div>
+      <div class="trrow"><span>Leveling</span><div class="seg" role="group" aria-label="Leveling"><button type="button" data-ts="leveling" data-v="xp" aria-pressed="${t.leveling === 'xp'}">Experience points</button><button type="button" data-ts="leveling" data-v="milestone" aria-pressed="${t.leveling === 'milestone'}">Milestone</button></div></div>
       <div class="trrow"><span>Initiative</span><div class="seg" role="group" aria-label="Initiative"><button type="button" data-ts="initiative" data-v="active" aria-pressed="${t.initiative === 'active'}">Active Initiative</button><button type="button" data-ts="initiative" data-v="standard" aria-pressed="${t.initiative === 'standard'}">Standard</button></div></div>
       <p class="hint">These apply to every sheet at the table. Players get the change with the Table Library.</p>`;
   } else {
-    box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'} and ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'}.</p>`;
+    box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'}, ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'} and ${t.leveling === 'milestone' ? 'milestone leveling' : 'experience points'}.</p>`;
   }
 }
 function openSettings() {
@@ -649,9 +655,15 @@ async function start() {
   $('#newBtn').addEventListener('click', newChar);
   $('#newBtn2').addEventListener('click', newChar);
   $('#lookBtn').addEventListener('click', () => ($('#look').hidden ? openLook() : closeLook()));
+  $('#arrangeBtn').addEventListener('click', () => {
+    sheetCtx.arranging = !sheetCtx.arranging;
+    if (sheetCtx.arranging) { state.page = 'sheet'; closeLook(); }
+    renderSheet();
+  });
+  matchMedia('(max-width: 700px)').addEventListener('change', () => { if (state.cur) renderSheet(); });
   $('#redBtn').addEventListener('click', () => { state.settings.red = !state.settings.red; saveSettings(); applyRed(); });
   $('#settingsBtn').addEventListener('click', openSettings);
-  for (const b of document.querySelectorAll('[data-page]')) b.addEventListener('click', () => { state.page = b.dataset.page; renderSheet(); $('#sheetwrap').scrollTop = 0; });
+  for (const b of document.querySelectorAll('[data-page]')) b.addEventListener('click', () => { state.page = b.dataset.page; sheetCtx.arranging = false; renderSheet(); $('#sheetwrap').scrollTop = 0; });
 
   $('#charList').addEventListener('click', e => {
     const t = e.target.closest('button'); if (!t) return;

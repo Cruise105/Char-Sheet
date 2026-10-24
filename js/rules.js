@@ -110,4 +110,6 @@ export function consolidateCoins(coins) {
   return { ...coins, gp: Math.floor(cp / 100), sp: Math.floor((cp % 100) / 10), ep: 0, cp: cp % 10 };
 }
 
+// XP needed to reach each level (index = current level): XP_TABLE[1] is what level 2 needs
+export const XP_TABLE = [0, 300, 900, 2700, 6500, 14000, 23000, 34000, 48000, 64000, 85000, 100000, 120000, 140000, 165000, 195000, 225000, 265000, 305000, 355000, null];
 export const hitDiceTotal = c => (c.classes || []).map(k => ({ die: num(k.hd) || 8, total: num(k.level), used: num(k.hdUsed), name: k.name }));

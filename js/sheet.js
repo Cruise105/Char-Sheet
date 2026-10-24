@@ -29,6 +29,19 @@ function interruptPoint(c) {
   return `<button class="stat ipt" type="button" data-act="ip" data-state="${st}" aria-label="Interrupt Point: ${label}. ${hint}">
     <span class="lbl">Interrupt Point</span><i class="token" aria-hidden="true"></i><b class="ipl">${label}</b><small>${hint}</small></button>`;
 }
+/* ---------- reminders: features flagged to show up where they matter ---------- */
+export const REMIND_ON = [['', 'No reminder'], ['saves', 'Saving throws'], ['checks', 'Ability checks'], ['attacks', 'Attacks'], ['turn', 'Start of my turn'], ['conc', 'Concentration spells']];
+const REMIND_LISTS = ['racial', 'classFeat', 'feats', 'extraFeat'];
+export function reminderText(c, f) {
+  const t = f.remind?.text || f.name || '';
+  return t.replace(/\+?\{(str|dex|con|int|wis|cha)\}/g, (_, a) => R.sign(R.amod(c, a))).replace(/\+?\{prof\}/g, R.sign(R.prof(c))).replace(/\{level\}/g, R.totalLevel(c));
+}
+export function remindersFor(c, on) {
+  const out = [];
+  for (const l of REMIND_LISTS) for (const f of c[l] || []) if (f.remind?.on === on) out.push(reminderText(c, f));
+  return out;
+}
+const remindBox = (c, on) => { const r = remindersFor(c, on); return r.length ? `<ul class="reminders">${r.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; };
 const ABIL_OPTS = [['', '—'], ...R.ABILS.map(([k, n]) => [k, n])];
 
 /* ---------- page: the main sheet ---------- */
@@ -48,6 +61,7 @@ function header(c) {
       <div class="lvlline">Level ${calc('level')} · Proficiency ${calc('prof')}</div>
       <div class="restbar">
         <button class="btn small primary" type="button" data-act="levelup">Level up</button>
+        ${readyToLevel(c) ? '<span class="readybadge">Ready to level up</span>' : ''}
         <button class="btn small" type="button" data-act="shortrest">Short rest</button>
         <button class="btn small" type="button" data-act="longrest">Long rest</button>
       </div>
@@ -59,12 +73,25 @@ function header(c) {
       <div class="hf"><span class="lbl">Background</span>${pickInput('background', c.background, 'Pick or type', 'dl-bg', c.bgId)}</div>
       <label class="hf"><span class="lbl">Alignment</span>${txt(c, 'alignment')}</label>
       <label class="hf"><span class="lbl">Player name</span>${txt(c, 'player')}</label>
-      <label class="hf"><span class="lbl">Experience</span>${txt(c, 'xp')}</label>
-      <label class="hf"><span class="lbl">Next level</span>${txt(c, 'nextLevel')}</label>
+      ${xpBlock(c)}
     </div>
     ${datalists(c)}
     ${(() => { const ch = choicesFor(c); return ch.length ? `<ul class="choices">${ch.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; })()}
   </header>`;
+}
+// Experience points (table-wide switch): Next Level comes from the XP table
+function xpBlock(c) {
+  if (L.tableSettings().leveling === 'milestone') return `<div class="hf wide2"><span class="lbl">Experience</span><p class="milestone">Milestone leveling. Level up when your DM says so.</p></div>`;
+  const lvl = R.totalLevel(c), next = R.XP_TABLE[lvl] ?? null, prev = R.XP_TABLE[lvl - 1] || 0, xp = Number(c.xp) || 0;
+  const pct = next ? Math.max(0, Math.min(100, ((xp - prev) / (next - prev)) * 100)) : 100;
+  return `<div class="hf"><span class="lbl">Experience</span><input class="f n xpf" data-k="xp" data-type="num" inputmode="numeric" value="${esc(c.xp)}" data-rerender autocomplete="off"></div>
+    <div class="hf"><span class="lbl">Next level</span><div class="nextlvl">${next ? next.toLocaleString() : 'Max level'}</div><div class="xpbar" aria-hidden="true"><i style="width:${pct}%"></i></div></div>
+    <div class="hf xpadd"><span class="lbl">Add XP</span><div class="row"><input class="f n" id="xpAdd" inputmode="numeric" placeholder="0" aria-label="XP to add" autocomplete="off"><button class="btn small" type="button" data-act="xpadd">Add</button></div></div>`;
+}
+export function readyToLevel(c) {
+  if (L.tableSettings().leveling === 'milestone') return false;
+  const next = R.XP_TABLE[R.totalLevel(c)];
+  return next != null && (Number(c.xp) || 0) >= next && R.totalLevel(c) < 20;
 }
 // A text box that suggests library entries; the info button opens the full entry
 function pickInput(path, value, ph, list, id) {
@@ -94,20 +121,21 @@ function savesSkills(c) {
     const rank = Number(c.skills?.[k]) || 0;
     return `<div class="sk"><button type="button" class="rank r${rank}" data-act="rank" data-s="${k}" aria-label="${n}: ${['not proficient', 'proficient', 'expertise'][rank]}. Tap to change."></button><b class="sv">${calc('skill', k)}</b><span>${n} <small>${R.ABIL_SHORT[a]}</small></span></div>`;
   }).join('');
-  return `
-  <div class="pair">
-    ${panel('Inspiration', `<button class="insp ${c.inspiration ? 'on' : ''}" type="button" data-act="insp" aria-pressed="${!!c.inspiration}">${c.inspiration ? 'Inspired' : 'None'}</button>`, 'tiny')}
-    ${panel('Proficiency bonus', `<div class="big">${calc('prof')}</div><label class="mini">Override ${nfield(c, 'profOverride', 'auto')}</label>`, 'tiny')}
-  </div>
-  ${panel('Saving throws', `<div class="sklist">${saves}</div>`)}
-  ${panel('Skills', `<div class="sklist">${skills}</div><div class="skfoot">${chk(c, 'jack', 'Jack of All Trades (half proficiency)')}<span class="legend"><i class="rank r1"></i> proficient <i class="rank r2"></i> expertise</span></div>`)}
-  ${panel('Passive Wisdom (Perception)', `<div class="big">${calc('passive')}</div>`, 'tiny')}
-  ${panel('Proficiencies', `
-    <div class="pgroup"><span class="lbl">Armor</span>${chk(c, 'profs.light', 'Light')}${chk(c, 'profs.medium', 'Medium')}${chk(c, 'profs.heavy', 'Heavy')}${chk(c, 'profs.shields', 'Shields')}</div>
-    <div class="pgroup"><span class="lbl">Weapons</span>${chk(c, 'profs.simple', 'Simple')}${chk(c, 'profs.martial', 'Martial')}</div>
-    <label class="hf"><span class="lbl">Other weapons</span>${txt(c, 'profs.weaponsOther')}</label>
-    <label class="hf"><span class="lbl">Tools</span>${area(c, 'profs.tools', '', 2)}</label>`)}
-  ${panel('Languages', area(c, 'languages', 'Common, …', 2))}`;
+  return {
+    pair: `<div class="pair">
+      ${panel('Inspiration', `<button class="insp ${c.inspiration ? 'on' : ''}" type="button" data-act="insp" aria-pressed="${!!c.inspiration}">${c.inspiration ? 'Inspired' : 'None'}</button>`, 'tiny')}
+      ${panel('Proficiency bonus', `<div class="big">${calc('prof')}</div><label class="mini">Override ${nfield(c, 'profOverride', 'auto')}</label>`, 'tiny')}
+    </div>`,
+    saves: panel('Saving throws', `${remindBox(c, 'saves')}<div class="sklist">${saves}</div>`),
+    skills: panel('Skills', `${remindBox(c, 'checks')}<div class="sklist">${skills}</div><div class="skfoot">${chk(c, 'jack', 'Jack of All Trades (half proficiency)')}<span class="legend"><i class="rank r1"></i> proficient <i class="rank r2"></i> expertise</span></div>`),
+    passive: panel('Passive Wisdom (Perception)', `<div class="big">${calc('passive')}</div>`, 'tiny'),
+    profs: panel('Proficiencies', `
+      <div class="pgroup"><span class="lbl">Armor</span>${chk(c, 'profs.light', 'Light')}${chk(c, 'profs.medium', 'Medium')}${chk(c, 'profs.heavy', 'Heavy')}${chk(c, 'profs.shields', 'Shields')}</div>
+      <div class="pgroup"><span class="lbl">Weapons</span>${chk(c, 'profs.simple', 'Simple')}${chk(c, 'profs.martial', 'Martial')}</div>
+      <label class="hf"><span class="lbl">Other weapons</span>${txt(c, 'profs.weaponsOther')}</label>
+      <label class="hf"><span class="lbl">Tools</span>${area(c, 'profs.tools', '', 2)}</label>`),
+    langs: panel('Languages', area(c, 'languages', 'Common, …', 2)),
+  };
 }
 
 function combat(c) {
@@ -119,7 +147,7 @@ function combat(c) {
     </div>`).join('');
   const pips = (key, n, label) => `<div class="pips" role="group" aria-label="${label}">${[1, 2, 3].map(i => `<button type="button" class="pip ${n >= i ? 'on' : ''}" data-act="death" data-w="${key}" data-n="${i}" aria-label="${label} ${i}"></button>`).join('')}</div>`;
   return `
-  <section class="panel combatcore">
+  <section class="panel combatcore">${remindBox(c, 'turn') ? `<div class="turnrem"><span class="lbl">Start of your turn</span>${remindBox(c, 'turn')}</div>` : ''}
     <div class="trio">
       <button class="stat ac" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
       ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
@@ -170,7 +198,7 @@ function attacks(c) {
         <button class="linkbtn danger" type="button" data-act="rowdel" data-list="attacks" data-i="${i}">Remove attack</button>
       </div>
     </details>`).join('');
-  return panel('Attacks &amp; spellcasting', `
+  return panel('Attacks &amp; spellcasting', `${remindBox(c, 'attacks')}
     <div data-list="attacks" class="atklist">${rows || '<p class="empty">No attacks yet.</p>'}</div>
     <button class="linkbtn" type="button" data-act="rowadd" data-list="attacks">Add an attack</button>
     <div class="spellbox">
@@ -244,6 +272,10 @@ function featureList(c, path, title, opts = {}) {
         <input class="f" data-k="${path}.${i}.name" value="${esc(f.name)}" placeholder="Name" autocomplete="off" aria-label="Name">
         ${opts.src ? `<input class="f" data-k="${path}.${i}.src" value="${esc(f.src)}" placeholder="Where it came from (Background, Level 4…)" autocomplete="off" aria-label="Source">` : ''}
         <textarea class="f" data-k="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(f.text)}</textarea>
+        <div class="remedit">
+          <label class="hf"><span class="lbl">Remind me during</span><select class="f" data-k="${path}.${i}.remind.on" data-rerender>${REMIND_ON.map(([v, l]) => `<option value="${v}" ${(f.remind?.on || '') === v ? 'selected' : ''}>${l}</option>`).join('')}</select></label>
+          ${f.remind?.on ? `<label class="hf"><span class="lbl">Reminder text <small>({cha}, {prof} and the like fill in your numbers)</small></span><input class="f" data-k="${path}.${i}.remind.text" value="${esc(f.remind.text || '')}" placeholder="${esc(f.name)}: +{cha} to saves within 10 ft" autocomplete="off"></label>` : ''}
+        </div>
         <button class="linkbtn danger" type="button" data-act="rowdel" data-list="${path}" data-i="${i}">Remove</button>
       </div>
     </details>`).join('');
@@ -263,19 +295,130 @@ function defenses(c) {
   return panel('Defenses', `<div data-list="defenses" class="defs">${groups}</div>`);
 }
 
+// Sections of the main sheet a player can move around (Arrange). Ability scores and the header stay put.
+export const SECTION_NAMES = {
+  pair: 'Inspiration and proficiency', saves: 'Saving throws', skills: 'Skills', passive: 'Passive Perception', profs: 'Proficiencies', langs: 'Languages',
+  combat: 'Combat', attacks: 'Attacks and spellcasting', equipment: 'Equipment',
+  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', feats: 'Feats', defenses: 'Defenses',
+};
+export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'feats', 'defenses'] };
+export const isSmall = () => matchMedia('(max-width: 700px)').matches;
+// The character's saved arrangement for this screen size, with any new or missing sections filled back in
+export function layoutFor(c) {
+  const all = Object.keys(SECTION_NAMES);
+  if (isSmall()) {
+    const list = (c.layout?.small || []).filter(k => all.includes(k));
+    const def = [...DEFAULT_LAYOUT.A, ...DEFAULT_LAYOUT.B, ...DEFAULT_LAYOUT.C];
+    for (const k of def) if (!list.includes(k)) list.splice(def.indexOf(k), 0, k);
+    return { small: [...new Set(list)] };
+  }
+  const big = c.layout?.big || {};
+  const out = { A: [], B: [], C: [] }, seen = new Set();
+  for (const col of ['A', 'B', 'C']) for (const k of big[col] || []) if (all.includes(k) && !seen.has(k)) { out[col].push(k); seen.add(k); }
+  for (const col of ['A', 'B', 'C']) for (const k of DEFAULT_LAYOUT[col]) if (!seen.has(k)) { out[col].push(k); seen.add(k); }
+  return out;
+}
+
+function sectionHtml(c) {
+  const ss = savesSkills(c);
+  return {
+    ...ss, combat: combat(c), attacks: attacks(c), equipment: equipment(c), limited: limited(c),
+    bgfeat: panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
+    racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…' }),
+    classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature' }),
+    feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.' }),
+    defenses: defenses(c),
+  };
+}
+const arrangeBar = (k, col) => `<div class="arrbar"><button type="button" class="handle" data-drag="${k}" aria-label="Drag ${esc(SECTION_NAMES[k])}">⠿</button><span>${esc(SECTION_NAMES[k])}</span>
+  <button type="button" data-arr="up" data-sec="${k}" aria-label="Move up">↑</button><button type="button" data-arr="down" data-sec="${k}" aria-label="Move down">↓</button>
+  ${col ? `<button type="button" data-arr="left" data-sec="${k}" aria-label="Move to the column on the left" ${col === 'A' ? 'disabled' : ''}>←</button><button type="button" data-arr="right" data-sec="${k}" aria-label="Move to the column on the right" ${col === 'C' ? 'disabled' : ''}>→</button>` : ''}</div>`;
+const wrap = (k, html, col) => `<div class="sec" data-sec="${k}">${ctx.arranging ? arrangeBar(k, col) : ''}${html}</div>`;
+
 function pageSheet(c) {
-  return `${header(c)}
-  <div class="cols">
-    <div class="col colA">${abilities(c)}<div class="stack">${savesSkills(c)}</div></div>
-    <div class="col colB">${combat(c)}${attacks(c)}${equipment(c)}</div>
-    <div class="col colC">${limited(c)}
-      ${panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`)}
-      ${featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…' })}
-      ${featureList(c, 'classFeat', 'Class features', { one: 'a feature' })}
-      ${featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.' })}
-      ${defenses(c)}
-    </div>
+  const H = sectionHtml(c), lay = layoutFor(c);
+  const bar = ctx.arranging ? `<div class="arrangehint"><b>Arrange</b> Drag ⠿ or use the arrows to move sections. ${isSmall() ? 'This order is for phones.' : 'This layout is for tablets and computers; phones keep their own order.'}
+    <button class="btn small" type="button" data-arr="reset">Reset layout</button><button class="btn small primary" type="button" data-arr="done">Done</button></div>` : '';
+  if (lay.small) return `${header(c)}${bar}<div class="cols arrangeable" data-arrange="small"><div class="col colA">${abilities(c)}</div><div class="col" data-col="S">${lay.small.map(k => wrap(k, H[k])).join('')}</div></div>`;
+  return `${header(c)}${bar}
+  <div class="cols arrangeable">
+    <div class="col colA">${abilities(c)}<div class="stack" data-col="A">${lay.A.map(k => wrap(k, H[k], 'A')).join('')}</div></div>
+    <div class="col colB" data-col="B">${lay.B.map(k => wrap(k, H[k], 'B')).join('')}</div>
+    <div class="col colC" data-col="C">${lay.C.map(k => wrap(k, H[k], 'C')).join('')}</div>
   </div>`;
+}
+
+// Save the order the sections are in on screen right now
+function readLayout(root, c) {
+  c.layout = c.layout || {};
+  if (isSmall()) c.layout.small = [...root.querySelectorAll('[data-col="S"] > .sec')].map(e => e.dataset.sec);
+  else {
+    const big = {};
+    for (const col of ['A', 'B', 'C']) big[col] = [...root.querySelectorAll(`[data-col="${col}"] > .sec`)].map(e => e.dataset.sec);
+    c.layout.big = big;
+  }
+  stamp(c, 'layout');
+  ctx.save(c);
+}
+function arrangeClick(b, c, root) {
+  const how = b.dataset.arr;
+  if (how === 'done') { ctx.arranging = false; return ctx.rerender(); }
+  if (how === 'reset') {
+    if (!confirm(`Put every section back where it started${isSmall() ? ' on phones' : ''}?`)) return;
+    c.layout = c.layout || {};
+    if (isSmall()) delete c.layout.small; else delete c.layout.big;
+    stamp(c, 'layout'); ctx.save(c); return ctx.rerender();
+  }
+  const el = root.querySelector(`.sec[data-sec="${b.dataset.sec}"]`); if (!el) return;
+  const colEl = el.parentElement;
+  if (how === 'up' && el.previousElementSibling) colEl.insertBefore(el, el.previousElementSibling);
+  else if (how === 'down' && el.nextElementSibling) colEl.insertBefore(el.nextElementSibling, el);
+  else if (how === 'left' || how === 'right') {
+    const order = ['A', 'B', 'C'], i = order.indexOf(colEl.dataset.col) + (how === 'left' ? -1 : 1);
+    const dest = root.querySelector(`[data-col="${order[i]}"]`); if (!dest) return;
+    dest.append(el);
+  } else return;
+  readLayout(root, c);
+  ctx.rerender();
+  root.querySelector(`.sec[data-sec="${b.dataset.sec}"]`)?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+// Dragging by the handle: works with a finger, a pen or a mouse
+function startDrag(e, c, root) {
+  const handle = e.target.closest('[data-drag]'); if (!handle) return;
+  e.preventDefault();
+  const el = handle.closest('.sec'); const r = el.getBoundingClientRect();
+  const ghost = el.cloneNode(true); ghost.classList.add('dragghost');
+  Object.assign(ghost.style, { width: `${r.width}px`, left: `${r.left}px`, top: `${r.top}px` });
+  document.body.append(ghost);
+  el.classList.add('dragging');
+  const dy = e.clientY - r.top, dx = e.clientX - r.left;
+  const scroller = root.closest('.sheet') || document.scrollingElement;
+  let raf = 0, lastY = e.clientY;
+  const move = ev => {
+    ghost.style.top = `${ev.clientY - dy}px`; ghost.style.left = `${ev.clientX - dx}px`;
+    lastY = ev.clientY;
+    ghost.style.display = 'none';
+    const under = document.elementFromPoint(ev.clientX, ev.clientY);
+    ghost.style.display = '';
+    const col = under?.closest('[data-col]'); if (!col || !root.contains(col)) return;
+    const sibs = [...col.querySelectorAll(':scope > .sec')].filter(x => x !== el);
+    const after = sibs.find(x => { const b = x.getBoundingClientRect(); return ev.clientY < b.top + b.height / 2; });
+    if (after) col.insertBefore(el, after); else col.append(el);
+  };
+  // scroll the sheet when dragging near the top or bottom edge
+  const tick = () => {
+    const h = innerHeight;
+    if (lastY < 90) scroller.scrollTop -= 14; else if (lastY > h - 70) scroller.scrollTop += 14;
+    raf = requestAnimationFrame(tick);
+  };
+  raf = requestAnimationFrame(tick);
+  const up = () => {
+    cancelAnimationFrame(raf);
+    removeEventListener('pointermove', move); removeEventListener('pointerup', up); removeEventListener('pointercancel', up);
+    ghost.remove(); el.classList.remove('dragging');
+    readLayout(root, c); ctx.rerender();
+  };
+  addEventListener('pointermove', move); addEventListener('pointerup', up); addEventListener('pointercancel', up);
 }
 
 /* ---------- page: spells ---------- */
@@ -550,10 +693,13 @@ export function bindSheet(root, getChar) {
     if (el.hasAttribute('data-rerender')) ctx.rerender();
   });
   root.addEventListener('click', e => {
+    const ar = e.target.closest('[data-arr]');
+    if (ar) return arrangeClick(ar, getChar(), root);
     const b = e.target.closest('[data-act]');
     if (!b) return;
     act(b, getChar(), root);
   });
+  root.addEventListener('pointerdown', e => { if (ctx.arranging && e.target.closest('[data-drag]')) startDrag(e, getChar(), root); });
 }
 
 function act(b, c, root) {
@@ -627,6 +773,12 @@ function act(b, c, root) {
     case 'abil': return ctx.openAbility(d.a);
     case 'libview': return ctx.viewEntry(d.id);
     case 'levelup': return ctx.levelUp();
+    case 'xpadd': {
+      const n = parseInt(document.querySelector('#xpAdd')?.value, 10);
+      if (!n) { ctx.toast('Type how much XP to add.'); return; }
+      c.xp = (Number(c.xp) || 0) + n; stamp(c, 'xp'); ctx.save(c); ctx.rerender();
+      ctx.toast(readyToLevel(c) ? `+${n} XP. Ready to level up!` : `+${n} XP.`); return;
+    }
     case 'shortrest': return ctx.shortRest();
     case 'longrest': return ctx.longRest();
     case 'ip': { const st = c.ip || 'ready'; c.ip = st === 'ready' ? 'spent' : 'ready'; return touch('ip'); }

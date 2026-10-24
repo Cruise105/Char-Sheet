@@ -34,18 +34,18 @@ export function syncAuto(c) {
   const abilWant = { str: [], dex: [], con: [], int: [], wis: [], cha: [] };
   const rule = (e, list) => { if (e?.note) want[list].push({ auto: `rule:${e.id}`, name: `Table Rules: ${e.name}`, text: e.note, rule: true, src: 'Table Rules' }); };
   for (const e of raceChain) {
-    for (const t of e.traits || []) want.racial.push({ auto: `race:${e.id}:${t.name}`, name: t.name, text: t.text, src: e.name });
+    for (const t of e.traits || []) want.racial.push({ auto: `race:${e.id}:${t.name}`, name: t.name, text: t.text, src: e.name, ...(t.remind?.on ? { remind: t.remind } : {}) });
     rule(e, 'racial');
     for (const r of e.resist || []) want.defenses.push({ auto: `race:${e.id}:${r.kind}:${r.what}`, kind: r.kind || 'res', what: r.what, src: e.name });
     for (const b of e.abil || []) if (abilWant[b.a]) abilWant[b.a].push({ auto: `race:${e.id}:${b.a}`, src: 'Racial', note: e.name, v: Number(b.v) || 0 });
   }
   for (const p of picks) {
     if (p.cls) {
-      for (const f of p.cls.features || []) if (f.lvl <= p.lvl) want.classFeat.push({ auto: `class:${p.cls.id}:${f.lvl}:${f.name}`, name: f.name, text: f.text, src: `${p.cls.name} ${f.lvl}`, lvl: f.lvl });
+      for (const f of p.cls.features || []) if (f.lvl <= p.lvl) want.classFeat.push({ auto: `class:${p.cls.id}:${f.lvl}:${f.name}`, name: f.name, text: f.text, src: `${p.cls.name} ${f.lvl}`, lvl: f.lvl, ...(f.remind?.on ? { remind: f.remind } : {}) });
       rule(p.cls, 'classFeat');
     }
     if (p.sub) {
-      for (const f of p.sub.features || []) if (f.lvl <= p.lvl) want.classFeat.push({ auto: `sub:${p.sub.id}:${f.lvl}:${f.name}`, name: f.name, text: f.text, src: `${p.sub.name} ${f.lvl}`, lvl: f.lvl });
+      for (const f of p.sub.features || []) if (f.lvl <= p.lvl) want.classFeat.push({ auto: `sub:${p.sub.id}:${f.lvl}:${f.name}`, name: f.name, text: f.text, src: `${p.sub.name} ${f.lvl}`, lvl: f.lvl, ...(f.remind?.on ? { remind: f.remind } : {}) });
       rule(p.sub, 'classFeat');
     }
   }

@@ -70,7 +70,7 @@ The library lives in your Drive folder as "Table Library", and sharing a sheet w
 
 ## Updating the app later
 
-Upload the new files to the same repository (all of them, every time, so nothing new is missed). On the PC, press Ctrl+Shift+R once. Installed tablets update the next time they open while online.
+Upload the new files to the same repository (all of them, every time, so nothing new is missed). GitHub's uploader takes at most 100 files at once, so upload the `fonts` folder on its own, then everything else. On the PC, press Ctrl+Shift+R once. Installed tablets update the next time they open while online.
 
 ## Credits
 
