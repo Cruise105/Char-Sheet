@@ -5,7 +5,7 @@ import { uid } from './model.js';
 
 export const TYPES = [
   ['race', 'Races', 'Race'], ['class', 'Classes', 'Class'], ['subclass', 'Subclasses', 'Subclass'],
-  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'],
+  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'], ['boon', 'Boons', 'Boon'],
 ];
 export const typeName = t => (TYPES.find(x => x[0] === t) || [])[2] || t;
 
@@ -82,6 +82,7 @@ export function blank(type) {
     case 'background': return { ...base, skills: [], tools: '', languages: '', feature: { name: '', text: '' }, feat: '', equipment: '' };
     case 'feat': return { ...base, prereq: '' };
     case 'language': return { ...base, kind: 'Standard', script: '', speakers: '' };
+    case 'boon': return { ...base, dawnTemp: 0, given: 'party' };
     case 'spell': return { ...base, level: 1, school: '', time: '1 action', range: '', components: 'V, S', material: '', duration: 'Instantaneous', conc: false, ritual: false, higher: '', classes: [], subclasses: [] };
   }
   return base;

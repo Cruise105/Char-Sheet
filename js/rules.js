@@ -100,6 +100,7 @@ export function rowWeight(r) { return num(r.wt) * (r.qty === '' || r.qty == null
 export function carried(c) {
   let w = coinWeight(c);
   for (const [k] of INV_CATS) for (const r of c.inv?.[k] || []) w += rowWeight(r);
+  for (const m of c.magicItems || []) w += Number(m.weight) || 0; // items the DM's magic item app gave this character
   return Math.round(w * 100) / 100;
 }
 export const capacity = c => score(c, 'str') * 15 * (c.powerful ? 2 : 1);

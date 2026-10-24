@@ -77,6 +77,59 @@ export function upgrade(c) {
   return c;
 }
 
+/* ---------- hit points as a list of adjustments ---------- */
+// Every HP change (damage, healing, temp HP, typing a number) is saved as its own entry. When two devices change
+// HP at the same moment, both entries survive the merge and the totals are worked out from them in time order.
+// Very old entries are folded into a starting point so the list stays short.
+const FOLD_AFTER = 6 * 3600 * 1000;
+function replayHp(c) {
+  const base = c.hpBase || { cur: Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0, t: 0 };
+  let cur = Number(base.cur) || 0, temp = Number(base.temp) || 0;
+  const max = Number(c.hp?.max) || 0;
+  for (const o of [...(c.hpOps || [])].sort((a, b) => a.t - b.t || String(a.id).localeCompare(String(b.id)))) {
+    const n = Math.max(0, Number(o.n) || 0);
+    if (o.k === 'dmg') { const ft = Math.min(temp, n); temp -= ft; cur = Math.max(0, cur - (n - ft)); }
+    else if (o.k === 'heal') cur = max ? Math.min(max, cur + n) : cur + n;
+    else if (o.k === 'gain') cur += n; // level up: max and current both rise
+    else if (o.k === 'temp') temp = Math.max(temp, n);
+    else if (o.k === 'set') { if (o.cur != null) cur = Math.max(0, Number(o.cur) || 0); if (o.temp != null) temp = Math.max(0, Number(o.temp) || 0); }
+  }
+  c.hp = c.hp || {};
+  c.hp.cur = cur; c.hp.temp = temp;
+}
+export function hpOp(c, op) {
+  if (!c.hpBase) c.hpBase = { cur: Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0, t: 0 };
+  // always later than the last change, so two changes in the same millisecond keep their order
+  const t = Math.max(Date.now(), ...(c.hpOps || []).map(o => o.t + 1), (c.hpBase.t || 0) + 1);
+  c.hpOps = [...(c.hpOps || []), { id: uid(), t, ...op }];
+  // fold entries older than a few hours into the starting point
+  if (c.hpOps.length > 80) {
+    const cut = t - FOLD_AFTER, old = c.hpOps.filter(o => o.t < cut);
+    if (old.length) {
+      const tmp = { hp: { max: c.hp.max }, hpBase: c.hpBase, hpOps: old };
+      replayHp(tmp);
+      c.hpBase = { cur: tmp.hp.cur, temp: tmp.hp.temp, t: Math.max(...old.map(o => o.t)) };
+      c.hpOps = c.hpOps.filter(o => o.t >= cut);
+    }
+  }
+  replayHp(c);
+  c.edits = c.edits || {}; c.edits.hpOps = t; c.updated = t;
+  return c.hp;
+}
+export { replayHp };
+function mergeHp(out, local, remote) {
+  if (!remote.hpOps && !remote.hpBase) return false;
+  const lb = local.hpBase, rb = remote.hpBase;
+  const base = (rb && (!lb || (rb.t || 0) > (lb.t || 0))) ? rb : (lb || rb);
+  const byId = new Map();
+  for (const o of [...(local.hpOps || []), ...(remote.hpOps || [])]) byId.set(o.id, o);
+  const ops = [...byId.values()].filter(o => o.t > (base?.t || 0));
+  const changed = ops.length !== (local.hpOps || []).length || base !== lb;
+  out.hpBase = structuredClone(base); out.hpOps = structuredClone(ops);
+  replayHp(out);
+  return changed;
+}
+
 /* ---------- merging two copies ---------- */
 // Returns { merged, changed } where changed means the remote copy brought something new.
 export function merge(local, remote) {
@@ -85,7 +138,9 @@ export function merge(local, remote) {
   const le = local.edits || {}, re = remote.edits || {};
   let changed = false;
   const paths = Object.keys(re).sort((a, b) => a.length - b.length); // parents before children
+  const hpSpecial = !!(remote.hpOps || local.hpOps);
   for (const p of paths) {
+    if (hpSpecial && (p === 'hpOps' || p === 'hpBase' || p === 'hp.cur' || p === 'hp.temp' || p === 'hp')) continue;
     const rt = re[p];
     // a newer stamp on a parent path in local beats this one
     const covered = Object.keys(le).some(k => (p === k || p.startsWith(k + '.')) && le[k] >= rt);
@@ -95,6 +150,7 @@ export function merge(local, remote) {
     out.edits[p] = rt;
     changed = true;
   }
+  if (mergeHp(out, local, remote)) changed = true;
   out.updated = Math.max(local.updated || 0, remote.updated || 0);
   return { merged: upgrade(out), changed };
 }

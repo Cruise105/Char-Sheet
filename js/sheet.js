@@ -1,6 +1,6 @@
 // Renders a character's pages and keeps the math live as fields change.
 import * as R from './rules.js';
-import { getPath, setPath, stamp, uid } from './model.js';
+import { getPath, setPath, stamp, uid, hpOp } from './model.js';
 import { PRESETS, CLASS_ACCENTS, HEAD_FONTS, BODY_FONTS, FRAMES, applyTheme } from './theme.js';
 import * as L from './library.js';
 import { choicesFor } from './autofill.js';
@@ -221,6 +221,8 @@ function equipment(c) {
       <button class="linkbtn" type="button" data-act="ac">Edit</button>
     </div>
     ${simpleList(c, 'consumables', 'Consumables', [['name', 'Consumable', 'f'], ['n', 'Left', 'n']])}
+    ${(c.magicItems || []).length ? `<div class="miblock"><span class="lbl">Magic items from your DM</span>${c.magicItems.map(m => `<details class="mi"><summary><b>${esc(m.name)}</b>${m.attuned ? '<span class="attb">Attuned</span>' : ''}</summary>
+      <p class="sub">${esc([m.type, m.attune].filter(Boolean).join(' · '))}</p>${fmt(m.desc)}</details>`).join('')}</div>` : ''}
     <div class="attune">
       <div class="lh"><span class="lbl">Attuned magic items</span><span class="count">${calc('attuned')}</span></div>
       ${simpleList(c, 'attuned', '', [['name', 'Item', 'f'], ['notes', 'Notes', 'f']], true)}
@@ -295,13 +297,31 @@ function defenses(c) {
   return panel('Defenses', `<div data-list="defenses" class="defs">${groups}</div>`);
 }
 
+// What the DM's apps send to this sheet: Session Notes (deaths, Favor of Fate, revealed diseases, survival) and boons
+function dmPanel(c) {
+  const sn = c.sn, boons = c.boons || [];
+  if (!sn && !boons.length) return '<div class="dmempty"></div>';
+  const STAGE = n => ['', 'Fine', 'Fine', 'Fine', 'Hindered', 'Exhausting', 'Exhausting', 'Critical'][Math.max(0, Math.min(7, Number(n) || 0))] || '';
+  const surv = sn?.survival ? `<div class="survrow">${['hunger', 'thirst', 'fatigue'].map(k => `<span><small>${k[0].toUpperCase() + k.slice(1)}</small><b>${esc(sn.survival[k])}</b></span>`).join('')}</div>` : '';
+  const dis = (sn?.diseases || []).map(d => `<details class="dis"><summary><b>${esc(d.name)}</b><small>${d.state === 'declining' ? 'getting better' : `stage ${d.stage}`}${d.dc ? ` · DC ${d.dc} Con` : ''}</small></summary>
+    ${d.effects.length ? `<ul>${d.effects.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : '<p class="hint">No symptoms yet.</p>'}
+    <p class="hint">Saving throws so far: ${d.pass} passed, ${d.fail} failed.</p></details>`).join('');
+  const bn = boons.map(b => `<details class="dis boon"><summary><b>${esc(b.name)}</b>${b.dawnTemp ? `<small>${b.dawnTemp} temp HP at dawn</small>` : ''}</summary>${fmt(b.text)}</details>`).join('');
+  return panel('From your DM', `
+    ${sn ? `<div class="dmrow"><span class="lbl">Favor of Fate</span><b class="${sn.favorSpent ? 'spent' : 'fresh'}">${sn.favorSpent ? 'Spent' : 'Available'}</b>
+      <span class="lbl">Deaths</span><b>${esc(sn.deaths)}</b></div>` : ''}
+    ${bn ? `<span class="lbl">Boons</span>${bn}` : ''}
+    ${dis ? `<span class="lbl">Diseases</span>${dis}` : ''}
+    ${surv ? `<span class="lbl">Survival</span>${surv}` : ''}`, 'dmpanel');
+}
+
 // Sections of the main sheet a player can move around (Arrange). Ability scores and the header stay put.
 export const SECTION_NAMES = {
   pair: 'Inspiration and proficiency', saves: 'Saving throws', skills: 'Skills', passive: 'Passive Perception', profs: 'Proficiencies', langs: 'Languages',
-  combat: 'Combat', attacks: 'Attacks and spellcasting', equipment: 'Equipment',
+  combat: 'Combat', dm: 'From your DM', attacks: 'Attacks and spellcasting', equipment: 'Equipment',
   limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', feats: 'Feats', defenses: 'Defenses',
 };
-export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'feats', 'defenses'] };
+export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'feats', 'defenses'] };
 export const isSmall = () => matchMedia('(max-width: 700px)').matches;
 // The character's saved arrangement for this screen size, with any new or missing sections filled back in
 export function layoutFor(c) {
@@ -322,7 +342,7 @@ export function layoutFor(c) {
 function sectionHtml(c) {
   const ss = savesSkills(c);
   return {
-    ...ss, combat: combat(c), attacks: attacks(c), equipment: equipment(c), limited: limited(c),
+    ...ss, combat: combat(c), dm: dmPanel(c), attacks: attacks(c), equipment: equipment(c), limited: limited(c),
     bgfeat: panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
     racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…' }),
     classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature' }),
@@ -548,6 +568,7 @@ function pageInventory(c) {
     </div>
     <div class="carrybar"><i data-calc="carrybar"></i></div>
     <p class="warn" data-calc="carrywarn"></p>
+    ${(c.magicItems || []).some(m => m.weight) ? `<p class="hint">Includes ${(c.magicItems || []).reduce((t, m) => t + (Number(m.weight) || 0), 0)} lb of magic items from your DM.</p>` : ''}
   </section>
   ${panel('Coins', `<div class="coins">${coins}</div>
     <div class="coinfoot"><span class="sub">100 coins weigh 1 lb · ${calc('coinwt')}</span>
@@ -626,7 +647,7 @@ export function updateCalcs(root, c) {
       case 'abdc': out = c.abilityDc.abil ? R.saveDc(c, c.abilityDc.abil) : '—'; break;
       case 'atkbonus': { const atk = c.attacks[a]; out = atk ? R.sign(R.attackBonus(c, atk)) : ''; break; }
       case 'atkdmg': { const atk = c.attacks[a]; out = atk ? R.damageText(c, atk) : ''; break; }
-      case 'attuned': { const n = (c.attuned || []).filter(x => x.name).length, max = Number(c.attuneMax) || 3; out = `${n} of ${max}`; el.classList.toggle('over', n > max); break; }
+      case 'attuned': { const n = (c.attuned || []).filter(x => x.name).length + (c.magicItems || []).filter(x => x.attuned).length, max = Number(c.attuneMax) || 3; out = `${n} of ${max}`; el.classList.toggle('over', n > max); break; }
       case 'hpbar': {
         const max = Number(c.hp.max) || 0, cur = Math.max(0, Number(c.hp.cur) || 0), tmp = Math.max(0, Number(c.hp.temp) || 0);
         const pct = max ? Math.min(100, (cur / max) * 100) : 0;
@@ -660,6 +681,7 @@ export function bindSheet(root, getChar) {
     const el = e.target;
     if (el.matches('[data-theme-k]')) return themeInput(el, getChar());
     if (!el.dataset.k || el.type === 'checkbox' || el.tagName === 'SELECT') return;
+    if (el.dataset.k === 'hp.cur' || el.dataset.k === 'hp.temp') return; // saved on change, as an adjustment
     const c = getChar();
     let v = el.value;
     if (el.dataset.type === 'num') v = v.trim() === '' ? '' : (Number.isFinite(Number(v)) ? Number(v) : v);
@@ -681,6 +703,12 @@ export function bindSheet(root, getChar) {
     if (el.matches('[data-bgimg]')) return pickImage(el, getChar(), 'theme.bg.img', 1920);
     if (!el.dataset.k) return;
     const c = getChar();
+    if (el.dataset.k === 'hp.cur' || el.dataset.k === 'hp.temp') {
+      const n = el.value.trim() === '' ? 0 : Number(el.value);
+      if (!Number.isFinite(n)) return;
+      hpOp(c, el.dataset.k === 'hp.cur' ? { k: 'set', cur: n } : { k: 'set', temp: n });
+      updateCalcs(root, c); ctx.save(c); return;
+    }
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.dataset.type === 'num' && el.type !== 'checkbox') v = Number(v);
     if (el.type === 'checkbox' || el.tagName === 'SELECT') {
@@ -747,23 +775,19 @@ function act(b, c, root) {
     case 'hp': {
       const amt = Math.abs(parseInt(document.querySelector('#hpAmt')?.value, 10));
       if (!amt) { ctx.toast('Type an amount first.'); document.querySelector('#hpAmt')?.focus(); return; }
-      const hp = c.hp, max = Number(hp.max) || 0;
+      const hp = c.hp;
       if (d.how === 'dmg') {
         const fromTemp = Math.min(Number(hp.temp) || 0, amt);
-        hp.temp = (Number(hp.temp) || 0) - fromTemp;
-        hp.cur = Math.max(0, (Number(hp.cur) || 0) - (amt - fromTemp));
+        hpOp(c, { k: 'dmg', n: amt });
         if (amt - fromTemp > 0 && c.ip === 'spent') { c.ip = 'recharging'; stamp(c, 'ip'); }
-        stamp(c, 'hp.temp'); stamp(c, 'hp.cur');
         ctx.toast(fromTemp ? `Took ${amt}: ${fromTemp} from temp HP, ${amt - fromTemp} from HP.` : `Took ${amt} damage.`);
       } else if (d.how === 'heal') {
-        hp.cur = max ? Math.min(max, (Number(hp.cur) || 0) + amt) : (Number(hp.cur) || 0) + amt;
-        stamp(c, 'hp.cur');
+        hpOp(c, { k: 'heal', n: amt });
         ctx.toast(`Healed ${amt}.`);
       } else {
         // temp HP doesn't stack: keep the higher
         const before = Number(hp.temp) || 0;
-        hp.temp = Math.max(before, amt);
-        stamp(c, 'hp.temp');
+        hpOp(c, { k: 'temp', n: amt });
         ctx.toast(amt > before ? `Temp HP is now ${amt}.` : `Kept your current ${before} temp HP (temp HP doesn't stack).`);
       }
       ctx.save(c); return ctx.rerender();

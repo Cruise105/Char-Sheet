@@ -8,8 +8,12 @@ import { db } from './db.js';
 import { merge, hashOf, upgrade } from './model.js';
 import { CLIENT_ID, APP_ID, PICKER_API_KEY } from './config.js';
 import { exportCustom, mergeCustom, replaceCustom } from './library.js';
+import { runBridge, writeParty } from './bridge.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
+// The DM's device also reads Session Notes and the magic item app, which keep their files in the app's private Drive folder
+const DM_SCOPE = `${SCOPE} https://www.googleapis.com/auth/drive.appdata`;
+const scopeFor = () => (role() === 'dm' ? DM_SCOPE : SCOPE);
 const API = 'https://www.googleapis.com/drive/v3';
 const UPLOAD = 'https://www.googleapis.com/upload/drive/v3/files';
 const FOLDER_NAME = 'Character Sheets';
@@ -29,7 +33,7 @@ const $ = s => document.querySelector(s);
 async function saveState() { await db.setMeta('sync', structuredClone(ss)); }
 function saveToken() { try { localStorage.setItem('charsheet-token', JSON.stringify(tok)); } catch { /* memory only */ } }
 function loadToken() { try { const t = JSON.parse(localStorage.getItem('charsheet-token') || 'null'); if (t && t.exp > Date.now()) Object.assign(tok, t); } catch { /* ignore */ } }
-const tokenValid = () => tok.value && tok.exp > Date.now() + 30000;
+const tokenValid = () => tok.value && tok.exp > Date.now() + 30000 && (tok.scope || SCOPE) === scopeFor();
 export const role = () => ctx?.settings().role || 'player';
 export const linkOf = id => ss.links[id] || null;
 
@@ -58,17 +62,17 @@ async function signIn() {
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
       client_id: CLIENT_ID,
-      scope: SCOPE,
+      scope: scopeFor(),
       callback: r => {
         if (r.error) return reject(new Error(r.error_description || r.error));
-        tok.value = r.access_token;
+        tok.value = r.access_token; tok.scope = scopeFor();
         tok.exp = Date.now() + (Number(r.expires_in) || 3600) * 1000;
         saveToken();
         resolve();
       },
       error_callback: e => reject(new Error(e?.type === 'popup_closed' ? 'Sign-in was closed before it finished.' : (e?.message || 'Sign-in failed.'))),
     });
-    client.requestAccessToken({ prompt: ss.connected ? '' : 'consent' });
+    client.requestAccessToken({ prompt: ss.connected && !ss.needScope ? '' : 'consent' });
   });
 }
 async function ensureToken(interactive) {
@@ -82,6 +86,10 @@ async function ensureToken(interactive) {
 async function api(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { Authorization: `Bearer ${tok.value}`, ...(opts.headers || {}) } });
   if (r.status === 401) { tok.value = null; saveToken(); const e = new Error('auth'); e.auth = true; throw e; }
+  if (r.status === 403) {
+    let j = null; try { j = await r.clone().json(); } catch { /* not json */ }
+    if (JSON.stringify(j || '').includes('insufficient')) { tok.value = null; ss.needScope = true; saveToken(); const e = new Error('auth'); e.auth = true; e.scope = true; throw e; }
+  }
   if (r.status === 404) { const e = new Error('missing'); e.missing = true; throw e; }
   if (!r.ok) {
     let msg = `Google Drive answered with an error (${r.status}).`;
@@ -153,6 +161,45 @@ async function syncOne(c, fileId, knownModified) {
   return { c, changed };
 }
 
+/* ---------- other apps' private files (DM) ---------- */
+async function findAppdata(name) {
+  ss.appdata = ss.appdata || {};
+  if (ss.appdata[name]) return ss.appdata[name];
+  const q = encodeURIComponent(`name='${name}'`);
+  const f = (await (await api(`${API}/files?spaces=appDataFolder&q=${q}&fields=files(id)&pageSize=1`)).json()).files?.[0];
+  if (f) ss.appdata[name] = f.id;
+  return f?.id || null;
+}
+// Other apps' files only download again when they've changed
+const appCache = {};
+async function readAppdata(name) {
+  const id = await findAppdata(name);
+  if (!id) return null;
+  try {
+    const m = await meta(id);
+    if (appCache[name] && appCache[name].modified === m.modifiedTime) return appCache[name].data;
+    const data = await download(id);
+    appCache[name] = { modified: m.modifiedTime, data };
+    return data;
+  } catch (e) { if (e.missing) { delete ss.appdata[name]; delete appCache[name]; return null; } throw e; }
+}
+async function writeAppdata(name, data) {
+  const h = hashOf({ ...data, updated: 0 });
+  ss.appHash = ss.appHash || {};
+  if (ss.appHash[name] === h) return;
+  let id = await findAppdata(name);
+  if (id) await writeFile(data, { fileId: id });
+  else {
+    const boundary = 'cs' + Math.random().toString(36).slice(2);
+    const m = JSON.stringify({ name, parents: ['appDataFolder'], mimeType: 'application/json' });
+    const body = `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${m}\r\n--${boundary}\r\nContent-Type: application/json\r\n\r\n${JSON.stringify(data)}\r\n--${boundary}--`;
+    const r = await api(`${UPLOAD}?uploadType=multipart&fields=id`, { method: 'POST', headers: { 'Content-Type': `multipart/related; boundary=${boundary}` }, body });
+    ss.appdata[name] = (await r.json()).id;
+  }
+  ss.appHash[name] = h;
+}
+const bridgeIO = () => ({ readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId });
+
 /* ---------- the library file ---------- */
 // DM: one file in the folder, merged both ways so your PC and tablet stay in step.
 // Player: read-only copy of the DM's file.
@@ -202,6 +249,9 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
     const names = [];
     if (role() === 'dm') {
       await ensureFolder();
+      // pull in Session Notes and magic items first, so this pass uploads what changed
+      try { const b = await runBridge(bridgeIO()); if (b.changed.length) names.push(...b.changed); ss.needScope = false; }
+      catch (e) { if (e.auth) throw e; }
       const files = await listFolder();
       const byFile = new Map(Object.entries(ss.links).map(([cid, l]) => [l.fileId, cid]));
       for (const f of files) {
@@ -224,6 +274,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       const live = new Set(files.map(f => f.id));
       for (const [cid, l] of Object.entries(ss.links)) if (!live.has(l.fileId)) delete ss.links[cid];
       if (await syncLibrary(true)) names.push('the library');
+      try { await writeParty(bridgeIO()); } catch (e) { if (e.auth) throw e; }
     } else {
       try { if (await syncLibrary(false)) names.push('the library'); } catch (e) { if (e.auth) throw e; }
       for (const [cid, l] of Object.entries(ss.links)) {
@@ -247,7 +298,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
     else if (names.length && !quiet) ctx.toast(`Updated from Drive: ${[...new Set(names)].join(', ')}`);
     else if (interactive && !names.length) ctx.toast('Everything is in sync.');
   } catch (err) {
-    if (err.auth) { setStatus('signin'); if (interactive) ctx.toast('Google sign-in expired. Tap Sign in to sync again.'); }
+    if (err.auth) { setStatus('signin'); if (interactive || err.scope) ctx.toast(err.scope ? 'Sign in again so this device can also read Session Notes and the magic item app.' : 'Google sign-in expired. Tap Sign in to sync again.'); }
     else { lastError = err.message || String(err); setStatus('error'); if (interactive) ctx.toast(lastError); }
   } finally {
     syncing = false;
@@ -372,6 +423,7 @@ export async function openShared(into = null) {
 }
 
 export async function connect() { await syncNow({ interactive: true }); }
+export const isConnected = () => ss.connected;
 
 async function disconnect() {
   if (tok.value && window.google?.accounts?.oauth2) { try { google.accounts.oauth2.revoke(tok.value, () => {}); } catch { /* ignore */ } }
@@ -438,7 +490,8 @@ let autoStarted = false;
 function startAuto() {
   if (autoStarted) return;
   autoStarted = true;
-  // Push a few seconds after edits settle; check Drive for others' changes about every 30 seconds
+  // Push a few seconds after edits settle; look for others' changes every 5 seconds (10 on the DM's device),
+  // so HP from the Bestiary or a player shows up within a few seconds
   let last = '', ticks = 0;
   setInterval(async () => {
     if (!ss.connected || syncing || !navigator.onLine || !tokenValid()) { renderStatus(); return; }
@@ -446,7 +499,8 @@ function startAuto() {
     const chars = await db.all();
     const h = hashOf([chars.filter(c => ss.links[c.id]).map(c => c.updated), role() === 'dm' ? exportCustom().updated : 0]);
     const dirty = chars.some(c => ss.links[c.id] && ss.links[c.id].hash !== hashOf(c)) || (role() === 'dm' && ss.lib?.fileId && ss.lib.hash !== hashOf(exportCustom()));
-    if ((dirty && h === last) || ticks % 6 === 0) syncNow({ quiet: true });
+    if (document.visibilityState === 'visible' && ((dirty && h === last) || ticks % (role() === 'dm' ? 2 : 1) === 0)) syncNow({ quiet: true });
+    else if (dirty && h === last) syncNow({ quiet: true });
     last = h;
     renderStatus();
   }, 5000);

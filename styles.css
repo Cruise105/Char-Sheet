@@ -396,6 +396,28 @@ table.inv .f.n{max-width:none}
 .f.xpf{max-width:none}
 .readybadge{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:999px;border:2px solid var(--accent);color:var(--accent);font-weight:700;font-size:.88rem}
 
+/* ---------- from the DM's apps ---------- */
+.dmempty{display:none}
+.sec:has(> .dmempty){display:none}
+.dmrow{display:grid;grid-template-columns:auto 1fr auto auto;gap:4px 10px;align-items:baseline;margin-bottom:8px}
+.dmrow b.fresh{color:var(--accent)}
+.dmrow b.spent{color:var(--muted)}
+.dis{border:1px solid var(--line);border-radius:8px;padding:0 10px;margin:4px 0 8px;background:var(--raise)}
+.dis summary{display:flex;justify-content:space-between;gap:8px;align-items:center;min-height:40px;cursor:pointer}
+.dis summary small{color:var(--muted)}
+.dis ul{margin:0 0 6px;padding-left:18px}
+.survrow{display:flex;gap:8px}
+.survrow span{flex:1;display:grid;justify-items:center;padding:6px;border:1px solid var(--line);border-radius:8px;background:var(--raise)}
+.survrow small{color:var(--muted);font-size:.75rem}
+.miblock{margin-top:8px}
+.mi{border-bottom:1px solid color-mix(in srgb,var(--line) 45%,transparent)}
+.mi summary{display:flex;justify-content:space-between;gap:8px;align-items:center;min-height:40px;cursor:pointer}
+.attb{font-size:.72rem;border:1px solid var(--accent);color:var(--accent);border-radius:99px;padding:0 8px}
+table.links{width:100%;border-collapse:collapse;margin:6px 0}
+table.links th{font-size:.78rem;color:var(--muted);text-align:left;font-weight:500}
+table.links td{padding:3px 4px;vertical-align:top}
+table.links td small{display:block;color:var(--muted);font-size:.75rem}
+
 /* ---------- reminders ---------- */
 .reminders{list-style:none;margin:0 0 8px;padding:0;display:grid;gap:4px}
 .reminders li{padding:5px 8px 5px 10px;border-left:3px solid var(--accent);background:var(--accent-soft);border-radius:0 6px 6px 0;font-size:.9rem}

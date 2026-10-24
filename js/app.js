@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { newCharacter, upgrade, merge, stamp, uid } from './model.js';
+import { newCharacter, upgrade, merge, stamp, uid, hpOp } from './model.js';
 import * as R from './rules.js';
 import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor } from './sheet.js';
 import { PRESETS } from './theme.js';
@@ -8,6 +8,7 @@ import * as L from './library.js';
 import { resolvePicks, syncAuto } from './autofill.js';
 import { initLibrary, showLibrary, entryHtml } from './libui.js';
 import * as M from './magic.js';
+import * as B from './bridge.js';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -212,9 +213,9 @@ function levelUp() {
       } else row().level = newLvl();
       const target = st.idx === 'new' ? c.classes[c.classes.length - 1] : row();
       if (st.sub) target.sub = st.sub;
-      c.hp.max = (Number(c.hp.max) || 0) + g; c.hp.cur = (Number(c.hp.cur) || 0) + g;
+      c.hp.max = (Number(c.hp.max) || 0) + g; hpOp(c, { k: 'gain', n: g });
       c.hpPerLevel = st.bonus;
-      stamp(c, 'hp.max'); stamp(c, 'hp.cur'); stamp(c, 'hpPerLevel');
+      stamp(c, 'hp.max'); stamp(c, 'hpPerLevel');
       if (asiNow) {
         if (st.asi === 'asi') {
           for (const a of [st.asiA, st.asiB]) { c.abil[a].adj.push({ src: 'ASI', note: `Level ${total}`, v: 1, id: uid() }); stamp(c, `abil.${a}`); }
@@ -268,8 +269,8 @@ function shortRest() {
       if (!roll || roll < 1 || roll > Number(k.hd)) { toast(`Type your d${k.hd} roll (1 to ${k.hd}).`); return; }
       const heal = Math.max(0, roll + R.amod(c, 'con'));
       k.hdUsed = (Number(k.hdUsed) || 0) + 1;
-      c.hp.cur = Math.min(Number(c.hp.max) || 0, (Number(c.hp.cur) || 0) + heal);
-      stamp(c, 'classes'); stamp(c, 'hp.cur'); save(c);
+      hpOp(c, { k: 'heal', n: heal });
+      stamp(c, 'classes'); save(c);
       log.push(`d${k.hd}: rolled ${roll} ${R.amod(c, 'con') >= 0 ? '+' : '−'} ${Math.abs(R.amod(c, 'con'))} = ${heal} HP`);
       return paint();
     }
@@ -302,7 +303,7 @@ function longRest() {
     <div class="row end"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-lr-go>Finish long rest</button></div>`;
   actDialog(draw, e => {
     if (!e.target.closest('[data-lr-go]')) return;
-    c.hp.cur = Number(c.hp.max) || 0; c.hp.temp = 0;
+    hpOp(c, { k: 'set', cur: Number(c.hp.max) || 0, temp: 0 });
     let left = regain;
     for (const k of [...c.classes].sort((a, b) => Number(b.hd) - Number(a.hd))) { const back = Math.min(left, Number(k.hdUsed) || 0); k.hdUsed = (Number(k.hdUsed) || 0) - back; left -= back; }
     for (const f of c.limited || []) f.left = f.total;
@@ -310,7 +311,7 @@ function longRest() {
     if (Number(c.exhaustion) && st.ate) c.exhaustion = Number(c.exhaustion) - 1;
     M.restoreAll(c);
     c.ip = 'ready';
-    for (const p of ['hp.cur', 'hp.temp', 'classes', 'limited', 'death', 'exhaustion', 'magic', 'ip']) stamp(c, p);
+    for (const p of ['classes', 'limited', 'death', 'exhaustion', 'magic', 'ip']) stamp(c, p);
     save(c);
     $('#actDlg').close();
     toast('Long rest done. You wake refreshed.');
@@ -624,9 +625,25 @@ function renderTableRules() {
     box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'}, ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'} and ${t.leveling === 'milestone' ? 'milestone leveling' : 'experience points'}.</p>`;
   }
 }
+// DM: which Session Notes character and which magic item character each sheet belongs to
+async function renderLinked() {
+  const box = $('#linkedApps'), set = $('#linkedSet');
+  set.hidden = state.settings.role !== 'dm';
+  if (set.hidden) return;
+  const src = B.sources, opts = B.linkOptions(), links = await B.getLinks();
+  const chars = (await db.all()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  if (!src.read) { box.innerHTML = `<p class="hint">Connect Google Drive and sync once. Your device then reads Session Notes and the magic item app and links each sheet to the same character there, by name.</p>`; return; }
+  const sel = (c, app, list, cur) => `<select class="f" data-link="${app}" data-char="${c.id}"><option value="">${cur ? 'Match by name' : 'Match by name (none found)'}</option><option value="none" ${links[c.id]?.[app] === 'none' ? 'selected' : ''}>Not linked</option>${list.map(o => `<option value="${esc(o.id)}" ${links[c.id]?.[app] === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>`;
+  box.innerHTML = `${src.error ? `<p class="warn">${esc(src.error)}</p>` : ''}
+    <p class="hint">${src.sn ? 'Session Notes found.' : 'Session Notes not found in your Drive.'} ${src.mi ? 'Magic item app found.' : 'Magic item app not found in your Drive (turn on its Google Drive sync).'}</p>
+    <table class="links"><thead><tr><th>Sheet</th><th>Session Notes</th><th>Magic items</th></tr></thead><tbody>
+    ${chars.map(c => { const r = B.resolvedLinks(c, links); return `<tr><td>${esc(c.name || 'Unnamed')}</td><td>${sel(c, 'sn', opts.sn, r.sn)}${r.sn ? `<small>${esc(r.sn.name)}</small>` : ''}</td><td>${sel(c, 'mi', opts.mi, r.mi)}${r.mi ? `<small>${esc(r.mi.name)}</small>` : ''}</td></tr>`; }).join('')}
+    </tbody></table>`;
+}
 function openSettings() {
   const dlg = $('#settingsDlg');
   renderTableRules();
+  renderLinked();
   for (const b of dlg.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
   sync.renderStatus();
   dlg.showModal();
@@ -645,7 +662,7 @@ async function start() {
   await loadSettings();
   await L.loadLibrary();
   initSheet(sheetCtx);
-  initLibrary($('#libview'), { toast, isDm: () => state.settings.role === 'dm', libraryEdited: () => {} });
+  initLibrary($('#libview'), { toast, isDm: () => state.settings.role === 'dm', libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })) });
   $('#libBtn').addEventListener('click', () => openLibraryView());
   bindSheet($('#app'), () => state.cur);
   const tb = () => document.documentElement.style.setProperty('--tb', `${$('.topbar').offsetHeight}px`);
@@ -682,13 +699,21 @@ async function start() {
       for (const b of sd.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
       sync.renderStatus();
       renderTableRules();
+      renderLinked();
       if (app.dataset.view === 'home') showHome();
       if (app.dataset.view === 'library') showLibrary();
     }
     const ts = e.target.closest('[data-ts]');
+    if (e.target.closest('#linkSync')) { sync.syncNow({ interactive: true }).then(renderLinked); }
     if (ts) { L.setTableSetting(ts.dataset.ts, ts.dataset.v).then(() => { renderTableRules(); if (state.cur) renderSheet(); }); }
     if (e.target.closest('#exportAll')) exportAll();
     if (e.target.closest('[data-close]')) sd.close();
+  });
+  sd.addEventListener('change', async e => {
+    const s = e.target.closest('[data-link]'); if (!s) return;
+    await B.setLink(s.dataset.char, s.dataset.link, s.value);
+    toast('Link saved. It applies on the next sync.');
+    renderLinked(); sync.syncNow({ quiet: true });
   });
   $('#importFile').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ''; sd.close(); });
   for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });

@@ -62,9 +62,23 @@ The library lives in your Drive folder as "Table Library", and sharing a sheet w
 - **Short rest** spends hit dice one at a time (roll at the table, type it in). **Long rest** restores everything.
 - **Table Rules switches** (DM, in Settings): spell points or slots, and Active or standard initiative. Players get the change with the Table Library. In Active Initiative the Initiative box becomes the Interrupt Point; taking HP damage recharges a spent one.
 
+## Linked apps (Stage 4)
+
+Your device (DM role) ties your apps together whenever the Character Sheets app syncs:
+
+- **Magic item app:** each character's items show on their sheet with full text and attunement, without the value, and count toward carried weight. Their attunement limit comes from there too. Turn on Google Drive sync in the magic item app.
+- **Session Notes:** Favor of Fate, deaths, survival stages, and diseases you've tapped **Reveal on their sheet** for (incubating diseases stay hidden until you do). Session Notes also takes each linked character's Max HP, AC and Passive Perception from their sheet.
+- **Boons:** add them in the Library under Boons, given to the whole party or chosen characters. Temp HP at dawn is applied when the Session Notes clock passes dawn, and never stacks.
+- **Bestiary combat tracker:** linked players' HP, AC and Interrupt Points come from their sheets during combat, checked every few seconds, and damage or healing you enter goes onto their sheet. In Active Initiative, starting combat readies everyone's Interrupt Point, a new round readies recharging ones, and ending combat resets them.
+
+Characters are matched by name. To fix a match, use **Settings → Linked apps** here, and the **Character sheet** box in the Bestiary's Party list.
+
+The first time after this update, your device, the Bestiary and Session Notes ask you to sign in to Google once more, because they now read each other's files.
+
 ## How syncing works
 
-- Each device saves instantly to itself, then syncs with Drive a few seconds after changes and checks for others' changes about every 30 seconds.
+- Each device saves instantly to itself, then syncs with Drive a few seconds after changes, and checks for others' changes every 5 seconds while the app is open (10 on the DM's device).
+- HP is saved as a list of changes, so damage you enter in the Bestiary and healing a player taps at the same moment both count.
 - If you and a player change different parts of the sheet at the same time, both changes are kept. If you both change the same field, the later edit wins. A list (one inventory section, the attacks) counts as one field.
 - The sync dot on the top bar: green synced, yellow syncing, gray signed out or offline, red a problem (tap it to see what).
 

@@ -62,6 +62,7 @@ export function entryHtml(e) {
     add('Duration', (e.conc ? 'Concentration, ' : '') + esc(e.duration));
     add('Lists', [...(e.classes || []), ...(e.subclasses || [])].map(id => L.get(id)?.name).filter(Boolean).map(esc).join(', '));
   }
+  if (e.type === 'boon') { add('Given to', e.given === 'party' ? 'The whole party' : (Array.isArray(e.given) ? e.given.map(id => ctx.chars?.().find(x => x.id === id)?.name).filter(Boolean).map(esc).join(', ') : '')); add('At each dawn', Number(e.dawnTemp) ? `${esc(e.dawnTemp)} temporary HP` : ''); }
   if (e.type === 'language') { add('Type', esc(e.kind)); add('Script', esc(e.script)); add('Typical speakers', esc(e.speakers)); }
   const list = (title, items, lvl) => items?.length ? `<h3>${title}</h3>${items.map(f => `<section class="lfeat"><h4>${lvl ? `<span class="lv">${f.lvl}</span>` : ''}${esc(f.name)}</h4>${para(f.text)}</section>`).join('')}` : '';
   return `
@@ -118,6 +119,7 @@ const FIELDS = {
   background: [['name', 'Name'], ['src', 'Book and page'], ['skills', 'Skill proficiencies', 'skills'], ['tools', 'Tools'], ['languages', 'Languages'],
     ['feature.name', 'Feature name'], ['feature.text', 'Feature text', 'area'], ['feat', 'Assigned feat', 'featSel'], ['equipment', 'Equipment', 'area'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   feat: [['name', 'Name'], ['src', 'Book and page'], ['prereq', 'Prerequisite'], ['desc', 'Full text', 'area'], ['note', 'Table Rules note', 'area']],
+  boon: [['name', 'Name'], ['given', 'Given to', 'given'], ['dawnTemp', 'Temp HP at each dawn (0 for none)', 'num'], ['desc', 'Full text', 'area'], ['note', 'Table Rules note', 'area']],
   language: [['name', 'Name'], ['kind', 'Type', 'langKind'], ['script', 'Script'], ['speakers', 'Typical speakers'], ['src', 'Book and page'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
 };
 
@@ -131,6 +133,15 @@ function editorHtml(d) {
       case 'num': return `<label class="hf">${lab}<input class="f n" data-f="${path}" data-num inputmode="numeric" value="${esc(v)}"></label>`;
       case 'hd': return `<label class="hf">${lab}<select class="f" data-f="${path}" data-num>${opt([6, 8, 10, 12].map(n => [n, `d${n}`]), v)}</select></label>`;
       case 'abilSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'None'], ...ABILS], v)}</select></label>`;
+      case 'given': {
+        const party = v === 'party' || v == null;
+        const chosen = Array.isArray(v) ? v : [];
+        return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>
+          <label class="chk"><input type="radio" name="given" data-given="party" ${party ? 'checked' : ''}><span>The whole party</span></label>
+          <label class="chk"><input type="radio" name="given" data-given="some" ${party ? '' : 'checked'}><span>Only some characters</span></label>
+          ${party ? '' : `<div class="checks">${(ctx.chars?.() || []).map(x => `<label class="chk"><input type="checkbox" data-givenc value="${x.id}" ${chosen.includes(x.id) ? 'checked' : ''}><span>${esc(x.name || 'Unnamed')}</span></label>`).join('') || '<p class="hint">No characters on this device yet.</p>'}</div>`}
+          <span class="hint">Shows on those sheets. Dawn temp HP uses the Session Notes clock and never stacks.</span></fieldset>`;
+      }
       case 'casterSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'Not a spellcaster'], ['full', 'Full caster (Wizard, Cleric…)'], ['half', 'Half caster (Paladin, Ranger)'], ['artificer', 'Half caster, rounded up (Artificer)'], ['third', 'Third caster'], ['pact', 'Pact Magic (Warlock)']], v)}</select></label>`;
       case 'casterSub': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'No'], ['third', 'Yes, third caster (Eldritch Knight, Arcane Trickster)']], v)}</select></label>`;
       case 'numlist': return `<label class="hf">${lab}<input class="f" data-f="${path}" data-numlist value="${esc((v || []).join(', '))}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
@@ -178,6 +189,8 @@ function onInput(e) {
     return;
   }
   const d = st.draft; if (!d) return;
+  if (el.dataset.given && e.type === 'change') { d.given = el.dataset.given === 'party' ? 'party' : []; return render(); }
+  if (el.matches('[data-givenc]') && e.type === 'change') { const set = new Set(Array.isArray(d.given) ? d.given : []); el.checked ? set.add(el.value) : set.delete(el.value); d.given = [...set]; return; }
   if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
   else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
   else if (el.dataset.fbool) setPath(d, el.dataset.fbool, el.checked);
