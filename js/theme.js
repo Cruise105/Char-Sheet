@@ -9,6 +9,19 @@ export const PRESETS = {
   void:    { name: 'Void',       page: '#0d0b16', panel: '#18142a', raise: '#231d3b', line: '#3a3160', text: '#e6e0f7', muted: '#a39bc4', accent: '#b583ff', dark: true },
   sand:    { name: 'Desert',     page: '#c9a978', panel: '#f3e6cc', raise: '#e8d6b2', line: '#c2a273', text: '#2e2012', muted: '#735a3a', accent: '#a24b17', dark: false },
   blood:   { name: 'Bloodmoon',  page: '#140708', panel: '#220e10', raise: '#311518', line: '#4e2125', text: '#f1dcdc', muted: '#bf9393', accent: '#e23b3b', dark: true },
+  abyss:   { name: 'Abyss',      page: '#071a1c', panel: '#0e2a2d', raise: '#153a3e', line: '#23545a', text: '#d6efee', muted: '#8fb9b7', accent: '#3fd0c4', dark: true },
+  royal:   { name: 'Royal',      page: '#0b1230', panel: '#141d45', raise: '#1d2858', line: '#2f3d7a', text: '#e6e8f5', muted: '#9ea6cf', accent: '#e2b93b', dark: true },
+  storm:   { name: 'Storm',      page: '#16191d', panel: '#20252b', raise: '#2a3038', line: '#3c4550', text: '#e3e7eb', muted: '#9aa4ae', accent: '#f2d43d', dark: true },
+  plague:  { name: 'Plague',     page: '#0b0f0a', panel: '#141b12', raise: '#1d2619', line: '#2e3c27', text: '#dbe5d3', muted: '#93a487', accent: '#8bdc3f', dark: true },
+  iron:    { name: 'Iron',       page: '#18191b', panel: '#232427', raise: '#2d2f33', line: '#44474d', text: '#e4e5e7', muted: '#9c9fa6', accent: '#b8c4cf', dark: true },
+  dusk:    { name: 'Dusk',       page: '#1a1020', panel: '#261830', raise: '#322040', line: '#4a3158', text: '#f0e1ee', muted: '#b99cb8', accent: '#f08bb4', dark: true },
+  deep:    { name: 'Deep Sea',   page: '#06142a', panel: '#0d2140', raise: '#142c53', line: '#22416f', text: '#dbe7f7', muted: '#8fa8c9', accent: '#4fb3ff', dark: true },
+  blossom: { name: 'Blossom',    page: '#ead3d8', panel: '#fbf2f4', raise: '#f3e2e6', line: '#d6b2ba', text: '#3a1f27', muted: '#7d5a63', accent: '#b3405f', dark: false },
+  fey:     { name: 'Feywild',    page: '#d9d2ea', panel: '#f6f3fc', raise: '#e9e3f6', line: '#bdb1d9', text: '#261d3d', muted: '#63587f', accent: '#6b46c1', dark: false },
+  celestial: { name: 'Celestial', page: '#e8e0c8', panel: '#fffdf6', raise: '#f6f0de', line: '#d8c99a', text: '#2b2614', muted: '#6f6644', accent: '#a8841c', dark: false },
+  meadow:  { name: 'Meadow',     page: '#cfe0c4', panel: '#f4f9ef', raise: '#e4efda', line: '#b0c99e', text: '#1d2a16', muted: '#56684b', accent: '#3f7f2f', dark: false },
+  slate:   { name: 'Slate',      page: '#cfd3d8', panel: '#f7f8fa', raise: '#eaedf0', line: '#b8bfc8', text: '#1c2129', muted: '#5d6673', accent: '#2f5f8f', dark: false },
+  tide:    { name: 'Tidepool',   page: '#cde5e3', panel: '#f2fbfa', raise: '#e0f1ef', line: '#a7cfca', text: '#12302d', muted: '#4d6f6b', accent: '#d0573f', dark: false },
 };
 
 // Accent swatches tied to class flavor; players can also pick any color

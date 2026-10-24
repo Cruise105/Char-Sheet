@@ -4,6 +4,9 @@ import * as R from './rules.js';
 import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc } from './sheet.js';
 import { PRESETS } from './theme.js';
 import * as sync from './sync.js';
+import * as L from './library.js';
+import { resolvePicks, syncAuto } from './autofill.js';
+import { initLibrary, showLibrary, entryHtml } from './libui.js';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -97,6 +100,46 @@ async function newChar() {
   setTimeout(() => $('#page .charname')?.focus(), 50);
 }
 
+/* ---------- library view ---------- */
+async function openLibraryView(id = null) {
+  await flush();
+  closeLook();
+  state.cur = null;
+  app.dataset.view = 'library';
+  $('#title').textContent = 'Library';
+  document.title = 'Library';
+  applyTheme(document.body, newCharacter().theme);
+  showLibrary(id);
+  applyRed();
+}
+function viewEntry(id) {
+  const dlg = $('#entryDlg');
+  const show = x => { dlg.querySelector('.body').innerHTML = entryHtml(L.get(x)); dlg.querySelector('.body').scrollTop = 0; };
+  show(id);
+  dlg.onclick = e => {
+    const b = e.target.closest('[data-libopen]'); if (b) show(b.dataset.libopen);
+    if (e.target.closest('[data-close]') || e.target === dlg) dlg.close();
+  };
+  dlg.showModal();
+}
+// A race, class, subclass, background or level changed: fill the sheet from the library
+function picked() {
+  const c = state.cur; if (!c) return;
+  const before = JSON.stringify([c.raceId, c.bgId, c.classes.map(k => [k.clsId, k.subId, k.level])]);
+  resolvePicks(c);
+  const after = JSON.stringify([c.raceId, c.bgId, c.classes.map(k => [k.clsId, k.subId, k.level])]);
+  const added = syncAuto(c);
+  save(c);
+  renderSheet();
+  if (before !== after) {
+    const bits = [];
+    if (added.traits) bits.push(`${added.traits} racial trait${added.traits === 1 ? '' : 's'}`);
+    if (added.features) bits.push(`${added.features} class feature${added.features === 1 ? '' : 's'}`);
+    bits.push(...added.names);
+    if (bits.length) toast(`Added ${bits.join(', ')}.`);
+  }
+}
+
 /* ---------- the sheet view ---------- */
 async function openCharacter(id) {
   const c = await db.get(id);
@@ -155,6 +198,7 @@ function closeLook() { $('#look').hidden = true; app.classList.remove('looking')
 // Pull the latest from the device store after a Drive sync brought changes
 async function changedFromDrive() {
   if (app.dataset.view === 'home') return showHome();
+  if (app.dataset.view === 'library') return;
   const fresh = await db.get(state.cur.id);
   if (!fresh) return;
   await flush();
@@ -343,11 +387,15 @@ const sheetCtx = {
   save, toast, titleChanged, openNew: null,
   rerender: () => renderSheet(),
   themeChanged, closeLook, openAbility, openAc,
+  picked, viewEntry,
 };
 
 async function start() {
   await loadSettings();
+  await L.loadLibrary();
   initSheet(sheetCtx);
+  initLibrary($('#libview'), { toast, isDm: () => state.settings.role === 'dm', libraryEdited: () => {} });
+  $('#libBtn').addEventListener('click', () => openLibraryView());
   bindSheet($('#app'), () => state.cur);
   const tb = () => document.documentElement.style.setProperty('--tb', `${$('.topbar').offsetHeight}px`);
   tb(); window.addEventListener('resize', tb);
@@ -377,6 +425,7 @@ async function start() {
       for (const b of sd.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
       sync.renderStatus();
       if (app.dataset.view === 'home') showHome();
+      if (app.dataset.view === 'library') showLibrary();
     }
     if (e.target.closest('#exportAll')) exportAll();
     if (e.target.closest('[data-close]')) sd.close();

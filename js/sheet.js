@@ -2,6 +2,8 @@
 import * as R from './rules.js';
 import { getPath, setPath, stamp, uid } from './model.js';
 import { PRESETS, CLASS_ACCENTS, HEAD_FONTS, BODY_FONTS, FRAMES, applyTheme } from './theme.js';
+import * as L from './library.js';
+import { choicesFor } from './autofill.js';
 
 let ctx; // { save(c), toast(msg), rerender() }
 export function initSheet(helpers) { ctx = helpers; }
@@ -15,6 +17,7 @@ const nfield = (c, p, ph = '', cls = '') => `<input class="f n ${cls}" data-k="$
 const area = (c, p, ph = '', rows = 3) => `<textarea class="f" data-k="${p}" rows="${rows}" placeholder="${esc(ph)}">${esc(val(c, p))}</textarea>`;
 const chk = (c, p, label = '', extra = '') => `<label class="chk"><input type="checkbox" data-k="${p}" ${getPath(c, p) ? 'checked' : ''} ${extra}><span>${label}</span></label>`;
 const sel = (c, p, opts, extra = '') => `<select class="f" data-k="${p}" ${extra}>${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(val(c, p)) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
+const fmt = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
 const calc = (key, arg = '') => `<span data-calc="${key}" data-arg="${arg}"></span>`;
 const panel = (title, body, cls = '', extra = '') => `<section class="panel ${cls}" ${extra}><h3 class="ph">${title}</h3>${body}</section>`;
 const ABIL_OPTS = [['', '—'], ...R.ABILS.map(([k, n]) => [k, n])];
@@ -23,9 +26,9 @@ const ABIL_OPTS = [['', '—'], ...R.ABILS.map(([k, n]) => [k, n])];
 function header(c) {
   const classes = (c.classes || []).map((k, i) => `
     <div class="clsrow">
-      <input class="f" data-k="classes.${i}.name" value="${esc(k.name)}" placeholder="Class" autocomplete="off">
-      <input class="f" data-k="classes.${i}.sub" value="${esc(k.sub)}" placeholder="Subclass" autocomplete="off">
-      <label class="mini">Lvl <input class="f n" data-k="classes.${i}.level" data-type="num" inputmode="numeric" value="${esc(k.level)}" data-rerender></label>
+      <span class="pickf">${pickInput(`classes.${i}.name`, k.name, 'Class', 'dl-class', k.clsId)}</span>
+      <span class="pickf">${pickInput(`classes.${i}.sub`, k.sub, 'Subclass', `dl-sub-${i}`, k.subId)}</span>
+      <label class="mini">Lvl <input class="f n" data-k="classes.${i}.level" data-type="num" inputmode="numeric" value="${esc(k.level)}" data-pick></label>
       <label class="mini">Hit die <select class="f" data-k="classes.${i}.hd" data-type="num" data-rerender>${[6, 8, 10, 12].map(d => `<option value="${d}" ${Number(k.hd) === d ? 'selected' : ''}>d${d}</option>`).join('')}</select></label>
       ${c.classes.length > 1 ? `<button class="x" type="button" data-act="rowdel" data-list="classes" data-i="${i}" aria-label="Remove this class">×</button>` : ''}
     </div>`).join('');
@@ -38,14 +41,25 @@ function header(c) {
     <div class="headgrid">
       <div class="hf wide"><span class="lbl">Class &amp; level</span><div data-list="classes">${classes}</div>
         <button class="linkbtn" type="button" data-act="rowadd" data-list="classes">Add a class (multiclass)</button></div>
-      <label class="hf"><span class="lbl">Race</span>${txt(c, 'race')}</label>
-      <label class="hf"><span class="lbl">Background</span>${txt(c, 'background')}</label>
+      <div class="hf"><span class="lbl">Race</span>${pickInput('race', c.race, 'Pick or type', 'dl-race', c.raceId)}</div>
+      <div class="hf"><span class="lbl">Background</span>${pickInput('background', c.background, 'Pick or type', 'dl-bg', c.bgId)}</div>
       <label class="hf"><span class="lbl">Alignment</span>${txt(c, 'alignment')}</label>
       <label class="hf"><span class="lbl">Player name</span>${txt(c, 'player')}</label>
       <label class="hf"><span class="lbl">Experience</span>${txt(c, 'xp')}</label>
       <label class="hf"><span class="lbl">Next level</span>${txt(c, 'nextLevel')}</label>
     </div>
+    ${datalists(c)}
+    ${(() => { const ch = choicesFor(c); return ch.length ? `<ul class="choices">${ch.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; })()}
   </header>`;
+}
+// A text box that suggests library entries; the info button opens the full entry
+function pickInput(path, value, ph, list, id) {
+  return `<span class="pick"><input class="f" data-k="${path}" data-pick list="${list}" value="${esc(value)}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false">${id ? `<button class="info" type="button" data-act="libview" data-id="${id}" aria-label="Read ${esc(value)}">i</button>` : ''}</span>`;
+}
+function datalists(c) {
+  const opts = list => list.map(e => `<option value="${esc(e.name)}">${e.parent && e.type === 'race' ? esc(L.get(e.parent)?.name || '') : ''}</option>`).join('');
+  return `<datalist id="dl-race">${opts(L.all('race'))}</datalist><datalist id="dl-bg">${opts(L.all('background'))}</datalist><datalist id="dl-class">${opts(L.all('class'))}</datalist>
+    ${(c.classes || []).map((k, i) => `<datalist id="dl-sub-${i}">${opts(k.clsId ? L.subclassesOf(k.clsId) : L.all('subclass'))}</datalist>`).join('')}`;
 }
 
 function abilities(c) {
@@ -209,8 +223,9 @@ function limited(c) {
 function featureList(c, path, title, opts = {}) {
   const list = getPath(c, path) || [];
   const rows = list.map((f, i) => `
-    <details class="feat" ${f._new ? 'open' : ''}>
-      <summary><span>${esc(f.name) || 'Untitled'}</span>${opts.src && f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
+    <details class="feat ${f.rule ? 'rule' : ''}" ${f._new ? 'open' : ''}>
+      <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
+      ${f.text ? `<div class="ftext">${fmt(f.text)}</div>` : ''}
       <div class="featedit">
         <input class="f" data-k="${path}.${i}.name" value="${esc(f.name)}" placeholder="Name" autocomplete="off" aria-label="Name">
         ${opts.src ? `<input class="f" data-k="${path}.${i}.src" value="${esc(f.src)}" placeholder="Where it came from (Background, Level 4…)" autocomplete="off" aria-label="Source">` : ''}
@@ -318,9 +333,9 @@ export function lookPanel(c) {
     <p class="hint">Only this character changes. Every device you open it on shows the same look.</p>
 
     <h3>Palette</h3>
-    <div class="swatches">${Object.entries(PRESETS).map(([k, p]) => `
+    ${[['Dark', true], ['Light', false]].map(([label, dark]) => `<span class="lbl">${label}</span><div class="swatches">${Object.entries(PRESETS).filter(([, p]) => p.dark === dark).map(([k, p]) => `
       <button type="button" class="preset ${t.preset === k ? 'on' : ''}" data-act="preset" data-v="${k}" style="--sw-a:${p.page};--sw-b:${p.panel};--sw-c:${p.accent};--sw-t:${p.text}">
-        <span class="chip"><i></i><i></i><i></i></span>${p.name}</button>`).join('')}</div>
+        <span class="chip"><i></i><i></i><i></i></span>${p.name}</button>`).join('')}</div>`).join('')}
 
     <h3>Accent color</h3>
     <div class="accents">${CLASS_ACCENTS.map(([n, h]) => `<button type="button" class="acc ${t.accent === h ? 'on' : ''}" data-act="accent" data-v="${h}" style="--sw:${h}" title="${n}" aria-label="${n} accent"></button>`).join('')}
@@ -423,6 +438,8 @@ export function bindSheet(root, getChar) {
     if (el.dataset.k === 'name') ctx.titleChanged();
     updateCalcs(root, c);
     ctx.save(c);
+    // choosing a suggestion from the list fills the sheet right away
+    if (el.hasAttribute('data-pick') && el.type !== 'checkbox' && (!e.inputType || e.inputType === 'insertReplacementText')) ctx.picked();
   });
   root.addEventListener('change', e => {
     const el = e.target;
@@ -439,6 +456,7 @@ export function bindSheet(root, getChar) {
     }
     updateCalcs(root, c);
     ctx.save(c);
+    if (el.hasAttribute('data-pick')) return ctx.picked();
     if (el.hasAttribute('data-rerender')) ctx.rerender();
   });
   root.addEventListener('click', e => {
@@ -516,6 +534,7 @@ function act(b, c, root) {
     case 'consolidate': c.coins = R.consolidateCoins(c.coins); ctx.toast('Coins consolidated.'); return touch('coins');
     case 'imgdel': setPath(c, d.p, ''); return touch(d.p);
     case 'abil': return ctx.openAbility(d.a);
+    case 'libview': return ctx.viewEntry(d.id);
     case 'ac': return ctx.openAc();
     // Look drawer
     case 'preset': c.theme.preset = d.v; return themeTouch(c, 'theme.preset');

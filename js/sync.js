@@ -7,6 +7,7 @@
 import { db } from './db.js';
 import { merge, hashOf, upgrade } from './model.js';
 import { CLIENT_ID, APP_ID, PICKER_API_KEY } from './config.js';
+import { exportCustom, mergeCustom, replaceCustom } from './library.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 const API = 'https://www.googleapis.com/drive/v3';
@@ -19,7 +20,8 @@ let syncing = false;
 let status = 'off'; // off | ok | syncing | signin | offline | error
 let lastError = '';
 // links: character id -> { fileId, modified, hash }
-const ss = { connected: false, email: '', folderId: '', links: {}, lastSync: 0 };
+const ss = { connected: false, email: '', folderId: '', links: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } };
+const LIB_NAME = 'Table Library (character sheet app).json';
 const tok = { value: null, exp: 0 };
 const $ = s => document.querySelector(s);
 
@@ -151,6 +153,39 @@ async function syncOne(c, fileId, knownModified) {
   return { c, changed };
 }
 
+/* ---------- the library file ---------- */
+// DM: one file in the folder, merged both ways so your PC and tablet stay in step.
+// Player: read-only copy of the DM's file.
+async function syncLibrary(dm) {
+  const lib = ss.lib || (ss.lib = { fileId: '', modified: '', hash: '' });
+  let changed = false;
+  if (dm && !lib.fileId) {
+    const q = encodeURIComponent(`'${ss.folderId}' in parents and name='${LIB_NAME}' and trashed=false`);
+    const found = (await (await api(`${API}/files?q=${q}&fields=files(id,modifiedTime)&pageSize=1`)).json()).files?.[0];
+    if (found) lib.fileId = found.id;
+    else {
+      const data = exportCustom();
+      const res = await writeFile(data, { name: LIB_NAME, parent: ss.folderId });
+      Object.assign(lib, { fileId: res.id, modified: res.modifiedTime, hash: hashOf(data) });
+      return false;
+    }
+  }
+  if (!lib.fileId) return false;
+  let m;
+  try { m = await meta(lib.fileId); } catch (e) { if (e.missing) { lib.fileId = ''; return false; } throw e; }
+  if (m.modifiedTime !== lib.modified) {
+    const remote = await download(lib.fileId);
+    changed = dm ? await mergeCustom(remote) : await replaceCustom(remote);
+    lib.modified = m.modifiedTime;
+    if (!dm) lib.hash = hashOf(remote);
+  }
+  if (dm) {
+    const data = exportCustom(), h = hashOf(data);
+    if (h !== lib.hash) { const res = await writeFile(data, { fileId: lib.fileId }); lib.modified = res.modifiedTime; lib.hash = h; }
+  }
+  return changed;
+}
+
 /* ---------- the sync pass ---------- */
 export async function syncNow({ interactive = false, quiet = false } = {}) {
   if (!ss.connected && !interactive) return;
@@ -170,6 +205,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       const files = await listFolder();
       const byFile = new Map(Object.entries(ss.links).map(([cid, l]) => [l.fileId, cid]));
       for (const f of files) {
+        if (f.name === LIB_NAME) continue;
         const cid = byFile.get(f.id);
         let local = cid ? await db.get(cid) : null;
         if (!local) {
@@ -187,7 +223,9 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       // sheets removed from the folder: keep this device's copy, just stop syncing it
       const live = new Set(files.map(f => f.id));
       for (const [cid, l] of Object.entries(ss.links)) if (!live.has(l.fileId)) delete ss.links[cid];
+      if (await syncLibrary(true)) names.push('the library');
     } else {
+      try { if (await syncLibrary(false)) names.push('the library'); } catch (e) { if (e.auth) throw e; }
       for (const [cid, l] of Object.entries(ss.links)) {
         const c = await db.get(cid);
         if (!c) { delete ss.links[cid]; continue; }
@@ -205,7 +243,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
     await saveState();
     setStatus('ok');
     if (names.length) ctx.changedFromDrive();
-    if (first) { ctx.toast(role() === 'dm' ? 'Google Drive connected. Sheets now live in the "Character Sheets" folder in your Drive.' : 'Google Drive connected. Now open the character your DM shared with you.'); startAuto(); }
+    if (first) { ctx.toast(role() === 'dm' ? 'Google Drive connected. Sheets now live in the "Character Sheets" folder in your Drive.' : 'Google Drive connected. Now tap "Open shared files" and pick your sheet and the Table Library.'); startAuto(); }
     else if (names.length && !quiet) ctx.toast(`Updated from Drive: ${[...new Set(names)].join(', ')}`);
     else if (interactive && !names.length) ctx.toast('Everything is in sync.');
   } catch (err) {
@@ -233,6 +271,14 @@ export async function shareWithPlayer(c, email) {
     method: 'POST', headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: email }),
   });
+  // the player can read the table library too
+  try {
+    await syncLibrary(true);
+    if (ss.lib?.fileId) await api(`${API}/files/${ss.lib.fileId}/permissions?sendNotificationEmail=false&fields=id`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ type: 'user', role: 'reader', emailAddress: email }),
+    });
+  } catch (e) { if (e.auth) throw e; }
   ss.connected = true;
   await saveState();
   startAuto();
@@ -264,11 +310,12 @@ async function pick() {
     const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
       .setMimeTypes('application/json').setIncludeFolders(false).setOwnedByMe(false);
     const p = new google.picker.PickerBuilder()
-      .setTitle('Choose your character sheet')
+      .setTitle('Choose your character sheet and the Table Library')
+      .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
       .addView(view)
       .setOAuthToken(tok.value).setDeveloperKey(PICKER_API_KEY).setAppId(APP_ID)
       .setCallback(d => {
-        if (d.action === google.picker.Action.PICKED) resolve(d.docs?.[0]?.id || null);
+        if (d.action === google.picker.Action.PICKED) resolve((d.docs || []).map(x => x.id));
         else if (d.action === google.picker.Action.CANCEL) resolve(null);
       })
       .build();
@@ -280,10 +327,20 @@ async function pick() {
 export async function openShared(into = null) {
   if (!navigator.onLine) throw new Error("You're offline. Opening from Drive needs a connection.");
   await ensureToken(true);
-  const fileId = await pick();
-  if (!fileId) return null;
-  const remote = await download(fileId);
-  if (remote?.app !== 'charsheet') throw new Error("That file isn't a character sheet from this app.");
+  const ids = await pick();
+  if (!ids?.length) return null;
+  let fileId = null, remote = null, gotLib = false;
+  for (const id of ids) {
+    const data = await download(id);
+    if (data?.app === 'charsheet-library') {
+      ss.lib = { fileId: id, modified: '', hash: '' };
+      await replaceCustom(data); gotLib = true;
+    } else if (data?.app === 'charsheet' && !fileId) { fileId = id; remote = data; }
+  }
+  if (!fileId) {
+    if (gotLib) { ss.connected = true; await saveState(); startAuto(); ctx.toast('Table Library connected.'); return null; }
+    throw new Error("That file isn't a character sheet from this app.");
+  }
   const already = Object.entries(ss.links).find(([, l]) => l.fileId === fileId);
   if (already && (!into || already[0] === into.id)) { await syncNow({ interactive: true }); return already[0]; }
 
@@ -319,7 +376,7 @@ export async function connect() { await syncNow({ interactive: true }); }
 async function disconnect() {
   if (tok.value && window.google?.accounts?.oauth2) { try { google.accounts.oauth2.revoke(tok.value, () => {}); } catch { /* ignore */ } }
   tok.value = null; tok.exp = 0; saveToken();
-  Object.assign(ss, { connected: false, email: '', folderId: '', links: {}, lastSync: 0 });
+  Object.assign(ss, { connected: false, email: '', folderId: '', links: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } });
   await saveState();
   setStatus('off');
   ctx.toast('Disconnected. Characters on this device are untouched, and the copies in Drive stay there.');
@@ -342,7 +399,7 @@ export function renderStatus() {
   if (!ss.connected) {
     box.innerHTML = `<p>${dm
       ? 'Connect your Google Drive to keep every sheet in a "Character Sheets" folder in your Drive and share each one with its player.'
-      : 'Connect Google Drive, then open the character your DM shared with you. Only that sheet is visible to the app, not the rest of your Drive.'}</p>
+      : 'Connect Google Drive, then open the files your DM shared with you: your character sheet and the Table Library. Only those files are visible to the app, not the rest of your Drive.'}</p>
       <div class="row"><button class="btn primary" type="button" data-sync="connect">${status === 'syncing' ? 'Connecting…' : 'Connect Google Drive'}</button></div>`;
     return;
   }
@@ -350,7 +407,7 @@ export function renderStatus() {
   box.innerHTML = `<p>${ss.email ? `Signed in as ${ss.email}. ` : ''}${line}</p>
     <div class="row">
       <button class="btn primary" type="button" data-sync="now">${status === 'signin' ? 'Sign in and sync' : 'Sync now'}</button>
-      ${dm ? '' : '<button class="btn" type="button" data-sync="open">Open a shared character</button>'}
+      ${dm ? '' : '<button class="btn" type="button" data-sync="open">Open shared files</button>'}
       <button class="btn" type="button" data-sync="disconnect">Disconnect</button>
     </div>`;
 }
@@ -387,8 +444,8 @@ function startAuto() {
     if (!ss.connected || syncing || !navigator.onLine || !tokenValid()) { renderStatus(); return; }
     ticks++;
     const chars = await db.all();
-    const h = hashOf(chars.filter(c => ss.links[c.id]).map(c => c.updated));
-    const dirty = chars.some(c => ss.links[c.id] && ss.links[c.id].hash !== hashOf(c));
+    const h = hashOf([chars.filter(c => ss.links[c.id]).map(c => c.updated), role() === 'dm' ? exportCustom().updated : 0]);
+    const dirty = chars.some(c => ss.links[c.id] && ss.links[c.id].hash !== hashOf(c)) || (role() === 'dm' && ss.lib?.fileId && ss.lib.hash !== hashOf(exportCustom()));
     if ((dirty && h === last) || ticks % 6 === 0) syncNow({ quiet: true });
     last = h;
     renderStatus();

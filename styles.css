@@ -35,8 +35,8 @@ small{font-size:.8em}
 .topbar{position:relative;z-index:3;display:flex;align-items:center;gap:8px;padding:8px 12px;padding-top:max(8px,env(safe-area-inset-top));background:var(--panel-solid);border-bottom:1px solid var(--line)}
 .topbar h1{font:700 1.3rem/1.1 var(--head);margin:0 8px 0 2px;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:32vw}
 .spacer{flex:1}
-.app[data-view="home"] .sheetonly,.app[data-view="sheet"] .homeonly{display:none}
-.app[data-view="home"] .sheet,.app[data-view="sheet"] .home{display:none}
+.app:not([data-view="sheet"]) .sheetonly,.app:not([data-view="home"]) .homeonly,.app[data-view="home"] .backonly{display:none}
+.app:not([data-view="sheet"]) .sheet,.app:not([data-view="home"]) .home,.app:not([data-view="library"]) .libview{display:none}
 
 .btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;min-height:44px;padding:0 14px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;font-weight:500;white-space:nowrap;text-decoration:none}
 .btn:active{transform:translateY(1px)}
@@ -286,12 +286,67 @@ table.inv input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accen
 table.inv .f.n{max-width:none}
 .invfoot{display:flex;justify-content:space-between;align-items:center}
 
+/* ---------- library pickers on the sheet ---------- */
+.pick{display:flex;align-items:center;gap:4px;min-width:0}
+.pick .f{flex:1}
+.pickf{min-width:0}
+.info{flex:none;width:30px;height:30px;border-radius:50%;border:1px solid var(--accent);background:transparent;color:var(--accent);font:700 .95rem/1 var(--head);font-style:italic;cursor:pointer;padding:0}
+.choices{grid-column:1/-1;margin:0;padding:8px 12px 8px 28px;border-radius:8px;background:var(--accent-soft);font-size:.92rem}
+.choices li{margin:2px 0}
+.ftext{font-size:.95rem;line-height:1.45;padding:0 2px 6px}
+.ftext p{margin:0 0 8px}
+.feat.rule{border-left:3px solid var(--accent);padding-left:8px;background:var(--accent-soft)}
+
+/* ---------- library screen ---------- */
+.libview{display:grid;grid-template-columns:minmax(260px,340px) 1fr;min-height:0;position:relative;z-index:1}
+.libside{display:flex;flex-direction:column;gap:8px;padding:12px;border-right:1px solid var(--line);background:var(--panel-solid);min-height:0}
+.libtypes{display:grid;grid-template-columns:repeat(3,1fr)}
+.libtypes button{padding:0 4px;font-size:.9rem;border-top:1px solid var(--line)}
+.libtypes button:nth-child(-n+3){border-top:0}
+.libtypes button:nth-child(4){border-left:0}
+.liblist{list-style:none;margin:0;padding:0;overflow:auto;flex:1;border-top:1px solid var(--line)}
+.liblist li{border-bottom:1px solid color-mix(in srgb,var(--line) 50%,transparent)}
+.liblist button{display:flex;justify-content:space-between;align-items:center;gap:8px;width:100%;min-height:48px;padding:6px 8px;border:0;background:none;cursor:pointer;text-align:left}
+.liblist button[aria-current="true"]{background:var(--accent-soft);box-shadow:inset 4px 0 0 var(--accent)}
+.liblist small{color:var(--muted)}
+.srcb{flex:none;font-size:.75rem;border:1px solid var(--line);border-radius:99px;padding:0 8px}
+.libmain{overflow:auto;padding:16px 24px 80px;min-height:0}
+.libacts{margin-bottom:8px}
+.libback{display:none}
+.libempty{color:var(--muted);padding:40px 0;text-align:center}
+.entry{max-width:780px}
+.entry h2{font:700 2rem/1.1 var(--head);margin:0;color:var(--ink)}
+.entry h3{font:700 1.15rem/1.2 var(--head);margin:22px 0 8px;color:var(--ink);border-bottom:1px solid var(--line);padding-bottom:4px}
+.entry h4{margin:0 0 4px;font-size:1rem;display:flex;gap:8px;align-items:baseline}
+.entry .lv{display:inline-block;min-width:28px;text-align:center;border-radius:6px;background:var(--accent);color:var(--accent-ink);font-size:.82rem;padding:1px 4px}
+.entry p{margin:0 0 10px;line-height:1.5}
+.lfeat{margin-bottom:14px}
+.facts{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px 16px;margin:14px 0}
+.facts dt{font-size:.78rem;color:var(--muted)}
+.facts dd{margin:0}
+.rulenote{margin:12px 0;padding:10px 12px;border-left:4px solid var(--accent);background:var(--accent-soft);border-radius:0 8px 8px 0}
+.rulenote b{display:block;margin-bottom:4px}
+.rulenote p{margin:0 0 6px}
+.editor{max-width:900px}
+.edhead{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap;position:sticky;top:-16px;z-index:2;background:var(--page);padding:8px 0}
+.edhead h2{font:700 1.5rem/1.1 var(--head);margin:0}
+.edgrid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px 14px}
+.edgrid .wide{grid-column:1/-1}
+.checks{border:0;margin:0;padding:0;display:flex;flex-wrap:wrap;gap:0 4px}
+.checks legend{width:100%;padding:0}
+.rowsf{display:grid;gap:6px}
+.erow{display:flex;gap:6px;align-items:center}
+.erow.big{align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--raise)}
+.stackf{display:grid;gap:6px;flex:1;min-width:0}
+dialog.wide{width:min(820px,96vw)}
+#entryDlg .body{max-height:72dvh;overflow:auto}
+
 /* ---------- Look drawer ---------- */
 .look{position:fixed;z-index:4;top:var(--tb,61px);right:0;bottom:0;width:min(400px,46vw);overflow:auto;background:var(--panel-solid);border-left:1px solid var(--line);padding:12px 16px 40px;box-shadow:-12px 0 30px rgba(0,0,0,.3)}
 .lookhead{display:flex;justify-content:space-between;align-items:center}
 .look h2{font:700 1.5rem/1.1 var(--head);margin:4px 0}
 .look h3{font-size:.9rem;font-weight:700;margin:18px 0 8px;color:var(--ink)}
-.swatches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px}
+.swatches{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:6px;margin-bottom:10px}
 .preset{display:flex;align-items:center;gap:8px;min-height:44px;padding:4px 8px;border-radius:8px;border:1px solid var(--line);background:var(--raise);cursor:pointer;text-align:left}
 .preset.on{outline:2px solid var(--accent);outline-offset:1px}
 .chip{display:inline-flex;border-radius:6px;overflow:hidden;border:1px solid rgba(127,127,127,.5)}
@@ -386,6 +441,11 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
   .atkedit .checks{grid-column:1/-1}
   .spellbox,.abdc{grid-template-columns:1fr 1fr}
   .spellbox .hf,.abdc .hf:first-child{grid-column:1/-1}
+  .libview{grid-template-columns:1fr}
+  .libback{display:block}
+  .libview[data-mode="entry"] .libside{display:none}
+  .libview[data-mode="list"] .libmain{display:none}
+  .edgrid{grid-template-columns:1fr 1fr}
   .look{width:100%;top:auto;height:70dvh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}

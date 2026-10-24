@@ -1,6 +1,6 @@
 # Character Sheets
 
-Customizable D&D 5e (2014) character sheets for your table. Runs in Chrome, installs to the home screen, works offline, and syncs through Google Drive. Stage 1: the full sheet, Inventory Tracker, automatic math, the Look options, red light, and Drive sharing.
+Customizable D&D 5e (2014) character sheets for your table. Runs in Chrome, installs to the home screen, works offline, and syncs through Google Drive. Includes the full sheet, Inventory Tracker, automatic math, 21 palettes and the other Look options, red light, Drive sharing, and the Library with auto-fill.
 
 ## Put it online (about 10 minutes, same as the Bestiary)
 
@@ -39,8 +39,20 @@ Every sheet in the folder shows up on your device, and you can open and edit any
 
 Then one of these:
 
-- **You already shared her character:** in Settings tap **Open a shared character** and pick it.
-- **She made her character on her tablet first:** you make a character with just her character's name and share it with her. On her tablet she taps **Link to Drive** on her character card, picks that sheet, and chooses **This device's** version. From then on the two copies are one.
+- **You already shared her character:** in Settings tap **Open shared files** and pick both her sheet and the Table Library (tap each one, then **Select**).
+- **She made her character on her tablet first:** you make a character with just her character's name and share it with her. On her tablet she taps **Link to Drive** on her character card, picks that sheet and the Table Library, and chooses **This device's** version. From then on the two copies are one.
+
+## The Library
+
+Tap **Library** on the character list. It has every SRD 5.1 race, class, subclass, background, feat and language built in. On your device (DM role) you can:
+
+- **Add your own entries**: New race, class, subclass, background, feat or language. Type the text word for word from the book. A subrace is a race with "Subrace of" set; a subclass is linked to its class.
+- **Give each background its feat**: pick it under **Assigned feat** (add the feat first).
+- **Add a Table Rules note** to any entry, including SRD ones (Edit → Table Rules note). It shows in its own box under the official text, on the sheet too. **Restore SRD version** removes your edits.
+
+On a sheet, type or pick a race, class, subclass or background from the suggestions. The sheet fills in traits, features up to the character's level, speed, vision, ability increases, proficiencies, saving throws, languages, the background feature and its feat. Raising the level adds that level's features. Changing the race swaps the old race's traits for the new one's. Anything typed by hand stays put. The small **i** button opens the full entry.
+
+The library lives in your Drive folder as "Table Library", and sharing a sheet with a player shares the library with them too (read-only). Players open both at once from **Open shared files**.
 
 ## How syncing works
 
