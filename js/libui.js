@@ -174,7 +174,7 @@ function editorHtml(d) {
 function rows(path, label, list, row, blank, big = false) {
   list = list || [];
   return `<div class="hf wide rowsf"><span class="lbl">${label}</span>
-    ${list.map((r, i) => `<div class="erow ${big ? 'big' : ''}">${row(r, i)}<button class="x" type="button" data-rowdel="${path}" data-i="${i}" aria-label="Remove">×</button></div>`).join('')}
+    ${list.map((r, i) => `<div class="erow ${big ? 'tall' : ''}">${row(r, i)}<button class="x" type="button" data-rowdel="${path}" data-i="${i}" aria-label="Remove">×</button></div>`).join('')}
     <button class="linkbtn" type="button" data-rowadd="${path}" data-blank='${esc(JSON.stringify(blank))}'>Add</button></div>`;
 }
 

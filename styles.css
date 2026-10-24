@@ -544,7 +544,7 @@ table.links td small{display:block;color:var(--muted);font-size:.75rem}
 .checks legend{width:100%;padding:0}
 .rowsf{display:grid;gap:6px}
 .erow{display:flex;gap:6px;align-items:center}
-.erow.big{align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--raise)}
+.erow.tall{align-items:flex-start;border:1px solid var(--line);border-radius:8px;padding:8px;background:var(--raise)}
 .boolf{align-self:end}
 .stackf{display:grid;gap:6px;flex:1;min-width:0}
 dialog.wide{width:min(820px,96vw)}
