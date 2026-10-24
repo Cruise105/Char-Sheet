@@ -143,6 +143,9 @@ export function choicesFor(c) {
   }
   const first = (c.classes || []).map(k => L.get(k.clsId)).find(Boolean);
   if (first?.skillChoice) out.push(`${first.name} skills: ${first.skillChoice}`);
+  // a brand-new character with nothing in their pack yet: point to the class's starting equipment
+  const packEmpty = !Object.values(c.inv || {}).some(l => l?.length) && !(c.attacks || []).length;
+  if (first?.equipment && packEmpty && (c.classes || []).reduce((t, k) => t + (Number(k.level) || 0), 0) <= 1) out.push(`${first.name} starting equipment: tap the i next to the class to see it.`);
   for (const k of c.classes || []) {
     const cls = L.get(k.clsId);
     if (cls && !k.subId && (Number(k.level) || 0) >= (cls.subclassLevel || 3) && L.subclassesOf(cls.id).length) out.push(`${cls.name}: pick your subclass.`);

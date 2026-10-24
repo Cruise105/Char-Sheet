@@ -71,6 +71,7 @@ export function entryHtml(e) {
       ${e.note ? `<aside class="rulenote"><b>Table Rules</b>${para(e.note)}</aside>` : ''}
       ${facts.length ? `<dl class="facts">${facts.join('')}</dl>` : ''}
       ${e.type === 'background' && e.feature?.name ? `<h3>Feature: ${esc(e.feature.name)}</h3>${para(e.feature.text)}` : ''}
+      ${e.type === 'class' && e.equipment ? `<h3>Starting equipment</h3>${para(e.equipment)}` : ''}
       ${e.desc ? para(e.desc) : ''}
       ${e.higher ? `<p><b>At Higher Levels.</b></p>${para(e.higher)}` : ''}
       ${e.langNote ? para(e.langNote) : ''}
@@ -108,6 +109,7 @@ const FIELDS = {
     ['resist', 'Resistances and immunities', 'resist'], ['traits', 'Traits', 'named'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   class: [['name', 'Name'], ['src', 'Book and page'], ['hd', 'Hit die', 'hd'], ['saves', 'Saving throws', 'saves'], ['armor', 'Armor', 'armor'], ['weapons', 'Weapons', 'weapons'],
     ['weaponsOther', 'Other weapons'], ['tools', 'Tools'], ['skillChoice', 'Skill choice', 'text', 'Choose two from …'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
+    ['equipment', 'Starting equipment', 'area', '- (a) a rapier or (b) a longsword\n- Leather armor and a dagger'],
     ['caster', 'Spellcasting type', 'casterSel'], ['asi', 'Ability Score Improvement levels', 'numlist', '4, 8, 12, 16, 19'],
     ['subclassLevel', 'Subclass chosen at level', 'num'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   subclass: [['name', 'Name'], ['parent', 'Class', 'classSel'], ['src', 'Book and page'], ['caster', 'Makes the class a spellcaster', 'casterSub'], ['spellAbil', 'Spellcasting ability', 'abilSel'],

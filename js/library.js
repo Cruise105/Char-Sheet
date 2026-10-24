@@ -29,7 +29,8 @@ export async function loadLibrary() {
 }
 function rebuild() {
   merged = new Map(srd);
-  for (const [id, e] of Object.entries(custom.entries)) merged.set(id, { ...e, builtIn: false, overridesSrd: srd.has(id) });
+  // an edited SRD entry keeps the SRD's value for any field it doesn't have (fields added in later updates)
+  for (const [id, e] of Object.entries(custom.entries)) merged.set(id, { ...(srd.get(id) || {}), ...e, builtIn: false, overridesSrd: srd.has(id) });
   for (const l of listeners) l();
 }
 export const onLibraryChange = fn => listeners.add(fn);
@@ -77,7 +78,7 @@ export function blank(type) {
   const armor = { light: false, medium: false, heavy: false, shields: false }, weapons = { simple: false, martial: false };
   switch (type) {
     case 'race': return { ...base, parent: '', speed: 30, size: 'Medium', vision: '', abil: [], abilNote: '', languages: '', langNote: '', skills: [], armor, weapons, weaponsOther: '', tools: '', resist: [], traits: [] };
-    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, features: [] };
+    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', equipment: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, features: [] };
     case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', features: [] };
     case 'background': return { ...base, skills: [], tools: '', languages: '', feature: { name: '', text: '' }, feat: '', equipment: '' };
     case 'feat': return { ...base, prereq: '' };
