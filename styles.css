@@ -833,3 +833,8 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .choices li{display:flex;align-items:center;gap:6px;min-height:32px}
 .choices li span{flex:1}
 .choices li .x{width:32px;height:32px;font-size:1.1rem}
+.spdta{resize:none;min-height:40px;line-height:1.3;font-size:.95rem;padding:6px 4px}
+.spd{font-size:1rem;line-height:1.3}
+.speedsf{display:flex;flex-wrap:wrap;gap:8px 14px;align-items:center}
+.speedsf .f{width:70px}
+.speedsf{border:1px solid var(--line);border-radius:8px;padding:6px 12px 10px}

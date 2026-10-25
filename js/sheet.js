@@ -174,7 +174,7 @@ function combat(c) {
     <div class="trio">
       <button class="stat ac" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
       ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
-      ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd">${esc(c.speed || '—')}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><input class="f center" data-k="speed" value="${esc(c.speed)}" autocomplete="off"></label>`}
+      ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd">${String(c.speed || '—').split(/\s*[,;]\s*/).filter(Boolean).map(esc).join('<br>')}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><textarea class="f center spdta" data-k="speed" rows="${Math.min(4, Math.max(1, String(c.speed || '').split(',').length))}" autocomplete="off" placeholder="30 ft, swim 30 ft">${esc(c.speed)}</textarea></label>`}
     </div>
     ${CR.formBannerHtml(c)}
     <div class="hpbox">

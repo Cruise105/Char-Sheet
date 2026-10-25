@@ -38,7 +38,7 @@ export function entryHtml(e) {
   const parent = e.parent ? L.get(e.parent) : null;
   if (e.type === 'race') {
     if (parent) add('Subrace of', esc(parent.name));
-    add('Speed', e.speed ? `${esc(e.speed)} ft` : ''); add('Size', esc(e.size)); add('Vision', esc(e.vision));
+    add('Speed', esc(L.speedText(parent ? [parent, e] : [e]))); add('Size', esc(e.size)); add('Vision', esc(e.vision));
     add('Ability scores', [e.abil?.map(b => `${ABIL_N[b.a]} +${b.v}`).join(', '), esc(e.abilNote)].filter(Boolean).join('. '));
     add('Languages', esc(e.languages)); add('Skills', names(e.skills || []));
     add('Proficiencies', [yes(e.armor, Object.keys(ARMOR_L), ARMOR_L), yes(e.weapons, Object.keys(WEAP_L), WEAP_L), esc(e.weaponsOther), esc(e.tools)].filter(Boolean).join('; '));
@@ -118,7 +118,7 @@ function render() {
 
 /* ---------- editor ---------- */
 const FIELDS = {
-  race: [['name', 'Name'], ['parent', 'Subrace of', 'raceParent'], ['src', 'Book and page'], ['speed', 'Speed (ft)', 'num'], ['size', 'Size'], ['vision', 'Vision', 'text', 'Darkvision 60 ft'],
+  race: [['name', 'Name'], ['parent', 'Subrace of', 'raceParent'], ['src', 'Book and page'], ['speed', 'Walking speed (ft)', 'num'], ['speeds', 'Other speeds (ft)', 'speeds'], ['size', 'Size'], ['vision', 'Vision', 'text', 'Darkvision 60 ft'],
     ['abil', 'Ability score increases', 'abil'], ['abilNote', 'Ability choice the player makes', 'text', 'Choose 2 other ability scores to increase by 1.'], ['languages', 'Languages', 'text', 'Common, Elvish'],
     ['skills', 'Skill proficiencies', 'skills'], ['armor', 'Armor', 'armor'], ['weapons', 'Weapons', 'weapons'], ['weaponsOther', 'Other weapons'], ['tools', 'Tools'],
     ['resist', 'Resistances and immunities', 'resist'], ['traits', 'Traits', 'named'], ['desc', 'Description', 'area'], ['tables', 'Tables: random rolls (d6, d100…), by level, or plain', 'xtables'], ['note', 'Table Rules note', 'area']],
@@ -192,6 +192,10 @@ function editorHtml(d) {
       case 'named': return rows(path, label, v, (r, i) => `<div class="stackf"><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Name" aria-label="Name"><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { name: '', text: '' }, true);
       case 'leveled': return rows(path, label, v, (r, i) => `<div class="stackf"><div class="row"><label class="mini">Level <input class="f n" data-f="${path}.${i}.lvl" data-num inputmode="numeric" value="${esc(r.lvl)}"></label><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Feature name" aria-label="Name" style="flex:1"></div><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { lvl: 1, name: '', text: '' }, true);
       case 'ctable': return tableEditor(path, label, v || []);
+      case 'speeds': return `<fieldset class="hf wide speedsf"><legend class="lbl">${label}</legend>
+        ${L.SPEED_KINDS.map(([k, n]) => `<label class="mini">${n} <input class="f n" data-f="${path}.${k}" value="${esc(v?.[k] ?? '')}" placeholder="—" autocomplete="off" aria-label="${n} speed"></label>`).join('')}
+        <label class="chk"><input type="checkbox" data-fbool="hover" ${d.hover ? 'checked' : ''}><span>Can hover</span></label>
+        <span class="hint">A number, or "walk" for "equal to your walking speed". Blank for none. A subrace's speeds replace its race's.</span></fieldset>`;
       case 'xtables': return xtablesEditor(path, label, v || [], d);
       case 'miItem': {
         if (!miList && !miLoading) loadMi();

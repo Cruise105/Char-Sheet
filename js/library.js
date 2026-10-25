@@ -77,7 +77,7 @@ export function blank(type) {
   const base = { id: '', type, name: '', src: '', note: '', desc: '' };
   const armor = { light: false, medium: false, heavy: false, shields: false }, weapons = { simple: false, martial: false };
   switch (type) {
-    case 'race': return { ...base, parent: '', speed: 30, size: 'Medium', vision: '', abil: [], abilNote: '', languages: '', langNote: '', skills: [], armor, weapons, weaponsOther: '', tools: '', resist: [], traits: [] };
+    case 'race': return { ...base, parent: '', speed: 30, speeds: { swim: '', fly: '', climb: '', burrow: '' }, hover: false, size: 'Medium', vision: '', abil: [], abilNote: '', languages: '', langNote: '', skills: [], armor, weapons, weaponsOther: '', tools: '', resist: [], traits: [] };
     case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', equipment: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, optionGroups: [], table: [], features: [] };
     case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', optionGroups: [], table: [], features: [] };
     case 'background': return { ...base, skills: [], tools: '', languages: '', feature: { name: '', text: '' }, feat: '', equipment: '' };
@@ -124,3 +124,22 @@ export async function setTableSetting(key, val) {
   await persist();
 }
 export const customCount = () => Object.keys(custom.entries).length;
+
+// "30 ft, swim 30 ft, fly 50 ft (hover)" from a race and its parent race; the subrace's own speeds win.
+// A speed can be a number or "walk" (equal to the walking speed).
+export const SPEED_KINDS = [['swim', 'Swim'], ['fly', 'Fly'], ['climb', 'Climb'], ['burrow', 'Burrow']];
+export function speedText(chain) {
+  const own = list => [...list].reverse();
+  const walk = own(chain).find(e => e?.speed)?.speed;
+  const parts = [];
+  if (walk) parts.push(`${walk} ft`);
+  for (const [k] of SPEED_KINDS) {
+    const src = own(chain).find(e => String(e?.speeds?.[k] ?? '').trim() !== '');
+    if (!src) continue;
+    let v = String(src.speeds[k]).trim();
+    if (/^(walk|same|=)/i.test(v)) v = walk || '';
+    if (!v || v === '0') continue;
+    parts.push(`${k} ${String(v).replace(/\s*ft\.?$/i, '')} ft${k === 'fly' && src.hover ? ' (hover)' : ''}`);
+  }
+  return parts.join(', ');
+}

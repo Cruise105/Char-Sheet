@@ -97,8 +97,7 @@ export function syncAuto(c) {
     else if (append && val && !String(cur).includes(val)) { setPath(c, path, `${cur}; ${val}`); touched.add(path); }
     c.autoVals[path] = val;
   };
-  const speed = [...raceChain].reverse().find(e => e.speed)?.speed;
-  if (race) setVal('speed', speed ? `${speed} ft` : '');
+  if (race) setVal('speed', L.speedText(raceChain));
   if (race) setVal('vision', raceChain.map(e => e.vision).filter(Boolean).pop() || '');
   setVal('languages', [...raceChain.map(e => e.languages), bg?.languages ? `${bg.languages}` : ''].filter(Boolean).join(', '), true);
   setVal('profs.weaponsOther', [...raceChain.map(e => e.weaponsOther), first?.cls?.weaponsOther].filter(Boolean).join(', '), true);
