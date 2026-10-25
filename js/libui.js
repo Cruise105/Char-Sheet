@@ -82,10 +82,10 @@ export function entryHtml(e) {
       <header><h2>${esc(e.name)}</h2><p class="sub">${esc(L.typeName(e.type))}${e.src ? ` · ${esc(e.src)}` : ''}</p></header>
       ${e.note ? `<aside class="rulenote"><b>Table Rules</b>${para(e.note)}</aside>` : ''}
       ${facts.length ? `<dl class="facts">${facts.join('')}</dl>` : ''}
-      ${e.type === 'class' || e.type === 'subclass' ? T.tableHtml(e, esc) : ''}
       ${e.type === 'background' && e.feature?.name ? `<h3>Feature: ${esc(e.feature.name)}</h3>${para(e.feature.text)}` : ''}
-      ${e.type === 'class' && e.equipment ? `<h3>Starting equipment</h3>${para(e.equipment)}` : ''}
-      ${e.desc ? para(e.desc) : ''}
+      ${e.desc ? (e.type === 'class' ? `<section class="classdesc">${para(e.desc)}</section>` : para(e.desc)) : ''}
+      ${e.type === 'class' || e.type === 'subclass' ? T.tableHtml(e, esc) : ''}
+      ${e.type === 'class' && e.equipment ? `<section class="equipbox"><h3>Starting equipment</h3>${para(e.equipment)}</section>` : ''}
       ${e.type === 'option' && e.itemSnap ? `<h3>${esc(e.itemSnap.name)}</h3><p class="sub">${esc([e.itemSnap.type, e.itemSnap.attune].filter(Boolean).join(' · '))}</p>${para(e.itemSnap.desc)}` : ''}
       ${e.higher ? `<p><b>At Higher Levels.</b></p>${para(e.higher)}` : ''}
       ${e.langNote ? para(e.langNote) : ''}

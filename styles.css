@@ -828,3 +828,5 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .xtpaste textarea{width:100%;margin:4px 0}
 .xtable .ctable-wrap{max-height:min(55vh,460px);overflow:auto}
 .xtgrid td .f.wide{text-align:left}
+.equipbox{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:2px 14px 6px;margin:14px 0;background:var(--raise)}
+.equipbox h3{margin-top:10px}
