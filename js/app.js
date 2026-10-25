@@ -205,6 +205,8 @@ function levelUp() {
     const asi = e.target.closest('[data-lu-asi]'); if (asi) { st.asi = asi.dataset.luAsi; return paint(); }
     if (e.target.closest('[data-lu-go]')) {
       const g = gain(); if (g == null) return;
+      if (player() && st.idx === 'new' && !clsOf()) { toast('Pick a class from the list. Ask your DM to add it to the Library if it isn\'t there.'); return; }
+      if (player() && isAsi() && st.asi === 'feat' && !L.findByName('feat', st.feat)) { toast('Pick a feat from the list. Ask your DM to add it to the Library if it isn\'t there.'); return; }
       const total = R.totalLevel(c) + 1;
       const asiNow = isAsi();
       if (st.idx === 'new') {
@@ -449,6 +451,11 @@ async function changedFromDrive() {
 }
 
 /* ---------- ability score breakdown ---------- */
+// Increases from a race, a class (ASI at level up), a feat or a boon come from the DM's Library: players can't change them
+const ALL_SRCS = ['Racial', 'ASI', 'Feat', 'Training', 'Magic item', 'Boon', 'Other'];
+const PLAYER_SRCS = ['Training', 'Magic item', 'Other'];
+const player = () => state.settings.role !== 'dm';
+const lockedAdj = x => player() && (x.auto || !PLAYER_SRCS.includes(x.src));
 function openAbility(a) {
   const c = state.cur;
   const name = R.ABILS.find(x => x[0] === a)[1];
@@ -460,9 +467,10 @@ function openAbility(a) {
       <div class="abilsum"><b>${R.score(c, a)}</b><span>${R.sign(R.amod(c, a))}</span></div>
       <label class="hf"><span class="lbl">Base score (rolled or point-buy)</span><input class="f n" data-ab="base" inputmode="numeric" value="${esc(ab.base)}"></label>
       <span class="lbl">Increases and where they came from</span>
-      <div class="adjlist">${(ab.adj || []).map((x, i) => `
+      <div class="adjlist">${(ab.adj || []).map((x, i) => lockedAdj(x) ? `
+        <div class="srow rorow"><span>${esc(x.src)}${x.note ? ` · ${esc(x.note)}` : ''}</span><b>${R.sign(Number(x.v) || 0)}</b></div>` : `
         <div class="srow">
-          <select class="f" data-adj="${i}" data-f="src" aria-label="Source">${['Racial', 'ASI', 'Feat', 'Training', 'Magic item', 'Boon', 'Other'].map(s => `<option ${x.src === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
+          <select class="f" data-adj="${i}" data-f="src" aria-label="Source">${(player() ? PLAYER_SRCS : ALL_SRCS).map(s => `<option ${x.src === s ? 'selected' : ''}>${s}</option>`).join('')}</select>
           <input class="f" data-adj="${i}" data-f="note" value="${esc(x.note)}" placeholder="Detail (Level 4, Belt of…)" aria-label="Detail" autocomplete="off">
           <input class="f n" data-adj="${i}" data-f="v" inputmode="numeric" value="${esc(x.v)}" aria-label="Amount">
           <button class="x" type="button" data-adjdel="${i}" aria-label="Remove">×</button>
@@ -479,9 +487,9 @@ function openAbility(a) {
   };
   dlg.onchange = dlg.oninput;
   dlg.onclick = e => {
-    if (e.target.closest('[data-adjadd]')) { c.abil[a].adj.push({ src: 'Racial', note: '', v: 1, id: uid() }); touch(); draw(); dlg.querySelector('.adjlist .srow:last-child input.n')?.focus(); }
+    if (e.target.closest('[data-adjadd]')) { c.abil[a].adj.push({ src: player() ? 'Training' : 'Racial', note: '', v: 1, id: uid() }); touch(); draw(); dlg.querySelector('.adjlist .srow:last-child input.n')?.focus(); }
     const del = e.target.closest('[data-adjdel]');
-    if (del) { c.abil[a].adj.splice(Number(del.dataset.adjdel), 1); touch(); draw(); }
+    if (del && !lockedAdj(c.abil[a].adj[Number(del.dataset.adjdel)])) { c.abil[a].adj.splice(Number(del.dataset.adjdel), 1); touch(); draw(); }
     if (e.target.closest('[data-close]')) dlg.close();
   };
   dlg.onclose = () => renderSheet();
@@ -655,6 +663,7 @@ const sheetCtx = {
   rerender: () => renderSheet(),
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
+  isPlayer: () => state.settings.role !== 'dm',
   levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine',
 };
 

@@ -42,6 +42,17 @@ export function remindersFor(c, on) {
   return out;
 }
 const remindBox = (c, on) => { const r = remindersFor(c, on); return r.length ? `<ul class="reminders">${r.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; };
+/* ---------- what players can't change ----------
+   Anything that comes from the DM's Library (race, class, subclass, background, feats, spells, languages, boons)
+   is read-only on a player's device. The DM's device can change everything. */
+const isPlayer = () => !!ctx.isPlayer?.();
+const ro = (v, ph = '') => `<div class="rofield">${v ? esc(v) : `<span class="empty">${esc(ph || '—')}</span>`}</div>`;
+const roArea = (v, ph = '') => `<div class="rofield area">${v ? esc(v).replace(/\n/g, '<br>') : `<span class="empty">${esc(ph || '—')}</span>`}</div>`;
+const lockedSkill = (c, k) => isPlayer() && (c.autoFlags || []).includes(`skills.${k}`);
+// text box for the DM, plain text for players
+const txtL = (c, p, ph = '') => (isPlayer() ? ro(val(c, p), ph) : txt(c, p, ph));
+const areaL = (c, p, ph = '', rows = 3) => (isPlayer() ? roArea(val(c, p), ph) : area(c, p, ph, rows));
+const chkL = (c, p, label = '', extra = '') => chk(c, p, label, `${extra} ${isPlayer() ? 'disabled' : ''}`);
 const ABIL_OPTS = [['', '—'], ...R.ABILS.map(([k, n]) => [k, n])];
 
 /* ---------- page: the main sheet ---------- */
@@ -50,9 +61,10 @@ function header(c) {
     <div class="clsrow">
       <span class="pickf">${pickInput(`classes.${i}.name`, k.name, 'Class', 'dl-class', k.clsId)}</span>
       <span class="pickf">${pickInput(`classes.${i}.sub`, k.sub, 'Subclass', `dl-sub-${i}`, k.subId)}</span>
+      ${isPlayer() ? `<span class="mini">Lvl <b>${esc(k.level)}</b></span><span class="mini">Hit die <b>d${esc(k.hd)}</b></span>` : `
       <label class="mini">Lvl <input class="f n" data-k="classes.${i}.level" data-type="num" inputmode="numeric" value="${esc(k.level)}" data-pick></label>
       <label class="mini">Hit die <select class="f" data-k="classes.${i}.hd" data-type="num" data-rerender>${[6, 8, 10, 12].map(d => `<option value="${d}" ${Number(k.hd) === d ? 'selected' : ''}>d${d}</option>`).join('')}</select></label>
-      ${c.classes.length > 1 ? `<button class="x" type="button" data-act="rowdel" data-list="classes" data-i="${i}" aria-label="Remove this class">×</button>` : ''}
+      ${c.classes.length > 1 ? `<button class="x" type="button" data-act="rowdel" data-list="classes" data-i="${i}" aria-label="Remove this class">×</button>` : ''}`}
     </div>`).join('');
   return `
   <header class="sheethead panel">
@@ -68,7 +80,7 @@ function header(c) {
     </div>
     <div class="headgrid">
       <div class="hf wide"><span class="lbl">Class &amp; level</span><div data-list="classes">${classes}</div>
-        <button class="linkbtn" type="button" data-act="rowadd" data-list="classes">Add a class (multiclass)</button></div>
+        ${isPlayer() ? '' : '<button class="linkbtn" type="button" data-act="rowadd" data-list="classes">Add a class (multiclass)</button>'}</div>
       <div class="hf"><span class="lbl">Race</span>${pickInput('race', c.race, 'Pick or type', 'dl-race', c.raceId)}</div>
       <div class="hf"><span class="lbl">Background</span>${pickInput('background', c.background, 'Pick or type', 'dl-bg', c.bgId)}</div>
       <label class="hf"><span class="lbl">Alignment</span>${txt(c, 'alignment')}</label>
@@ -95,6 +107,8 @@ export function readyToLevel(c) {
 }
 // A text box that suggests library entries; the info button opens the full entry
 function pickInput(path, value, ph, list, id) {
+  const info = id ? `<button class="info" type="button" data-act="libview" data-id="${id}" aria-label="Read ${esc(value)}">i</button>` : '';
+  if (isPlayer()) return `<span class="pick">${ro(value, ph === 'Pick or type' ? 'Your DM sets this' : ph)}${info}</span>`;
   return `<span class="pick"><input class="f" data-k="${path}" data-pick list="${list}" value="${esc(value)}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false">${id ? `<button class="info" type="button" data-act="libview" data-id="${id}" aria-label="Read ${esc(value)}">i</button>` : ''}</span>`;
 }
 function datalists(c) {
@@ -116,10 +130,11 @@ function abilities(c) {
 
 function savesSkills(c) {
   const saves = R.ABILS.map(([k, n]) => `
-    <div class="sk">${chk(c, `saves.${k}`, '', `aria-label="Proficient in ${n} saves"`)}<b class="sv">${calc('save', k)}</b><span>${n}</span></div>`).join('');
+    <div class="sk">${chkL(c, `saves.${k}`, '', `aria-label="Proficient in ${n} saves"`)}<b class="sv">${calc('save', k)}</b><span>${n}</span></div>`).join('');
   const skills = R.SKILLS.map(([k, n, a]) => {
     const rank = Number(c.skills?.[k]) || 0;
-    return `<div class="sk"><button type="button" class="rank r${rank}" data-act="rank" data-s="${k}" aria-label="${n}: ${['not proficient', 'proficient', 'expertise'][rank]}. Tap to change."></button><b class="sv">${calc('skill', k)}</b><span>${n} <small>${R.ABIL_SHORT[a]}</small></span></div>`;
+    const lk = lockedSkill(c, k);
+    return `<div class="sk"><button type="button" class="rank r${rank} ${lk ? 'locked' : ''}" data-act="rank" data-s="${k}" ${lk ? 'disabled title="From your race, class or background"' : ''} aria-label="${n}: ${['not proficient', 'proficient', 'expertise'][rank]}.${lk ? ' Set by your race, class or background.' : ' Tap to change.'}"></button><b class="sv">${calc('skill', k)}</b><span>${n} <small>${R.ABIL_SHORT[a]}</small></span></div>`;
   }).join('');
   return {
     pair: `<div class="pair">
@@ -130,11 +145,11 @@ function savesSkills(c) {
     skills: panel('Skills', `${remindBox(c, 'checks')}<div class="sklist">${skills}</div><div class="skfoot">${chk(c, 'jack', 'Jack of All Trades (half proficiency)')}<span class="legend"><i class="rank r1"></i> proficient <i class="rank r2"></i> expertise</span></div>`),
     passive: panel('Passive Wisdom (Perception)', `<div class="big">${calc('passive')}</div>`, 'tiny'),
     profs: panel('Proficiencies', `
-      <div class="pgroup"><span class="lbl">Armor</span>${chk(c, 'profs.light', 'Light')}${chk(c, 'profs.medium', 'Medium')}${chk(c, 'profs.heavy', 'Heavy')}${chk(c, 'profs.shields', 'Shields')}</div>
-      <div class="pgroup"><span class="lbl">Weapons</span>${chk(c, 'profs.simple', 'Simple')}${chk(c, 'profs.martial', 'Martial')}</div>
-      <label class="hf"><span class="lbl">Other weapons</span>${txt(c, 'profs.weaponsOther')}</label>
-      <label class="hf"><span class="lbl">Tools</span>${area(c, 'profs.tools', '', 2)}</label>`),
-    langs: panel('Languages', area(c, 'languages', 'Common, …', 2)),
+      <div class="pgroup"><span class="lbl">Armor</span>${chkL(c, 'profs.light', 'Light')}${chkL(c, 'profs.medium', 'Medium')}${chkL(c, 'profs.heavy', 'Heavy')}${chkL(c, 'profs.shields', 'Shields')}</div>
+      <div class="pgroup"><span class="lbl">Weapons</span>${chkL(c, 'profs.simple', 'Simple')}${chkL(c, 'profs.martial', 'Martial')}</div>
+      <div class="hf"><span class="lbl">Other weapons</span>${txtL(c, 'profs.weaponsOther')}</div>
+      <div class="hf"><span class="lbl">Tools</span>${areaL(c, 'profs.tools', '', 2)}</div>`),
+    langs: panel('Languages', areaL(c, 'languages', 'Common, …', 2)),
   };
 }
 
@@ -151,7 +166,7 @@ function combat(c) {
     <div class="trio">
       <button class="stat ac" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
       ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
-      <label class="stat"><span class="lbl">Speed</span><input class="f center" data-k="speed" value="${esc(c.speed)}" autocomplete="off"></label>
+      ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd">${esc(c.speed || '—')}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><input class="f center" data-k="speed" value="${esc(c.speed)}" autocomplete="off"></label>`}
     </div>
     <div class="hpbox">
       <div class="hpnums">
@@ -177,7 +192,7 @@ function combat(c) {
         ${sel(c, 'exhaustion', [0, 1, 2, 3, 4, 5, 6].map(n => [n, n === 0 ? 'None' : `Level ${n}`]), 'data-type="num" data-rerender')}
         <small class="exh">${esc(EXHAUSTION[Number(c.exhaustion) || 0])}</small></div>
     </div>
-    <label class="hf"><span class="lbl">Vision</span>${txt(c, 'vision', 'Darkvision 60 ft')}</label>
+    <div class="hf"><span class="lbl">Vision</span>${txtL(c, 'vision', isPlayer() ? 'Normal' : 'Darkvision 60 ft')}</div>
   </section>`;
 }
 // SRD 5.1 exhaustion levels (each level includes the ones before it)
@@ -266,6 +281,15 @@ function limited(c) {
 
 function featureList(c, path, title, opts = {}) {
   const list = getPath(c, path) || [];
+  if (isPlayer() && opts.locked) {
+    // players read these; only the DM adds or changes them
+    const rows = list.map(f => `
+    <details class="feat ${f.rule ? 'rule' : ''}">
+      <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
+      ${f.text ? `<div class="ftext">${fmt(f.text)}</div>` : ''}
+    </details>`).join('');
+    return panel(title, rows || `<p class="empty">${esc(opts.emptyPlayer || 'None yet.')}</p>`, opts.cls || '');
+  }
   const rows = list.map((f, i) => `
     <details class="feat ${f.rule ? 'rule' : ''}" ${f._new ? 'open' : ''}>
       <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
@@ -288,7 +312,8 @@ function featureList(c, path, title, opts = {}) {
 function defenses(c) {
   const groups = R.DEFENSE_KINDS.map(([k, n]) => {
     const items = (c.defenses || []).map((d, i) => [d, i]).filter(([d]) => d.kind === k);
-    return `<div class="dgroup"><span class="lbl">${n}</span>${items.length ? items.map(([d, i]) => `
+    return `<div class="dgroup"><span class="lbl">${n}</span>${items.length ? items.map(([d, i]) => isPlayer() && d.auto ? `
+      <div class="srow rorow"><span>${esc(d.what)}</span><small>${esc(d.src || '')}</small></div>` : `
       <div class="srow"><input class="f" data-k="defenses.${i}.what" value="${esc(d.what)}" placeholder="${k === 'cond' ? 'Poisoned' : 'Fire'}" aria-label="${n}" autocomplete="off">
       <input class="f" data-k="defenses.${i}.src" value="${esc(d.src)}" placeholder="From (Tiefling, ring…)" aria-label="Source" autocomplete="off">
       <button class="x" type="button" data-act="rowdel" data-list="defenses" data-i="${i}" aria-label="Remove">×</button></div>`).join('') : '<p class="empty">None</p>'}
@@ -343,10 +368,12 @@ function sectionHtml(c) {
   const ss = savesSkills(c);
   return {
     ...ss, combat: combat(c), dm: dmPanel(c), attacks: attacks(c), equipment: equipment(c), limited: limited(c),
-    bgfeat: panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
-    racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…' }),
-    classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature' }),
-    feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.' }),
+    bgfeat: isPlayer()
+      ? panel('Background feature', c.bgFeature?.name || c.bgFeature?.text ? `<details class="feat"><summary><span>${esc(c.bgFeature.name || 'Feature')}</span></summary><div class="ftext">${fmt(c.bgFeature.text)}</div></details>` : '<p class="empty">None yet.</p>')
+      : panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
+    racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…', locked: true }),
+    classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true }),
+    feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.', locked: true }),
     defenses: defenses(c),
   };
 }
@@ -495,7 +522,7 @@ function pageSpells(c) {
         <button type="button" class="spname" data-act="libview" data-id="${s.id}">${esc(s.name)}${s.conc ? ' <i class="tag">C</i>' : ''}${s.ritual ? ' <i class="tag">R</i>' : ''}${isOther ? ' <i class="tag">other list</i>' : ''}</button>
         <span class="spmeta">${esc(s.time || '')} · ${esc(s.range || '')}</span>
         ${l > 0 ? `<button class="btn small" type="button" data-act="cast" data-id="${s.id}">Cast</button>` : '<span></span>'}
-        ${isOther ? `<button class="x" type="button" data-act="otherdel" data-id="${s.id}" aria-label="Remove">×</button>` : ''}
+        ${isOther && !isPlayer() ? `<button class="x" type="button" data-act="otherdel" data-id="${s.id}" aria-label="Remove">×</button>` : ''}
       </div>`;
     }).join('')}</section>`);
   }
@@ -503,7 +530,7 @@ function pageSpells(c) {
   <div class="cols spcols">
     <div class="col">
       ${panel('Spellcasting', `${statLine}${resource}<p class="hint">Table Rules: ${mode === 'points' ? 'spell points' : 'spell slots'}. Your DM sets this for the whole table.</p>`)}
-      ${panel('Spells from other lists', `<p class="hint">Racial spells, feats, Magical Secrets and the like.</p>
+      ${isPlayer() ? '' : panel('Spells from other lists', `<p class="hint">Racial spells, feats, Magical Secrets and the like.</p>
         <div class="row"><input class="f" id="otherSpell" list="dl-allspells" placeholder="Spell name" autocomplete="off" style="flex:1"><button class="btn small" type="button" data-act="otherspell">Add</button></div>
         <datalist id="dl-allspells">${L.all('spell').map(s => `<option value="${esc(s.name)}">${s.level ? `Level ${s.level}` : 'Cantrip'}</option>`).join('')}</datalist>`)}
     </div>
@@ -733,8 +760,15 @@ export function bindSheet(root, getChar) {
   root.addEventListener('pointerdown', e => { if (ctx.arranging && e.target.closest('[data-drag]')) startDrag(e, getChar(), root); });
 }
 
+const LOCKED_LISTS = ['classes', 'racial', 'classFeat', 'feats'];
 function act(b, c, root) {
   const d = b.dataset;
+  if (isPlayer()) {
+    if ((d.act === 'rowadd' || d.act === 'rowdel') && LOCKED_LISTS.includes(d.list)) return;
+    if (d.act === 'rowdel' && d.list === 'defenses' && c.defenses?.[d.i]?.auto) return;
+    if (d.act === 'rank' && lockedSkill(c, d.s)) return;
+    if (d.act === 'otherspell' || d.act === 'otherdel') return;
+  }
   const touch = (path, rerender = true) => { stamp(c, path); ctx.save(c); if (rerender) ctx.rerender(); else updateCalcs(root, c); };
   switch (d.act) {
     case 'rowadd': {

@@ -385,6 +385,17 @@ table.inv input[type="checkbox"]{width:20px;height:20px;accent-color:var(--accen
 table.inv .f.n{max-width:none}
 .invfoot{display:flex;justify-content:space-between;align-items:center}
 
+/* ---------- read-only (player) fields ---------- */
+.rofield{min-height:40px;display:flex;align-items:center;flex:1;min-width:0;padding:6px 8px;border-bottom:1px dashed color-mix(in srgb,var(--line) 70%,transparent)}
+.rofield.area{display:block;min-height:0;line-height:1.4}
+.rofield .empty{margin:0}
+.rorow{justify-content:space-between;padding:6px 8px;border-radius:6px;background:var(--raise)}
+.rorow small{color:var(--muted)}
+.rank.locked{cursor:default;opacity:.85}
+.chk input:disabled{cursor:default}
+.chk input:disabled + span{opacity:.85}
+b.spd{font-size:1.4rem!important;padding:6px 0}
+
 /* ---------- XP ---------- */
 .wide2{grid-column:span 2}
 .milestone{margin:6px 0 0;color:var(--muted);font-style:italic}
