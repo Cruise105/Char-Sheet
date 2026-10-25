@@ -3,7 +3,7 @@ import * as R from './rules.js';
 import { getPath, setPath, stamp, uid, hpOp } from './model.js';
 import { PRESETS, CLASS_ACCENTS, HEAD_FONTS, BODY_FONTS, FRAMES, applyTheme } from './theme.js';
 import * as L from './library.js';
-import { choicesFor } from './autofill.js';
+import { choiceList } from './autofill.js';
 import * as M from './magic.js';
 import * as O from './options.js';
 import * as T from './tables.js';
@@ -96,7 +96,7 @@ function header(c) {
       ${xpBlock(c)}
     </div>
     ${datalists(c)}
-    ${(() => { const ch = choicesFor(c); return ch.length ? `<ul class="choices">${ch.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; })()}
+    ${(() => { const ch = choiceList(c); return ch.length ? `<ul class="choices">${ch.map(x => `<li><span>${esc(x.text)}</span>${x.soft ? `<button class="x" type="button" data-act="choicedone" data-t="${esc(x.text)}" aria-label="Done, hide this reminder">×</button>` : ''}</li>`).join('')}</ul>` : ''; })()}
   </header>`;
 }
 // Experience points (table-wide switch): Next Level comes from the XP table
@@ -1008,6 +1008,7 @@ function act(b, c, root) {
       stamp(c, 'compHp');
       return touch('creatures');
     }
+    case 'choicedone': c.choicesDone = [...new Set([...(c.choicesDone || []), d.t])]; return touch('choicesDone');
     case 'troll': {
       const x = T.tablesFor(c).find(y => y.t.id === d.tid); if (!x) return;
       const n = T.rollDie(x.t.die); if (n == null) return ctx.toast(`Can't roll "${x.t.die}".`);

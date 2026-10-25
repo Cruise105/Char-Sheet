@@ -136,22 +136,45 @@ export function syncAuto(c) {
 }
 
 // One-line description of what a pick will need the player to choose themselves
-export function choicesFor(c) {
+// The reminder list under the sheet's header. Reminders that are only advice (skill picks, racial ability picks,
+// starting equipment) can be cleared with × and clear themselves on a level up; real picks (subclass, class options)
+// stay until they're made. Returns the texts; choiceList gives { text, done } for the header.
+const WORDS = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6 };
+function skillPicksWanted(text) {
+  const m = /\b(one|two|three|four|five|six|\d+)\b/i.exec(text || '');
+  return m ? (WORDS[m[1].toLowerCase()] || Number(m[1])) : null;
+}
+export function choiceList(c) {
   const out = [];
+  const done = new Set(c.choicesDone || []);
+  const soft = t => { if (!done.has(t)) out.push({ text: t, soft: true }); };
   const race = L.get(c.raceId);
   for (const e of race ? [race.parent ? L.get(race.parent) : null, race].filter(Boolean) : []) {
-    if (e.abilNote) out.push(`${e.name}: ${e.abilNote}`);
+    if (e.abilNote) soft(`${e.name}: ${e.abilNote}`);
   }
   const first = (c.classes || []).map(k => L.get(k.clsId)).find(Boolean);
-  if (first?.skillChoice) out.push(`${first.name} skills: ${first.skillChoice}`);
+  if (first?.skillChoice) {
+    // gone on its own once they've picked that many skills of their own (ones not from race or background)
+    const want = skillPicksWanted(first.skillChoice);
+    const flags = new Set(c.autoFlags || []);
+    const picked = Object.entries(c.skills || {}).filter(([k, v]) => Number(v) >= 1 && !flags.has(`skills.${k}`)).length;
+    if (!(want && picked >= want)) soft(`${first.name} skills: ${first.skillChoice}`);
+  }
   // a brand-new character with nothing in their pack yet: point to the class's starting equipment
   const packEmpty = !Object.values(c.inv || {}).some(l => l?.length) && !(c.attacks || []).length;
-  if (first?.equipment && packEmpty && (c.classes || []).reduce((t, k) => t + (Number(k.level) || 0), 0) <= 1) out.push(`${first.name} starting equipment: tap the i next to the class to see it.`);
+  if (first?.equipment && packEmpty && (c.classes || []).reduce((t, k) => t + (Number(k.level) || 0), 0) <= 1) soft(`${first.name} starting equipment: tap the i next to the class to see it.`);
   for (const k of c.classes || []) {
     const cls = L.get(k.clsId);
-    if (cls && !k.subId && (Number(k.level) || 0) >= (cls.subclassLevel || 3) && L.subclassesOf(cls.id).length) out.push(`${cls.name}: pick your subclass.`);
+    if (cls && !k.subId && (Number(k.level) || 0) >= (cls.subclassLevel || 3) && L.subclassesOf(cls.id).length) out.push({ text: `${cls.name}: pick your subclass.` });
   }
-  out.push(...optionsPending(c));
+  for (const t of optionsPending(c)) out.push({ text: t });
   return out;
+}
+export const choicesFor = c => choiceList(c).map(x => x.text);
+// Level up: advice reminders from before are cleared
+export function clearSoftChoices(c) {
+  const soft = choiceList(c).filter(x => x.soft).map(x => x.text);
+  if (soft.length) c.choicesDone = [...new Set([...(c.choicesDone || []), ...soft])];
+  return soft.length > 0;
 }
 export const abilName = a => ABIL_SHORT[a] || a;

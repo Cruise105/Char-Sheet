@@ -830,3 +830,6 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .xtgrid td .f.wide{text-align:left}
 .equipbox{border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;padding:2px 14px 6px;margin:14px 0;background:var(--raise)}
 .equipbox h3{margin-top:10px}
+.choices li{display:flex;align-items:center;gap:6px;min-height:32px}
+.choices li span{flex:1}
+.choices li .x{width:32px;height:32px;font-size:1.1rem}

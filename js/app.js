@@ -5,7 +5,7 @@ import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, e
 import { PRESETS } from './theme.js';
 import * as sync from './sync.js';
 import * as L from './library.js';
-import { resolvePicks, syncAuto } from './autofill.js';
+import { resolvePicks, syncAuto, clearSoftChoices } from './autofill.js';
 import { initLibrary, showLibrary, entryHtml } from './libui.js';
 import * as M from './magic.js';
 import * as O from './options.js';
@@ -235,6 +235,7 @@ function levelUp() {
       const total = R.totalLevel(c) + 1;
       const asiNow = isAsi();
       const optBefore = O.counts(c); // before the level changes, to tell what's new
+      if (clearSoftChoices(c)) stamp(c, 'choicesDone'); // skill and ability pick reminders from before are done
       if (st.idx === 'new') {
         const k = clsOf();
         c.classes.push({ name: k?.name || st.newName.trim(), sub: '', clsId: k?.id || '', subId: '', level: 1, hd: k?.hd || 8, hdUsed: 0 });
