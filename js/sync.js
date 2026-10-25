@@ -24,7 +24,7 @@ let syncing = false;
 let status = 'off'; // off | ok | syncing | signin | offline | error
 let lastError = '';
 // links: character id -> { fileId, modified, hash }
-const ss = { connected: false, email: '', folderId: '', links: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } };
+const ss = { connected: false, email: '', folderId: '', links: {}, dropped: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } };
 const LIB_NAME = 'Table Library (character sheet app).json';
 const tok = { value: null, exp: 0 };
 const $ = s => document.querySelector(s);
@@ -265,7 +265,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
         if (!local) {
           // A sheet in the folder this device hasn't seen yet
           const remote = await download(f.id);
-          if (remote?.app !== 'charsheet') continue;
+          if (remote?.app !== 'charsheet' || ss.dropped?.[remote.id]) continue;
           const existing = await db.get(remote.id);
           local = existing || upgrade(remote);
           if (!existing) { await db.put(local); names.push(local.name || 'a character'); }
@@ -274,9 +274,16 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
         const { changed, c } = await syncOne(local, f.id, f.modifiedTime);
         if (changed) names.push(c.name || 'a character');
       }
-      // sheets removed from the folder: keep this device's copy, just stop syncing it
+      // sheets removed from the folder: keep this device's copy, just stop syncing it (and don't put it back)
       const live = new Set(files.map(f => f.id));
-      for (const [cid, l] of Object.entries(ss.links)) if (!live.has(l.fileId)) delete ss.links[cid];
+      ss.dropped = ss.dropped || {};
+      for (const [cid, l] of Object.entries(ss.links)) if (!live.has(l.fileId)) { delete ss.links[cid]; ss.dropped[cid] = true; }
+      // every other character on the DM's device goes in the folder, shared with a player or not
+      for (const c of await db.all()) {
+        if (ss.links[c.id] || ss.dropped[c.id]) continue;
+        const res = await writeFile(c, { name: fileName(c), parent: ss.folderId });
+        ss.links[c.id] = { fileId: res.id, modified: res.modifiedTime, hash: hashOf(c), name: c.name };
+      }
       if (await syncLibrary(true)) names.push('the library');
       try { await writeParty(bridgeIO()); } catch (e) { if (e.auth) throw e; }
     } else {
@@ -433,10 +440,23 @@ export const isConnected = () => ss.connected;
 async function disconnect() {
   if (tok.value && window.google?.accounts?.oauth2) { try { google.accounts.oauth2.revoke(tok.value, () => {}); } catch { /* ignore */ } }
   tok.value = null; tok.exp = 0; saveToken();
-  Object.assign(ss, { connected: false, email: '', folderId: '', links: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } });
+  Object.assign(ss, { connected: false, email: '', folderId: '', links: {}, dropped: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } });
   await saveState();
   setStatus('off');
   ctx.toast('Disconnected. Characters on this device are untouched, and the copies in Drive stay there.');
+}
+// DM deleting a character: its Drive copy goes to Drive's trash (recoverable there for 30 days),
+// so it doesn't come back on the next sync or linger on the DM's other devices
+export async function trashSheet(id) {
+  const l = ss.links[id];
+  ss.dropped = ss.dropped || {}; ss.dropped[id] = true;
+  delete ss.links[id]; await saveState();
+  if (!l?.fileId) return true;
+  try {
+    if (!navigator.onLine || !(await ensureToken(true))) return false;
+    await api(`${API}/files/${l.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+    return true;
+  } catch { return false; }
 }
 export async function forget(id) { if (ss.links[id]) { delete ss.links[id]; await saveState(); } }
 

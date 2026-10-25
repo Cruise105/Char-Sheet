@@ -674,11 +674,14 @@ async function deleteChar(id) {
   const c = await db.get(id); if (!c) return;
   const linked = sync.linkOf(id);
   const msg = linked
-    ? `Delete ${c.name || 'this character'} from this device? ${isDm() ? 'The copy in your Drive folder stays; delete it there too if you want it gone.' : 'The copy in Drive stays with your DM.'}`
+    ? (isDm() ? `Delete ${c.name || 'this character'}? Its Drive copy goes to your Drive's trash (you can restore it from there for 30 days), and it's removed from your other devices' sync. A player it was shared with keeps their own copy.` : `Delete ${c.name || 'this character'} from this device? The copy in Drive stays with your DM.`)
     : `Delete ${c.name || 'this character'}? This can't be undone. Use "Save a copy" first if you might want it back.`;
   if (!confirm(msg)) return;
-  await db.del(id); await sync.forget(id);
-  toast(`Deleted ${c.name || 'the character'}.`);
+  await db.del(id);
+  if (linked && isDm()) {
+    const ok = await sync.trashSheet(id);
+    toast(ok ? `Deleted ${c.name || 'the character'}. Its Drive copy is in your Drive's trash.` : `Deleted ${c.name || 'the character'} here. Its Drive copy couldn't be moved to the trash right now; delete it from the Character Sheets folder in Drive.`);
+  } else { await sync.forget(id); toast(`Deleted ${c.name || 'the character'}.`); }
   showHome();
 }
 

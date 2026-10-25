@@ -30,7 +30,7 @@ When anyone signs in the first time, Google shows "Google hasn't verified this a
 2. **Connect Google Drive**. The app makes a folder in your Drive called **Character Sheets**.
 3. Make a character (or have a player make theirs first, see below), then on its card tap **Share with player** and enter their Gmail. They get edit access to that one sheet only.
 
-Every sheet in the folder shows up on your device, and you can open and edit any of them.
+Every character on your device goes into the folder on its own, shared with a player or not, so all your devices see all of them. Deleting a character on your device moves its Drive copy to your Drive's trash (restorable there for 30 days).
 
 ## Dungeon Master mode is tied to your Google account
 
