@@ -78,8 +78,8 @@ export function blank(type) {
   const armor = { light: false, medium: false, heavy: false, shields: false }, weapons = { simple: false, martial: false };
   switch (type) {
     case 'race': return { ...base, parent: '', speed: 30, size: 'Medium', vision: '', abil: [], abilNote: '', languages: '', langNote: '', skills: [], armor, weapons, weaponsOther: '', tools: '', resist: [], traits: [] };
-    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', equipment: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, optionGroups: [], features: [] };
-    case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', optionGroups: [], features: [] };
+    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', equipment: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, optionGroups: [], table: [], features: [] };
+    case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', optionGroups: [], table: [], features: [] };
     case 'background': return { ...base, skills: [], tools: '', languages: '', feature: { name: '', text: '' }, feat: '', equipment: '' };
     case 'feat': return { ...base, prereq: '' };
     case 'language': return { ...base, kind: 'Standard', script: '', speakers: '' };

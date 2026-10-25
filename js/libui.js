@@ -4,6 +4,7 @@ import { getPath, setPath } from './model.js';
 import { ABILS, SKILLS, DEFENSE_KINDS } from './rules.js';
 import { esc, REMIND_ON } from './sheet.js';
 import { levelsToText, textToLevels } from './options.js';
+import * as T from './tables.js';
 
 let ctx; // { toast, isDm(), confirm }
 const st = { type: 'race', q: '', sel: null, draft: null };
@@ -79,6 +80,7 @@ export function entryHtml(e) {
       <header><h2>${esc(e.name)}</h2><p class="sub">${esc(L.typeName(e.type))}${e.src ? ` · ${esc(e.src)}` : ''}</p></header>
       ${e.note ? `<aside class="rulenote"><b>Table Rules</b>${para(e.note)}</aside>` : ''}
       ${facts.length ? `<dl class="facts">${facts.join('')}</dl>` : ''}
+      ${e.type === 'class' || e.type === 'subclass' ? T.tableHtml(e, esc) : ''}
       ${e.type === 'background' && e.feature?.name ? `<h3>Feature: ${esc(e.feature.name)}</h3>${para(e.feature.text)}` : ''}
       ${e.type === 'class' && e.equipment ? `<h3>Starting equipment</h3>${para(e.equipment)}` : ''}
       ${e.desc ? para(e.desc) : ''}
@@ -120,9 +122,9 @@ const FIELDS = {
     ['weaponsOther', 'Other weapons'], ['tools', 'Tools'], ['skillChoice', 'Skill choice', 'text', 'Choose two from …'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
     ['equipment', 'Starting equipment', 'area', '- (a) a rapier or (b) a longsword\n- Leather armor and a dagger'],
     ['caster', 'Spellcasting type', 'casterSel'], ['asi', 'Ability Score Improvement levels', 'numlist', '4, 8, 12, 16, 19'],
-    ['subclassLevel', 'Subclass chosen at level', 'num'], ['optionGroups', 'Class option choices (Invocations, Metamagic, Infusions…)', 'optgroups'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+    ['subclassLevel', 'Subclass chosen at level', 'num'], ['optionGroups', 'Class option choices (Invocations, Metamagic, Infusions…)', 'optgroups'], ['table', 'Class table', 'ctable'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   subclass: [['name', 'Name'], ['parent', 'Class', 'classSel'], ['src', 'Book and page'], ['caster', 'Makes the class a spellcaster', 'casterSub'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
-    ['optionGroups', 'Class option choices (Maneuvers, Runes, Fighting Styles…)', 'optgroups'],
+    ['optionGroups', 'Class option choices (Maneuvers, Runes, Fighting Styles…)', 'optgroups'], ['table', 'Subclass table columns (shown with the class\'s)', 'ctable'],
     ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   option: [['name', 'Name'], ['group', 'Group', 'groupText', 'Eldritch Invocations'], ['src', 'Book and page'], ['owners', 'Which classes and subclasses can choose it', 'ownerMulti'],
     ['level', 'Class level needed (0 for none)', 'num'], ['reqOption', 'Requires another option first', 'optionSel'], ['prereq', 'Other prerequisite (shown, not checked)', 'text', 'The eldritch blast cantrip'],
@@ -184,6 +186,7 @@ function editorHtml(d) {
       case 'resist': return rows(path, label, v, (r, i) => `<select class="f" data-f="${path}.${i}.kind">${opt(DEFENSE_KINDS.map(([k, n]) => [k, n.replace(/s$/, '')]), r.kind)}</select><input class="f" data-f="${path}.${i}.what" value="${esc(r.what)}" placeholder="Fire" aria-label="Damage type or condition">`, { kind: 'res', what: '' });
       case 'named': return rows(path, label, v, (r, i) => `<div class="stackf"><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Name" aria-label="Name"><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { name: '', text: '' }, true);
       case 'leveled': return rows(path, label, v, (r, i) => `<div class="stackf"><div class="row"><label class="mini">Level <input class="f n" data-f="${path}.${i}.lvl" data-num inputmode="numeric" value="${esc(r.lvl)}"></label><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Feature name" aria-label="Name" style="flex:1"></div><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { lvl: 1, name: '', text: '' }, true);
+      case 'ctable': return tableEditor(path, label, v || []);
       default: return `<label class="hf">${lab}<input class="f" data-f="${path}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
     }
   };
@@ -194,6 +197,24 @@ function editorHtml(d) {
       ${d.builtIn ? '<p class="hint">Saving makes your own copy of this SRD entry. "Restore SRD version" puts the original back.</p>' : ''}
       <div class="edgrid">${(FIELDS[d.type] || []).map(([p, l, k, ph]) => f(p, l, k, ph)).join('')}</div>
     </form>`;
+}
+// Class table editor: one column per table column, one row per level. Blank cells carry down (shown faintly).
+function tableEditor(path, label, cols) {
+  const n = cols.length;
+  const head = cols.map((c, j) => `<th><div class="cthead">
+      <input class="f" data-f="${path}.${j}.name" value="${esc(c.name)}" placeholder="Column name" aria-label="Column ${j + 1} name" autocomplete="off">
+      <div class="ctbtns">
+        <button class="x" type="button" data-colmove="${path}" data-i="${j}" data-dir="-1" ${j ? '' : 'disabled'} aria-label="Move left">‹</button>
+        <button class="x" type="button" data-colmove="${path}" data-i="${j}" data-dir="1" ${j < n - 1 ? '' : 'disabled'} aria-label="Move right">›</button>
+        <button class="x" type="button" data-coldel="${path}" data-i="${j}" aria-label="Remove column">×</button>
+      </div>
+      <label class="chk tiny"><input type="checkbox" data-fbool="${path}.${j}.sheet" ${c.sheet !== false ? 'checked' : ''}><span>On sheet</span></label></div></th>`).join('');
+  const body = Array.from({ length: T.LEVELS }, (_, r) => `<tr><td class="ctlv">${T.ord(r + 1)}</td>${cols.map((c, j) =>
+    `<td><input class="f" data-f="${path}.${j}.vals.${r}" data-ctcell value="${esc(c.vals?.[r] ?? '')}" placeholder="${esc(r ? T.cellAt(c, r) : '')}" aria-label="${esc(c.name || 'Column')} at level ${r + 1}" autocomplete="off"></td>`).join('')}</tr>`).join('');
+  return `<div class="hf wide ctedit"><span class="lbl">${label}</span>
+    ${n ? `<div class="ctable-wrap"><table class="ctable edit"><tr><th class="ctlv">Level</th>${head}</tr>${body}</table></div>` : '<p class="hint">No columns yet.</p>'}
+    <button class="linkbtn" type="button" data-coladd="${path}">Add a column</button>
+    <p class="hint wide">Level, Proficiency Bonus and Features fill in on their own. Leave a cell blank to keep the value from the level above (shown faintly). "On sheet" shows the column's current value in the character's Class features; write {Column name} in a feature or reminder to show it there, like {Sneak Attack}.</p></div>`;
 }
 function rows(path, label, list, row, blank, big = false) {
   list = list || [];
@@ -216,6 +237,7 @@ function onInput(e) {
   if (el.dataset.given && e.type === 'change') { d.given = el.dataset.given === 'party' ? 'party' : []; return render(); }
   if (el.matches('[data-givenc]') && e.type === 'change') { const set = new Set(Array.isArray(d.given) ? d.given : []); el.checked ? set.add(el.value) : set.delete(el.value); d.given = [...set]; return; }
   if (el.dataset.optlv) { setPath(d, el.dataset.optlv, textToLevels(el.value)); return; }
+  if (el.dataset.ctcell != null) { setPath(d, el.dataset.f, el.value); if (e.type === 'change') refreshCarry(el); return; }
   if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
   else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
   else if (el.dataset.fbool) setPath(d, el.dataset.fbool, el.checked);
@@ -251,6 +273,22 @@ async function onClick(e) {
     ctx.toast(`Saved ${x.name}.`); ctx.libraryEdited(); return render();
   }
   if (d.rowadd) { const list = getPath(st.draft, d.rowadd) || []; list.push(JSON.parse(d.blank)); setPath(st.draft, d.rowadd, list); render(); const rs = root.querySelectorAll(`[data-f^="${d.rowadd}.${list.length - 1}."]`); rs[rs.length > 1 ? 1 : 0]?.focus(); return; }
+  if (d.coladd) { const list = getPath(st.draft, d.coladd) || []; list.push(T.blankCol()); setPath(st.draft, d.coladd, list); render(); root.querySelector(`[data-f="${d.coladd}.${list.length - 1}.name"]`)?.focus(); return; }
+  if (d.coldel) { const list = getPath(st.draft, d.coldel) || []; const col = list[Number(d.i)]; if ((col?.name || col?.vals?.some(v => v)) && !confirm(`Remove the ${col.name || 'unnamed'} column?`)) return; list.splice(Number(d.i), 1); return keepScroll(render); }
+  if (d.colmove) { const list = getPath(st.draft, d.colmove) || []; const i = Number(d.i), j = i + Number(d.dir); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; return keepScroll(render); }
   if (d.rowdel) { const list = getPath(st.draft, d.rowdel) || []; list.splice(Number(d.i), 1); return render(); }
   if (d.lback != null) { st.sel = null; st.draft = null; return render(); }
+}
+
+// After a cell changes, update the faint carried values below it in that column
+function refreshCarry(el) {
+  const m = el.dataset.f.match(/^(.*)\.(\d+)\.vals\.(\d+)$/); if (!m) return;
+  const col = getPath(st.draft, `${m[1]}.${m[2]}`);
+  root.querySelectorAll(`[data-f^="${m[1]}.${m[2]}.vals."]`).forEach(inp => { const r = Number(inp.dataset.f.split('.').pop()); inp.placeholder = r ? T.cellAt(col, r) : ''; });
+}
+function keepScroll(fn) {
+  const main = root.querySelector('.libmain'), y = main?.scrollTop, x = root.querySelector('.ctedit .ctable-wrap')?.scrollLeft;
+  fn();
+  const m2 = root.querySelector('.libmain'); if (m2 && y != null) m2.scrollTop = y;
+  const w = root.querySelector('.ctedit .ctable-wrap'); if (w && x != null) w.scrollLeft = x;
 }

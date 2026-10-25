@@ -6,6 +6,7 @@ import * as L from './library.js';
 import { choicesFor } from './autofill.js';
 import * as M from './magic.js';
 import * as O from './options.js';
+import * as T from './tables.js';
 import { renderThumb, openInkEditor } from './ink.js';
 
 let ctx; // { save(c), toast(msg), rerender() }
@@ -36,7 +37,7 @@ export const REMIND_ON = [['', 'No reminder'], ['saves', 'Saving throws'], ['che
 const REMIND_LISTS = ['racial', 'classFeat', 'feats', 'extraFeat'];
 export function reminderText(c, f) {
   const t = f.remind?.text || f.name || '';
-  return t.replace(/\+?\{(str|dex|con|int|wis|cha)\}/g, (_, a) => R.sign(R.amod(c, a))).replace(/\+?\{prof\}/g, R.sign(R.prof(c))).replace(/\{level\}/g, R.totalLevel(c));
+  return T.fillTokens(c, t).replace(/\+?\{(str|dex|con|int|wis|cha)\}/g, (_, a) => R.sign(R.amod(c, a))).replace(/\+?\{prof\}/g, R.sign(R.prof(c))).replace(/\{level\}/g, R.totalLevel(c));
 }
 export function remindersFor(c, on) {
   const out = [];
@@ -291,14 +292,14 @@ function featureList(c, path, title, opts = {}) {
     const rows = list.map(f => `
     <details class="feat ${f.rule ? 'rule' : ''}">
       <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
-      ${f.text ? `<div class="ftext">${fmt(f.text)}</div>` : ''}
+      ${f.text ? `<div class="ftext">${fmt(T.fillTokens(c, f.text))}</div>` : ''}
     </details>`).join('');
-    return panel(title, rows || `<p class="empty">${esc(opts.emptyPlayer || 'None yet.')}</p>`, opts.cls || '');
+    return panel(title, (opts.top || '') + (rows || `<p class="empty">${esc(opts.emptyPlayer || 'None yet.')}</p>`), opts.cls || '');
   }
   const rows = list.map((f, i) => `
     <details class="feat ${f.rule ? 'rule' : ''}" ${f._new ? 'open' : ''}>
       <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
-      ${f.text ? `<div class="ftext">${fmt(f.text)}</div>` : ''}
+      ${f.text ? `<div class="ftext">${fmt(T.fillTokens(c, f.text))}</div>` : ''}
       <div class="featedit">
         <input class="f" data-k="${path}.${i}.name" value="${esc(f.name)}" placeholder="Name" autocomplete="off" aria-label="Name">
         ${opts.src ? `<input class="f" data-k="${path}.${i}.src" value="${esc(f.src)}" placeholder="Where it came from (Background, Level 4…)" autocomplete="off" aria-label="Source">` : ''}
@@ -310,7 +311,7 @@ function featureList(c, path, title, opts = {}) {
         <button class="linkbtn danger" type="button" data-act="rowdel" data-list="${path}" data-i="${i}">Remove</button>
       </div>
     </details>`).join('');
-  return panel(title, `<div data-list="${path}">${rows || `<p class="empty">${opts.empty || 'Nothing yet.'}</p>`}</div>
+  return panel(title, `${opts.top || ''}<div data-list="${path}">${rows || `<p class="empty">${opts.empty || 'Nothing yet.'}</p>`}</div>
     <button class="linkbtn" type="button" data-act="rowadd" data-list="${path}">Add ${opts.one || 'one'}</button>`, opts.cls || '');
 }
 
@@ -345,6 +346,15 @@ function dmPanel(c) {
     ${surv ? `<span class="lbl">Survival</span>${surv}` : ''}`, 'dmpanel');
 }
 
+// The class table's current values for this character ("Rogue 5: Sneak Attack 3d6"), one line per class
+function classTableStrip(c) {
+  const vals = T.valuesFor(c).filter(v => v.sheet);
+  if (!vals.length) return '';
+  const by = new Map();
+  for (const v of vals) { const k = `${v.cls} ${v.level}`; if (!by.has(k)) by.set(k, []); by.get(k).push(v); }
+  return `<div class="ctstrip">${[...by.entries()].map(([k, vs]) => `<div class="ctline">${by.size > 1 ? `<span class="ctcls">${esc(k)}</span>` : ''}${vs.map(v => `<span class="ctval"><small>${esc(v.name)}</small><b>${esc(v.value || '—')}</b></span>`).join('')}</div>`).join('')}</div>`;
+}
+
 // Class options (Invocations, Metamagic, Fighting Styles…): picked from the DM's Library, never typed in
 function optionsPanel(c) {
   const groups = O.groupsFor(c);
@@ -353,7 +363,7 @@ function optionsPanel(c) {
     <div class="optgroup">
       <div class="lh"><span class="lbl">${esc(g.group)}</span><span class="count ${g.chosen.length > g.count ? 'over' : ''}">${g.chosen.length} of ${g.count}</span></div>
       ${g.chosen.map(o => `<details class="feat"><summary><span>${esc(o.name)}</span><button class="x" type="button" data-act="optdel" data-id="${esc(o.id)}" aria-label="Remove ${esc(o.name)}">×</button></summary>
-        ${o.prereq ? `<p class="hint">Prerequisite: ${esc(o.prereq)}</p>` : ''}<div class="ftext">${fmt(o.desc)}</div>
+        ${o.prereq ? `<p class="hint">Prerequisite: ${esc(o.prereq)}</p>` : ''}<div class="ftext">${fmt(T.fillTokens(c, o.desc))}</div>
         ${o.note ? `<aside class="rulenote"><b>Table Rules</b>${fmt(o.note)}</aside>` : ''}</details>`).join('')}
       ${g.chosen.length < g.count ? `<button class="linkbtn" type="button" data-act="optpick" data-group="${esc(g.group)}">Choose ${g.count - g.chosen.length === 1 ? 'one' : g.count - g.chosen.length} from the Library</button>` : ''}
     </div>`).join(''), 'optpanel');
@@ -391,7 +401,7 @@ function sectionHtml(c) {
       ? panel('Background feature', c.bgFeature?.name || c.bgFeature?.text ? `<details class="feat"><summary><span>${esc(c.bgFeature.name || 'Feature')}</span></summary><div class="ftext">${fmt(c.bgFeature.text)}</div></details>` : '<p class="empty">None yet.</p>')
       : panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
     racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…', locked: true }),
-    classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true }),
+    classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true, top: classTableStrip(c) }),
     options: optionsPanel(c),
     feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.', locked: true }),
     defenses: defenses(c),

@@ -74,6 +74,13 @@ The library lives in your Drive folder as "Table Library", and sharing a sheet w
 - **In the Library (DM):** each option is its own entry under **Class options**: its group, which classes or subclasses it belongs to, any level or option it needs, and its text. On the class or subclass, **Class option choices** sets how many picks it gives: `2: 2, 5: 3` means 2 from level 2 and 3 from level 5. A subclass's count adds to its class's.
 - **Built in from the SRD:** Fighting Styles, Metamagic, Eldritch Invocations, Pact Boons, Hunter's choices, Dragon Ancestor and Circle of the Land terrain. Anything else (Artificer Infusions, Battle Master Maneuvers, and so on) you add as Class options, then set the counts on that class or subclass.
 
+## Class tables
+
+- **In the Library (DM):** each class has its book table under **Class table** in the editor. Add, rename, remove (×) and move (‹ ›) columns, and type any value in a cell ("3d6", "+2", "Unlimited", "—"). A blank cell keeps the value from the level above, shown faintly. Level, Proficiency Bonus and Features fill in on their own. A subclass can have its own columns too.
+- **On the sheet:** columns marked **On sheet** show their current value at the top of Class features (for example "Sneak Attack 3d6"), one line per class when multiclassed. They update on level up.
+- **In text:** write `{Sneak Attack}` (any column name in braces) in a feature's text or reminder, and the sheet shows that character's value.
+- **Built in from the SRD:** Rages and Rage Damage, Martial Arts, Ki Points, Unarmored Movement, Sneak Attack, Sorcery Points, Invocations Known, plus cantrips, spells known and spell slots for the casters (those are left off the sheet).
+
 ## Notes page
 
 The **Notes** tab on each sheet has a typed notes box and handwritten pages (finger or stylus). It syncs with the rest of the sheet.

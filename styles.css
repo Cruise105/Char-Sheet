@@ -726,3 +726,36 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
   .look{width:100%;top:auto;height:70dvh;border-left:0;border-top:1px solid var(--line);border-radius:16px 16px 0 0}
 }
 @media (prefers-reduced-motion:reduce){*{transition:none!important}}
+
+/* ---------- class tables ---------- */
+.ctable-wrap{overflow-x:auto;-webkit-overflow-scrolling:touch;margin:6px 0 12px;border:1px solid var(--line);border-radius:8px;max-width:100%}
+.ctable{border-collapse:collapse;width:100%;font-size:.9rem;font-variant-numeric:tabular-nums}
+.ctable th,.ctable td{padding:5px 8px;border-bottom:1px solid var(--line);text-align:center;white-space:nowrap}
+.ctable th{font:600 .8rem/1.2 var(--body);color:var(--muted);background:var(--raise);position:sticky;top:0}
+.ctable tr:nth-child(even) td{background:rgba(255,255,255,.025)}
+.ctable .tfeat{text-align:left;white-space:normal;min-width:180px}
+.ctable td:first-child,.ctable th:first-child{position:sticky;left:0;background:var(--panel-solid);z-index:1}
+.ctable.edit{width:auto}
+.ctable.edit td{padding:2px 3px}
+.ctable.edit td .f{width:78px;min-height:34px;padding:4px 6px;text-align:center}
+.ctable.edit td .f::placeholder{color:var(--muted);opacity:.55}
+.ctable.edit .ctlv{font-weight:600;color:var(--muted);padding:2px 8px}
+.cthead{display:flex;flex-direction:column;gap:3px;align-items:stretch;min-width:120px;padding:3px 0}
+.cthead .f{min-height:34px;padding:4px 6px;font-weight:600}
+.ctbtns{display:flex;justify-content:center}
+.ctbtns .x{width:32px;height:30px;font-size:1.1rem}
+.ctbtns .x:disabled{opacity:.3;cursor:default}
+.chk.tiny{font-size:.78rem;justify-content:center;min-height:28px}
+.ctstrip{display:flex;flex-direction:column;gap:6px;margin:0 0 8px}
+.ctline{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.ctcls{font-size:.8rem;color:var(--muted);width:100%}
+.ctval{display:inline-flex;align-items:baseline;gap:6px;padding:4px 10px;border:1px solid var(--line);border-radius:999px;background:var(--raise)}
+.ctval small{color:var(--muted);font-size:.78rem}
+.ctval b{font-family:var(--body);font-variant-numeric:tabular-nums}
+.ctedit .ctable-wrap{max-height:min(72vh,680px);overflow:auto}
+.ctable th{z-index:2}
+.ctable th:first-child{z-index:3}
+.ctable th{background:var(--panel-solid);box-shadow:inset 0 -1px 0 var(--line)}
+.ctable td:first-child{background:var(--panel-solid)}
+.ctable{isolation:isolate}
+.edhead{z-index:6}
