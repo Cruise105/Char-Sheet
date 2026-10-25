@@ -199,11 +199,11 @@ function levelUp() {
     const total = R.totalLevel(c) + 1;
     const r = Number(st.roll) || 0, g = gain();
     const choose = `<span class="lbl">Which class gains the level?</span><div class="pickrows">${c.classes.map((k, i) => `<label class="chk"><input type="radio" name="lc" value="${i}" ${st.idx === i ? 'checked' : ''}><span>${esc(k.name || 'Class')} ${esc(k.level)} → ${Number(k.level) + 1}</span></label>`).join('')}
-      <label class="chk"><input type="radio" name="lc" value="new" ${st.idx === 'new' ? 'checked' : ''}><span>A new class (multiclass)</span></label>
-      ${st.idx === 'new' ? `<input class="f" data-lu="newName" list="dl-class" value="${esc(st.newName)}" placeholder="Class name" autocomplete="off">` : ''}</div>`;
+      <label class="chk"><input type="radio" name="lc" value="new" ${st.idx === 'new' ? 'checked' : ''}><span>A new class (multiclass) at level 1</span></label>
+      ${st.idx === 'new' ? `<select class="f" data-lu="newName" aria-label="New class"><option value="">Choose a class…</option>${L.all('class').filter(k => !c.classes.some(x => x.clsId === k.id)).map(k => `<option value="${esc(k.name)}" ${st.newName === k.name ? 'selected' : ''}>${esc(k.name)}</option>`).join('')}</select>` : ''}</div>`;
     if (st.idx === -1) return `<h2>Level up</h2>${choose}`;
     return `<h2>Level up to ${total}</h2>
-      ${c.classes.length > 1 || st.idx === 'new' ? choose : `<p class="sub">${esc(row().name || 'Class')} ${esc(row().level)} → ${newLvl()}</p>`}
+      ${choose}
       <div class="lusec"><h3>Hit points</h3>
         <div class="row"><label class="hf"><span class="lbl">Roll your d${die()}</span><input class="f n" data-lu="roll" inputmode="numeric" value="${esc(st.roll)}" placeholder="1–${die()}"></label>
         <button class="btn ${st.avg ? 'primary' : ''}" type="button" data-lu-avg>Take average (${avg()})</button></div>
