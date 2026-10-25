@@ -6,6 +6,7 @@
 import * as L from './library.js';
 import { getPath, setPath, stamp, uid } from './model.js';
 import { ABIL_SHORT } from './rules.js';
+import { pending as optionsPending } from './options.js';
 
 const ARMOR = ['light', 'medium', 'heavy', 'shields'], WEAPONS = ['simple', 'martial'];
 
@@ -150,6 +151,7 @@ export function choicesFor(c) {
     const cls = L.get(k.clsId);
     if (cls && !k.subId && (Number(k.level) || 0) >= (cls.subclassLevel || 3) && L.subclassesOf(cls.id).length) out.push(`${cls.name}: pick your subclass.`);
   }
+  out.push(...optionsPending(c));
   return out;
 }
 export const abilName = a => ABIL_SHORT[a] || a;

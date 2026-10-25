@@ -5,6 +5,8 @@ import { PRESETS, CLASS_ACCENTS, HEAD_FONTS, BODY_FONTS, FRAMES, applyTheme } fr
 import * as L from './library.js';
 import { choicesFor } from './autofill.js';
 import * as M from './magic.js';
+import * as O from './options.js';
+import { renderThumb, openInkEditor } from './ink.js';
 
 let ctx; // { save(c), toast(msg), rerender() }
 export function initSheet(helpers) { ctx = helpers; }
@@ -39,6 +41,7 @@ export function reminderText(c, f) {
 export function remindersFor(c, on) {
   const out = [];
   for (const l of REMIND_LISTS) for (const f of c[l] || []) if (f.remind?.on === on) out.push(reminderText(c, f));
+  for (const p of c.options || []) { const o = L.get(p.id); if (o?.remind?.on === on) out.push(reminderText(c, { ...o, remind: { ...o.remind, text: o.remind.text || o.name } })); }
   return out;
 }
 const remindBox = (c, on) => { const r = remindersFor(c, on); return r.length ? `<ul class="reminders">${r.map(x => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; };
@@ -342,13 +345,27 @@ function dmPanel(c) {
     ${surv ? `<span class="lbl">Survival</span>${surv}` : ''}`, 'dmpanel');
 }
 
+// Class options (Invocations, Metamagic, Fighting Styles…): picked from the DM's Library, never typed in
+function optionsPanel(c) {
+  const groups = O.groupsFor(c);
+  if (!groups.length) return '<div class="dmempty"></div>';
+  return panel('Class options', groups.map(g => `
+    <div class="optgroup">
+      <div class="lh"><span class="lbl">${esc(g.group)}</span><span class="count ${g.chosen.length > g.count ? 'over' : ''}">${g.chosen.length} of ${g.count}</span></div>
+      ${g.chosen.map(o => `<details class="feat"><summary><span>${esc(o.name)}</span><button class="x" type="button" data-act="optdel" data-id="${esc(o.id)}" aria-label="Remove ${esc(o.name)}">×</button></summary>
+        ${o.prereq ? `<p class="hint">Prerequisite: ${esc(o.prereq)}</p>` : ''}<div class="ftext">${fmt(o.desc)}</div>
+        ${o.note ? `<aside class="rulenote"><b>Table Rules</b>${fmt(o.note)}</aside>` : ''}</details>`).join('')}
+      ${g.chosen.length < g.count ? `<button class="linkbtn" type="button" data-act="optpick" data-group="${esc(g.group)}">Choose ${g.count - g.chosen.length === 1 ? 'one' : g.count - g.chosen.length} from the Library</button>` : ''}
+    </div>`).join(''), 'optpanel');
+}
+
 // Sections of the main sheet a player can move around (Arrange). Ability scores and the header stay put.
 export const SECTION_NAMES = {
   pair: 'Inspiration and proficiency', saves: 'Saving throws', skills: 'Skills', passive: 'Passive Perception', profs: 'Proficiencies', langs: 'Languages',
   combat: 'Combat', dm: 'From your DM', attacks: 'Attacks and spellcasting', equipment: 'Equipment',
-  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', feats: 'Feats', defenses: 'Defenses',
+  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', options: 'Class options', feats: 'Feats', defenses: 'Defenses',
 };
-export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'feats', 'defenses'] };
+export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'options', 'feats', 'defenses'] };
 export const isSmall = () => matchMedia('(max-width: 700px)').matches;
 // The character's saved arrangement for this screen size, with any new or missing sections filled back in
 export function layoutFor(c) {
@@ -375,6 +392,7 @@ function sectionHtml(c) {
       : panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
     racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…', locked: true }),
     classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true }),
+    options: optionsPanel(c),
     feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.', locked: true }),
     defenses: defenses(c),
   };
@@ -545,6 +563,37 @@ function pageSpells(c) {
   </div>`;
 }
 
+/* ---------- page: notes ---------- */
+// A big typing area plus handwritten pages (S Pen, finger or mouse)
+function pageNotes(c) {
+  const pages = c.inkPages || [];
+  return `<div class="notespage">
+    ${panel('Notes', `<textarea class="f" data-k="journal" placeholder="Anything you want to remember: names, clues, plans, loot to sell…">${esc(c.journal || '')}</textarea>`)}
+    ${panel('Handwritten pages', `<div class="ink-grid">
+      ${pages.map((p, i) => `<button type="button" class="ink-thumb" data-act="inkopen" data-id="${esc(p.id)}" aria-label="Open page ${i + 1}"><canvas data-ink="${esc(p.id)}"></canvas><span>Page ${i + 1}</span>${p.updated ? `<small>${esc(new Date(p.updated).toLocaleDateString())}</small>` : ''}</button>`).join('')}
+      <button type="button" class="ink-thumb add" data-act="inknew"><span class="plus">+</span><span>New page</span></button>
+    </div>`)}
+  </div>`;
+}
+function openInk(c, id) {
+  const view = document.querySelector('#inkView');
+  const page = (c.inkPages || []).find(p => p.id === id); if (!page || !view) return;
+  view.hidden = false; document.body.classList.add('ink-open');
+  openInkEditor(view, page, {
+    onChange: (strokes, prefs) => {
+      const pg = (c.inkPages || []).find(p => p.id === id); if (!pg) return;
+      pg.strokes = strokes; pg.lastColor = prefs.color; pg.lastSize = prefs.size; pg.updated = Date.now();
+      stamp(c, 'inkPages'); ctx.save(c);
+    },
+    onClose: () => { view.hidden = true; view.innerHTML = ''; document.body.classList.remove('ink-open'); ctx.rerender(); },
+    onDelete: () => {
+      if (!confirm('Delete this page? This can\'t be undone.')) return;
+      c.inkPages = (c.inkPages || []).filter(p => p.id !== id); stamp(c, 'inkPages'); ctx.save(c);
+      view.hidden = true; view.innerHTML = ''; document.body.classList.remove('ink-open'); ctx.rerender();
+    },
+  });
+}
+
 /* ---------- page: character ---------- */
 function imgSlot(c, path, label) {
   const src = getPath(c, path);
@@ -653,7 +702,8 @@ export function lookPanel(c) {
 
 /* ---------- render + live math ---------- */
 export function renderPage(root, c, page) {
-  root.innerHTML = page === 'character' ? pageCharacter(c) : page === 'inventory' ? pageInventory(c) : page === 'spells' ? pageSpells(c) : pageSheet(c);
+  root.innerHTML = page === 'character' ? pageCharacter(c) : page === 'inventory' ? pageInventory(c) : page === 'spells' ? pageSpells(c) : page === 'notes' ? pageNotes(c) : pageSheet(c);
+  if (page === 'notes') for (const cv of root.querySelectorAll('canvas[data-ink]')) renderThumb(cv, (c.inkPages || []).find(p => p.id === cv.dataset.ink)?.strokes);
   root.dataset.page = page;
   updateCalcs(root, c);
 }
@@ -836,6 +886,14 @@ function act(b, c, root) {
     case 'abil': return ctx.openAbility(d.a);
     case 'libview': return ctx.viewEntry(d.id);
     case 'levelup': return ctx.levelUp();
+    case 'optpick': return ctx.pickOption(d.group);
+    case 'inknew': { const p = { id: uid(), strokes: [], updated: Date.now() }; c.inkPages = [...(c.inkPages || []), p]; stamp(c, 'inkPages'); ctx.save(c); return openInk(c, p.id); }
+    case 'inkopen': return openInk(c, d.id);
+    case 'optdel': {
+      const o = L.get(d.id);
+      if (!confirm(`Remove ${o?.name || 'this option'}? You can choose it again later.`)) return;
+      c.options = (c.options || []).filter(p => p.id !== d.id); return touch('options');
+    }
     case 'xpadd': {
       const n = parseInt(document.querySelector('#xpAdd')?.value, 10);
       if (!n) { ctx.toast('Type how much XP to add.'); return; }

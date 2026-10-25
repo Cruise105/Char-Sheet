@@ -5,7 +5,7 @@ import { uid } from './model.js';
 
 export const TYPES = [
   ['race', 'Races', 'Race'], ['class', 'Classes', 'Class'], ['subclass', 'Subclasses', 'Subclass'],
-  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'], ['boon', 'Boons', 'Boon'],
+  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['option', 'Class options', 'Class option'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'], ['boon', 'Boons', 'Boon'],
 ];
 export const typeName = t => (TYPES.find(x => x[0] === t) || [])[2] || t;
 
@@ -78,11 +78,12 @@ export function blank(type) {
   const armor = { light: false, medium: false, heavy: false, shields: false }, weapons = { simple: false, martial: false };
   switch (type) {
     case 'race': return { ...base, parent: '', speed: 30, size: 'Medium', vision: '', abil: [], abilNote: '', languages: '', langNote: '', skills: [], armor, weapons, weaponsOther: '', tools: '', resist: [], traits: [] };
-    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', equipment: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, features: [] };
-    case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', features: [] };
+    case 'class': return { ...base, hd: 8, saves: [], armor, weapons, weaponsOther: '', tools: '', skillChoice: '', equipment: '', spellAbil: '', caster: '', asi: [4, 8, 12, 16, 19], subclassLevel: 3, optionGroups: [], features: [] };
+    case 'subclass': return { ...base, parent: '', flavor: '', caster: '', spellAbil: '', optionGroups: [], features: [] };
     case 'background': return { ...base, skills: [], tools: '', languages: '', feature: { name: '', text: '' }, feat: '', equipment: '' };
     case 'feat': return { ...base, prereq: '' };
     case 'language': return { ...base, kind: 'Standard', script: '', speakers: '' };
+    case 'option': return { ...base, group: '', owners: [], level: 0, prereq: '', reqOption: '', remind: { on: '', text: '' } };
     case 'boon': return { ...base, dawnTemp: 0, given: 'party' };
     case 'spell': return { ...base, level: 1, school: '', time: '1 action', range: '', components: 'V, S', material: '', duration: 'Instantaneous', conc: false, ritual: false, higher: '', classes: [], subclasses: [] };
   }

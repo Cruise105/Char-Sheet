@@ -8,6 +8,7 @@ import * as L from './library.js';
 import { resolvePicks, syncAuto } from './autofill.js';
 import { initLibrary, showLibrary, entryHtml } from './libui.js';
 import * as M from './magic.js';
+import * as O from './options.js';
 import * as B from './bridge.js';
 import { isDmEmail } from './dm.js';
 
@@ -231,6 +232,7 @@ function levelUp() {
       if (player() && isAsi() && st.asi === 'feat' && !L.findByName('feat', st.feat)) { toast('Pick a feat from the list. Ask your DM to add it to the Library if it isn\'t there.'); return; }
       const total = R.totalLevel(c) + 1;
       const asiNow = isAsi();
+      const optBefore = O.counts(c); // before the level changes, to tell what's new
       if (st.idx === 'new') {
         const k = clsOf();
         c.classes.push({ name: k?.name || st.newName.trim(), sub: '', clsId: k?.id || '', subId: '', level: 1, hd: k?.hd || 8, hdUsed: 0 });
@@ -253,7 +255,9 @@ function levelUp() {
       const added = syncAuto(c);
       save(c);
       $('#actDlg').close();
-      toast(`Level ${total}! +${g} HP${added.features ? `, ${added.features} new feature${added.features === 1 ? '' : 's'}` : ''}.`);
+      const optAfter = O.counts(c);
+      const newPicks = Object.entries(optAfter).filter(([k, n]) => n > (optBefore[k] || 0)).map(([k, n]) => `${n - (optBefore[k] || 0)} ${k}`);
+      toast(`Level ${total}! +${g} HP${added.features ? `, ${added.features} new feature${added.features === 1 ? '' : 's'}` : ''}.${newPicks.length ? ` New to choose under Class options: ${newPicks.join(', ')}.` : ''}`);
     }
   }, (e, paint) => {
     const el = e.target;
@@ -268,6 +272,40 @@ function levelUp() {
       // keep typing smooth: update just the result line
       const g = $('#actDlg .lugain'); if (g) { const tmp = document.createElement('div'); tmp.innerHTML = draw(); g.innerHTML = tmp.querySelector('.lugain')?.innerHTML || ''; }
       const go = $('#actDlg [data-lu-go]'); if (go) go.disabled = gain() == null || (st.idx === 'new' && !st.newName.trim());
+    }
+  });
+}
+
+// Choose a class option (Invocation, Metamagic…) from the Library
+function pickOption(group) {
+  const c = state.cur;
+  const st = { open: '' };
+  const para = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const draw = () => {
+    const g = O.groupsFor(c).find(x => x.group === group);
+    const left = g ? g.count - g.chosen.length : 0;
+    const list = O.choicesIn(c, group);
+    return `<h2>${esc(group)}</h2>
+      <p class="sub">${left > 0 ? `Choose ${left} more.` : 'All chosen.'} Tap a name to read it.</p>
+      <div class="optlist">${list.map(({ o, why }) => `
+        <div class="optrow ${why ? 'blocked' : ''}">
+          <button type="button" class="optname" data-optread="${esc(o.id)}" aria-expanded="${st.open === o.id}">${esc(o.name)}${o.prereq ? ` <small>${esc(o.prereq)}</small>` : ''}</button>
+          ${why ? `<span class="why">${esc(why)}</span>` : `<button class="btn small primary" type="button" data-optchoose="${esc(o.id)}" ${left > 0 ? '' : 'disabled'}>Choose</button>`}
+          ${st.open === o.id ? `<div class="optdesc">${para(o.desc)}${o.note ? `<aside class="rulenote"><b>Table Rules</b>${para(o.note)}</aside>` : ''}</div>` : ''}
+        </div>`).join('') || `<p class="empty">Nothing in the Library for ${esc(group)} yet.${isDm() ? ' Add them under Library, Class options.' : ' Ask your DM to add them.'}</p>`}</div>
+      <div class="row end"><button class="btn primary" type="button" data-close>Done</button></div>`;
+  };
+  actDialog(draw, (e, paint) => {
+    const r = e.target.closest('[data-optread]');
+    if (r) { st.open = st.open === r.dataset.optread ? '' : r.dataset.optread; return paint(); }
+    const ch = e.target.closest('[data-optchoose]');
+    if (ch) {
+      const o = L.get(ch.dataset.optchoose); if (!o || O.blockedBy(c, o)) return;
+      c.options = [...(c.options || []), { id: o.id, group }];
+      stamp(c, 'options'); save(c);
+      toast(`Chose ${o.name}.`);
+      const g = O.groupsFor(c).find(x => x.group === group);
+      if (g && g.chosen.length >= g.count) $('#actDlg').close(); else paint();
     }
   });
 }
@@ -687,7 +725,7 @@ const sheetCtx = {
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
   isPlayer: () => !isDm(),
-  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine',
+  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption,
 };
 
 async function start() {

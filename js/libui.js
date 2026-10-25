@@ -3,6 +3,7 @@ import * as L from './library.js';
 import { getPath, setPath } from './model.js';
 import { ABILS, SKILLS, DEFENSE_KINDS } from './rules.js';
 import { esc, REMIND_ON } from './sheet.js';
+import { levelsToText, textToLevels } from './options.js';
 
 let ctx; // { toast, isDm(), confirm }
 const st = { type: 'race', q: '', sel: null, draft: null };
@@ -55,6 +56,14 @@ export function entryHtml(e) {
     const ft = L.get(e.feat); add('Background feat', ft ? `<button class="linkbtn" type="button" data-libopen="${ft.id}">${esc(ft.name)}</button>` : (e.feat ? 'Missing from the library' : ''));
   }
   if (e.type === 'feat') add('Prerequisite', esc(e.prereq));
+  if (e.type === 'option') {
+    add('Group', esc(e.group));
+    add('For', (e.owners || []).map(id => L.get(id)?.name).filter(Boolean).map(esc).join(', '));
+    add('Class level', Number(e.level) ? esc(e.level) : '');
+    const req = L.get(e.reqOption); add('Requires', req ? `<button class="linkbtn" type="button" data-libopen="${req.id}">${esc(req.name)}</button>` : '');
+    add('Prerequisite', esc(e.prereq));
+  }
+  if ((e.type === 'class' || e.type === 'subclass') && (e.optionGroups || []).length) add('Class options', e.optionGroups.map(g => `${esc(g.group)} <small>(${esc(levelsToText(g.levels))})</small>`).join('<br>'));
   if (e.type === 'spell') {
     add('Level', `${e.level ? `Level ${e.level}` : 'Cantrip'} ${esc(e.school || '')}`.trim());
     add('Casting time', esc(e.time) + (e.ritual ? ' (ritual)' : ''));
@@ -91,7 +100,7 @@ function render() {
       <input class="f" type="search" data-lq value="${esc(st.q)}" placeholder="Search ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}" aria-label="Search">
       ${dm ? `<button class="btn primary" type="button" data-lnew>New ${L.typeName(st.type).toLowerCase()}</button>` : ''}
       <ul class="liblist">${items.map(e => `<li><button type="button" data-lsel="${e.id}" aria-current="${e.id === st.sel}">
-        <span>${esc(e.name)}${e.parent && e.type === 'race' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'subclass' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'spell' ? ` <small>${e.level ? `Lv ${e.level}` : 'Cantrip'}</small>` : ''}</span>
+        <span>${esc(e.name)}${e.parent && e.type === 'race' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'subclass' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'option' ? ` <small>${esc(e.group || '')}</small>` : ''}${e.type === 'spell' ? ` <small>${e.level ? `Lv ${e.level}` : 'Cantrip'}</small>` : ''}</span>
         <small class="srcb">${e.builtIn ? 'SRD' : esc(e.src || (e.overridesSrd ? 'SRD, edited' : 'Yours'))}</small></button></li>`).join('') || '<li class="empty">Nothing here yet.</li>'}</ul>
     </aside>
     <section class="libmain">${st.draft || sel ? `<button class="linkbtn libback" type="button" data-lback>All ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}</button>` : ''}${st.draft ? editorHtml(st.draft) : sel ? `
@@ -111,9 +120,13 @@ const FIELDS = {
     ['weaponsOther', 'Other weapons'], ['tools', 'Tools'], ['skillChoice', 'Skill choice', 'text', 'Choose two from …'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
     ['equipment', 'Starting equipment', 'area', '- (a) a rapier or (b) a longsword\n- Leather armor and a dagger'],
     ['caster', 'Spellcasting type', 'casterSel'], ['asi', 'Ability Score Improvement levels', 'numlist', '4, 8, 12, 16, 19'],
-    ['subclassLevel', 'Subclass chosen at level', 'num'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+    ['subclassLevel', 'Subclass chosen at level', 'num'], ['optionGroups', 'Class option choices (Invocations, Metamagic, Infusions…)', 'optgroups'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   subclass: [['name', 'Name'], ['parent', 'Class', 'classSel'], ['src', 'Book and page'], ['caster', 'Makes the class a spellcaster', 'casterSub'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
+    ['optionGroups', 'Class option choices (Maneuvers, Runes, Fighting Styles…)', 'optgroups'],
     ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+  option: [['name', 'Name'], ['group', 'Group', 'groupText', 'Eldritch Invocations'], ['src', 'Book and page'], ['owners', 'Which classes and subclasses can choose it', 'ownerMulti'],
+    ['level', 'Class level needed (0 for none)', 'num'], ['reqOption', 'Requires another option first', 'optionSel'], ['prereq', 'Other prerequisite (shown, not checked)', 'text', 'The eldritch blast cantrip'],
+    ['desc', 'Full text', 'area'], ['remind', 'Reminder', 'remindOne'], ['note', 'Table Rules note', 'area']],
   spell: [['name', 'Name'], ['level', 'Level (0 = cantrip)', 'num'], ['school', 'School'], ['src', 'Book and page'], ['time', 'Casting time'], ['range', 'Range'],
     ['components', 'Components', 'text', 'V, S, M'], ['material', 'Material'], ['duration', 'Duration'], ['conc', 'Concentration', 'bool'], ['ritual', 'Ritual', 'bool'],
     ['classes', 'Class spell lists', 'classMulti'], ['subclasses', 'Subclass lists (domain, oath, expanded spells)', 'subMulti'],
@@ -148,6 +161,15 @@ function editorHtml(d) {
       case 'casterSub': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'No'], ['third', 'Yes, third caster (Eldritch Knight, Arcane Trickster)']], v)}</select></label>`;
       case 'numlist': return `<label class="hf">${lab}<input class="f" data-f="${path}" data-numlist value="${esc((v || []).join(', '))}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
       case 'bool': return `<label class="hf chk boolf"><input type="checkbox" data-fbool="${path}" ${v ? 'checked' : ''}><span>${label}</span></label>`;
+      case 'groupText': return `<label class="hf">${lab}<input class="f" data-f="${path}" list="dl-optgroups" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off"><datalist id="dl-optgroups">${[...new Set(L.all('option').map(o => o.group).filter(Boolean))].map(g => `<option value="${esc(g)}"></option>`).join('')}</datalist><span class="hint">Must match the group name on the class or subclass.</span></label>`;
+      case 'ownerMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('class').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)}</span></label>`).join('')}
+        <span class="lbl" style="width:100%;margin-top:6px">Subclasses</span>${L.all('subclass').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)} <small>${esc(L.get(x.parent)?.name || '')}</small></span></label>`).join('')}</fieldset>`;
+      case 'optionSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'None'], ...L.all('option').filter(o => o.id !== d.id).map(o => [o.id, `${o.name} (${o.group || 'no group'})`])], v)}</select></label>`;
+      case 'remindOne': return `<div class="hf wide"><span class="lbl">${label}</span><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.on">${opt(REMIND_ON, v?.on || '')}</select></label><input class="f" data-f="${path}.text" value="${esc(v?.text || '')}" placeholder="Reminder text, e.g. +{cha} to damage" aria-label="Reminder text" style="flex:1"></div></div>`;
+      case 'optgroups': return rows(path, label, v, (r, i) => `<input class="f" data-f="${path}.${i}.group" value="${esc(r.group)}" list="dl-optgroups2" placeholder="Group name, e.g. Eldritch Invocations" aria-label="Group name" autocomplete="off">
+          <input class="f" data-optlv="${path}.${i}.levels" value="${esc(levelsToText(r.levels))}" placeholder="2: 2, 5: 3, 7: 4" aria-label="How many at each level" autocomplete="off" style="max-width:220px">
+          <datalist id="dl-optgroups2">${[...new Set(L.all('option').map(o => o.group).filter(Boolean))].map(g => `<option value="${esc(g)}"></option>`).join('')}</datalist>`, { group: '', levels: {} })
+        + '<p class="hint wide">Level: total picks from that level on. "2: 2, 5: 3" means 2 at level 2 and 3 from level 5. A subclass\'s count adds to its class\'s.</p>';
       case 'classMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('class').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)}</span></label>`).join('')}</fieldset>`;
       case 'subMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('subclass').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)} <small>${esc(L.get(x.parent)?.name || '')}</small></span></label>`).join('')}<span class="hint">Spells on a subclass list count as always prepared.</span></fieldset>`;
       case 'langKind': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['Standard', 'Standard'], ['Exotic', 'Exotic'], ['Secret', 'Secret']], v)}</select></label>`;
@@ -193,6 +215,7 @@ function onInput(e) {
   const d = st.draft; if (!d) return;
   if (el.dataset.given && e.type === 'change') { d.given = el.dataset.given === 'party' ? 'party' : []; return render(); }
   if (el.matches('[data-givenc]') && e.type === 'change') { const set = new Set(Array.isArray(d.given) ? d.given : []); el.checked ? set.add(el.value) : set.delete(el.value); d.given = [...set]; return; }
+  if (el.dataset.optlv) { setPath(d, el.dataset.optlv, textToLevels(el.value)); return; }
   if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
   else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
   else if (el.dataset.fbool) setPath(d, el.dataset.fbool, el.checked);

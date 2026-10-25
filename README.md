@@ -68,6 +68,16 @@ The library lives in your Drive folder as "Table Library", and sharing a sheet w
 - **Short rest** spends hit dice one at a time (roll at the table, type it in). **Long rest** restores everything.
 - **Table Rules switches** (DM, in Settings): spell points or slots, and Active or standard initiative. Players get the change with the Table Library. In Active Initiative the Initiative box becomes the Interrupt Point; taking HP damage recharges a spent one.
 
+## Class options (Invocations, Metamagic, Infusions…)
+
+- **On the sheet:** the Class options section lists each group the character has (for example "Eldritch Invocations 2 of 3"). Tap **Choose** to read the options and pick one. Options the character can't take yet show why (level or another option needed). Players can pick and remove their own; the header reminds them when picks are waiting, and Level Up says when a new one opens.
+- **In the Library (DM):** each option is its own entry under **Class options**: its group, which classes or subclasses it belongs to, any level or option it needs, and its text. On the class or subclass, **Class option choices** sets how many picks it gives: `2: 2, 5: 3` means 2 from level 2 and 3 from level 5. A subclass's count adds to its class's.
+- **Built in from the SRD:** Fighting Styles, Metamagic, Eldritch Invocations, Pact Boons, Hunter's choices, Dragon Ancestor and Circle of the Land terrain. Anything else (Artificer Infusions, Battle Master Maneuvers, and so on) you add as Class options, then set the counts on that class or subclass.
+
+## Notes page
+
+The **Notes** tab on each sheet has a typed notes box and handwritten pages (finger or stylus). It syncs with the rest of the sheet.
+
 ## Linked apps (Stage 4)
 
 Your device (DM role) ties your apps together whenever the Character Sheets app syncs:
