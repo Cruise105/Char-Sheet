@@ -11,6 +11,7 @@ import * as M from './magic.js';
 import * as O from './options.js';
 import * as B from './bridge.js';
 import * as CR from './creatures.js';
+import * as INF from './infuse.js';
 import { isDmEmail } from './dm.js';
 
 const $ = s => document.querySelector(s);
@@ -316,6 +317,43 @@ function addCreature(kind = 'companion') {
     if (dlg.open) { const pos = dlg.querySelector('[data-crq]')?.selectionStart; paint(); if (pos != null) { const f = dlg.querySelector('[data-crq]'); f.focus(); f.setSelectionRange(pos, pos); } }
   }).catch(() => { st.loading = false; st.err = "Couldn't read your Bestiary just now."; if (dlg.open) paint(); });
   const paint = () => { dlg.querySelector('.body').innerHTML = draw(); };
+}
+
+// Artificer: put a known infusion into an item and hand it to someone
+function infuseDialog() {
+  const c = state.cur;
+  const known = INF.known(c);
+  const used = new Set((c.infused || []).map(i => i.optId));
+  const st = { opt: known.find(o => !used.has(o.id))?.id || '', target: '', holder: '' };
+  const max = INF.limit(c), n = (c.infused || []).length;
+  const draw = () => {
+    const o = L.get(st.opt);
+    const full = max != null && n >= max;
+    const oldest = full ? [...c.infused].sort((a, b) => a.at - b.at)[0] : null;
+    return `<h2>Infuse an item</h2>
+      <p class="sub">${max != null ? `${n} of ${max} infused items.` : 'Add an Infused Items column to the class table to track the limit.'}</p>
+      <label class="hf"><span class="lbl">Infusion</span><select class="f" data-inf="opt">${known.map(k => `<option value="${esc(k.id)}" ${k.id === st.opt ? 'selected' : ''} ${used.has(k.id) ? 'disabled' : ''}>${esc(k.name)}${used.has(k.id) ? ' (already in an item)' : ''}</option>`).join('')}</select></label>
+      ${o && !o.itemSnap ? `<label class="hf"><span class="lbl">The item it goes into</span><input class="f" data-inf="target" value="${esc(st.target)}" placeholder="Longsword, shield, a backpack…" autocomplete="off"></label>` : o?.itemSnap ? `<p class="hint">Makes a ${esc(o.itemSnap.name)}.</p>` : ''}
+      <label class="hf"><span class="lbl">Who holds it</span><select class="f" data-inf="holder"><option value="">You (${esc(c.name || 'this character')})</option>${INF.party(c).map(p => `<option value="${esc(p.id)}" ${p.id === st.holder ? 'selected' : ''}>${esc(p.name)}</option>`).join('')}</select></label>
+      ${o ? `<details class="optdesc"><summary>Read ${esc(o.name)}</summary>${esc(o.desc || '').split(/\n{2,}/).map(t => `<p>${t}</p>`).join('')}</details>` : '<p class="empty">No infusions known. Choose them under Class options.</p>'}
+      ${oldest ? `<p class="warn">You're at your limit, so ${esc(INF.view(oldest).name)} stops being infused.</p>` : ''}
+      <div class="row end"><button class="btn ghost" type="button" data-close>Cancel</button><button class="btn primary" type="button" data-infgo ${o ? '' : 'disabled'}>Infuse</button></div>`;
+  };
+  const dlg = actDialog(draw, (e, paint) => {
+    if (!e.target.closest('[data-infgo]')) return;
+    const o = L.get(st.opt); if (!o) return;
+    if (!o.itemSnap && !st.target.trim()) { toast('Name the item it goes into.'); dlg.querySelector('[data-inf="target"]')?.focus(); return; }
+    const r = INF.infuse(c, st.opt, st.target, st.holder);
+    if (!r.ok) return toast(r.reason);
+    stamp(c, 'infused'); save(c);
+    const v = INF.view(r.rec);
+    toast(`${v.name} is infused${st.holder ? ` and goes to ${INF.holderName(c, st.holder)}` : ''}.${r.ended ? ` ${INF.view(r.ended).name} is no longer infused.` : ''}`);
+    dlg.close();
+  }, (e, paint) => {
+    const k = e.target.dataset.inf; if (!k) return;
+    st[k] = e.target.value;
+    if (k !== 'target' && e.type === 'change') paint();
+  });
 }
 
 // Choose a class option (Invocation, Metamagic…) from the Library
@@ -770,14 +808,14 @@ const sheetCtx = {
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
   isPlayer: () => !isDm(),
-  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature,
+  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
 };
 
 async function start() {
   await loadSettings();
   await L.loadLibrary();
   initSheet(sheetCtx);
-  initLibrary($('#libview'), { toast, isDm: () => isDm(), libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })) });
+  initLibrary($('#libview'), { toast, isDm: () => isDm(), libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })), magicItems: () => B.magicItemList() });
   $('#libBtn').addEventListener('click', () => openLibraryView());
   bindSheet($('#app'), () => state.cur);
   const tb = () => document.documentElement.style.setProperty('--tb', `${$('.topbar').offsetHeight}px`);

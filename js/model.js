@@ -32,7 +32,7 @@ export function newCharacter(name = '') {
     personality: '', ideals: '', bonds: '', flaws: '', enemies: '',
     inv: { armor: [], weapons: [], tools: [], treasure: [], components: [], general: [] },
     coins: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 }, powerful: false,
-    defenses: [], options: [], journal: '', inkPages: [], creatures: [], compHp: {}, wildFav: [],
+    defenses: [], options: [], journal: '', inkPages: [], creatures: [], compHp: {}, wildFav: [], infused: [], infAttuned: {},
     notes: '',
     theme: {
       preset: 'night', accent: '', head: 'alegreya', body: 'sans', frame: 'clean',

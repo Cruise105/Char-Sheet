@@ -8,6 +8,7 @@ import * as M from './magic.js';
 import * as O from './options.js';
 import * as T from './tables.js';
 import * as CR from './creatures.js';
+import * as INF from './infuse.js';
 import { renderThumb, openInkEditor } from './ink.js';
 
 let ctx; // { save(c), toast(msg), rerender() }
@@ -246,6 +247,7 @@ function equipment(c) {
     ${simpleList(c, 'consumables', 'Consumables', [['name', 'Consumable', 'f'], ['n', 'Left', 'n']])}
     ${(c.magicItems || []).length ? `<div class="miblock"><span class="lbl">Magic items from your DM</span>${c.magicItems.map(m => `<details class="mi"><summary><b>${esc(m.name)}</b>${m.attuned ? '<span class="attb">Attuned</span>' : ''}</summary>
       <p class="sub">${esc([m.type, m.attune].filter(Boolean).join(' · '))}</p>${fmt(m.desc)}</details>`).join('')}</div>` : ''}
+    ${infusedBlock(c)}
     <div class="attune">
       <div class="lh"><span class="lbl">Attuned magic items</span><span class="count">${calc('attuned')}</span></div>
       ${simpleList(c, 'attuned', '', [['name', 'Item', 'f'], ['notes', 'Notes', 'f']], true)}
@@ -371,13 +373,35 @@ function optionsPanel(c) {
     </div>`).join(''), 'optpanel');
 }
 
+// Artificer infusions: what's infused, in what, and who has it
+// Infused items this character holds (theirs or another artificer's), shown with their magic items
+function infusedBlock(c) {
+  const items = INF.heldHere(c);
+  if (!items.length) return '';
+  return `<div class="miblock"><span class="lbl">Infused items</span>${items.map(m => `<details class="mi"><summary><b>${esc(m.name)}</b>${m.attuned ? '<span class="attb">Attuned</span>' : ''}${m.by ? `<small class="src">from ${esc(m.by)}</small>` : ''}</summary>
+    <p class="sub">${esc([m.type, m.attune, m.by ? `infused by ${m.by}` : ''].filter(Boolean).join(' · '))}</p>${fmt(m.desc)}${m.extra ? fmt(m.extra) : ''}
+    ${m.attune ? `<button class="btn small" type="button" data-act="infatt" data-key="${esc(m.key)}">${m.attuned ? 'End attunement' : 'Attune'}</button>` : ''}</details>`).join('')}</div>`;
+}
+function infusionsPanel(c) {
+  const known = INF.known(c), list = c.infused || [];
+  if (!known.length && !list.length) return '<div class="dmempty"></div>';
+  const max = INF.limit(c);
+  return panel('Infusions', `
+    <div class="lh"><span class="lbl">Infused items</span><span class="count ${max != null && list.length > max ? 'over' : ''}">${list.length}${max != null ? ` of ${max}` : ''}</span></div>
+    ${list.map(i => { const v = INF.view(i); return `<details class="feat"><summary><span>${esc(v.name)}</span><small class="src">${esc(INF.holderName(c, i.holder))}</small>
+        <button class="x" type="button" data-act="infend" data-id="${esc(i.id)}" aria-label="End the infusion on ${esc(v.name)}">×</button></summary>
+      <p class="hint">${esc(i.name)}${v.attune ? ` · ${esc(v.attune)}` : ''}</p><div class="ftext">${fmt(v.desc)}</div>${v.extra ? `<div class="ftext">${fmt(v.extra)}</div>` : ''}</details>`; }).join('') || '<p class="empty">Nothing infused right now.</p>'}
+    ${known.length ? '<button class="linkbtn" type="button" data-act="infnew">Infuse an item</button>' : ''}
+    <p class="hint">${known.length} infusion${known.length === 1 ? '' : 's'} known. Change them on a long rest.</p>`, 'infpanel');
+}
+
 // Sections of the main sheet a player can move around (Arrange). Ability scores and the header stay put.
 export const SECTION_NAMES = {
   pair: 'Inspiration and proficiency', saves: 'Saving throws', skills: 'Skills', passive: 'Passive Perception', profs: 'Proficiencies', langs: 'Languages',
   combat: 'Combat', dm: 'From your DM', attacks: 'Attacks and spellcasting', equipment: 'Equipment',
-  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', options: 'Class options', feats: 'Feats', defenses: 'Defenses',
+  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', options: 'Class options', infusions: 'Infusions', feats: 'Feats', defenses: 'Defenses',
 };
-export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'options', 'feats', 'defenses'] };
+export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'options', 'infusions', 'feats', 'defenses'] };
 export const isSmall = () => matchMedia('(max-width: 700px)').matches;
 // The character's saved arrangement for this screen size, with any new or missing sections filled back in
 export function layoutFor(c) {
@@ -405,6 +429,7 @@ function sectionHtml(c) {
     racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…', locked: true }),
     classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true, top: classTableStrip(c) }),
     options: optionsPanel(c),
+    infusions: infusionsPanel(c),
     feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.', locked: true }),
     defenses: defenses(c),
   };
@@ -658,6 +683,7 @@ function pageInventory(c) {
     </div>
     <div class="carrybar"><i data-calc="carrybar"></i></div>
     <p class="warn" data-calc="carrywarn"></p>
+    ${INF.heldHere(c).length ? infusedBlock(c) : ''}
     ${(c.magicItems || []).some(m => m.weight) ? `<p class="hint">Includes ${(c.magicItems || []).reduce((t, m) => t + (Number(m.weight) || 0), 0)} lb of magic items from your DM.</p>` : ''}
   </section>
   ${panel('Coins', `<div class="coins">${coins}</div>
@@ -749,7 +775,7 @@ export function updateCalcs(root, c) {
       case 'abdc': out = c.abilityDc.abil ? R.saveDc(c, c.abilityDc.abil) : '—'; break;
       case 'atkbonus': { const atk = c.attacks[a]; out = atk ? R.sign(R.attackBonus(c, atk)) : ''; break; }
       case 'atkdmg': { const atk = c.attacks[a]; out = atk ? R.damageText(c, atk) : ''; break; }
-      case 'attuned': { const n = (c.attuned || []).filter(x => x.name).length + (c.magicItems || []).filter(x => x.attuned).length, max = Number(c.attuneMax) || 3; out = `${n} of ${max}`; el.classList.toggle('over', n > max); break; }
+      case 'attuned': { const n = (c.attuned || []).filter(x => x.name).length + (c.magicItems || []).filter(x => x.attuned).length + INF.heldHere(c).filter(x => x.attuned).length, max = Number(c.attuneMax) || 3; out = `${n} of ${max}`; el.classList.toggle('over', n > max); break; }
       case 'hpbar': {
         const max = Number(c.hp.max) || 0, cur = Math.max(0, Number(c.hp.cur) || 0), tmp = Math.max(0, Number(c.hp.temp) || 0);
         const pct = max ? Math.min(100, (cur / max) * 100) : 0;
@@ -970,6 +996,19 @@ function act(b, c, root) {
       c.creatures.splice(i, 1); if (c.compHp) delete c.compHp[d.id];
       stamp(c, 'compHp');
       return touch('creatures');
+    }
+    case 'infnew': return ctx.infuse?.();
+    case 'infend': {
+      const i = (c.infused || []).findIndex(x => x.id === d.id); if (i < 0) return;
+      const v = INF.view(c.infused[i]);
+      if (!confirm(`End the infusion on ${v.name}?${c.infused[i].holder ? ` ${INF.holderName(c, c.infused[i].holder)} loses it.` : ''}`)) return;
+      c.infused.splice(i, 1); ctx.toast(`${v.name} is no longer infused.`);
+      return touch('infused');
+    }
+    case 'infatt': {
+      c.infAttuned = c.infAttuned || {};
+      if (c.infAttuned[d.key]) delete c.infAttuned[d.key]; else c.infAttuned[d.key] = true;
+      return touch('infAttuned');
     }
     case 'consolidate': c.coins = R.consolidateCoins(c.coins); ctx.toast('Coins consolidated.'); return touch('coins');
     case 'imgdel': setPath(c, d.p, ''); return touch(d.p);

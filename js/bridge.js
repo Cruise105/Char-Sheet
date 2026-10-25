@@ -38,6 +38,29 @@ async function loadSeed() {
   } catch { sources.seedOk = false; return null; }
 }
 
+// DM: every item the magic item app knows (its list plus your own items and edits), for linking Replicate Magic Item options
+export async function magicItemList() {
+  const seed = await loadSeed();
+  const st = sources.mi?.state || {};
+  const items = new Map();
+  if (seed) for (const [id, i] of seed) items.set(id, i);
+  for (const c of st.custom || []) items.set(c.id, c);
+  return [...items.entries()].map(([id, i]) => {
+    const e = st.edits?.[id]; const x = e ? { ...i, ...e } : i;
+    return { id, ...itemSnapOf(x) };
+  }).filter(x => x.name).sort((a, b) => a.name.localeCompare(b.name));
+}
+// What a sheet needs of an item (never its value)
+export function itemSnapOf(i) {
+  const a = i.attune || {};
+  return {
+    name: i.name, type: [i.type, i.rarity].filter(Boolean).join(', '),
+    attune: a.mode === 'required' ? `Requires attunement${a.by ? ` ${a.by}` : ''}` : a.mode === 'optional' ? 'Attunement optional' : '',
+    desc: i.desc || '', weight: weightLb(i.weight),
+  };
+}
+export { loadSeed };
+
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 const firstWord = s => norm(s).split(' ')[0];
 // Find the record in another app that is this character: an explicit link first, then the same name
@@ -183,7 +206,18 @@ export async function runBridge(io) {
   const boons = L.all('boon');
   try { await loadBestiary(io); } catch (e) { if (e.auth) throw e; }
   const changed = [];
-  for (const c of await db.all()) {
+  const all = await db.all();
+  // the party roster players see (names only), so an artificer can hand an infused item to someone
+  const roster = all.filter(c => c.name).map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
+  if (JSON.stringify(L.tableSettings().party || []) !== JSON.stringify(roster)) await L.setTableSetting('party', roster);
+  // infused items held by someone other than the artificer who made them
+  const heldBy = new Map();
+  for (const x of all) for (const inf of x.infused || []) {
+    if (!inf.holder || inf.holder === x.id) continue;
+    if (!heldBy.has(inf.holder)) heldBy.set(inf.holder, []);
+    heldBy.get(inf.holder).push({ ...inf, key: `${x.id}:${inf.id}`, by: x.name || 'an artificer', byId: x.id });
+  }
+  for (const c of all) {
     let dirty = false;
     const put = (path, val) => {
       if (JSON.stringify(c[path] ?? null) === JSON.stringify(val ?? null)) return;
@@ -214,6 +248,8 @@ export async function runBridge(io) {
         }
       }
     }
+    const held = heldBy.get(c.id) || [];
+    if (held.length || (c.infusedHeld || []).length) put('infusedHeld', held);
     // Bestiary stat blocks: every beast a Wild Shaper could take, and fresh copies of the creatures you gave them
     if (bestiary.ok) {
       const cap = wildCap(c);

@@ -1,9 +1,9 @@
 // Offline support: the app's files are cached on first visit, then served from the device.
 // When you publish an update, bump VERSION so devices pick up the new files on their next launch.
-const VERSION = 'charsheet-v23';
+const VERSION = 'charsheet-v24';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest',
-  './js/app.js', './js/db.js', './js/model.js', './js/rules.js', './js/sheet.js', './js/theme.js', './js/sync.js', './js/config.js', './js/library.js', './js/autofill.js', './js/libui.js', './js/magic.js', './js/bridge.js', './js/dm.js', './js/options.js', './js/ink.js', './js/tables.js', './js/creatures.js', './data/srd.json',
+  './js/app.js', './js/db.js', './js/model.js', './js/rules.js', './js/sheet.js', './js/theme.js', './js/sync.js', './js/config.js', './js/library.js', './js/autofill.js', './js/libui.js', './js/magic.js', './js/bridge.js', './js/dm.js', './js/options.js', './js/ink.js', './js/tables.js', './js/creatures.js', './js/infuse.js', './data/srd.json',
   './icons/icon-192.png', './icons/icon-512.png', './icons/icon-maskable-512.png',
   './fonts/alegreya-latin-400-normal.woff2', './fonts/alegreya-latin-400-italic.woff2', './fonts/alegreya-latin-700-normal.woff2', './fonts/alegreya-latin-800-normal.woff2',
   './fonts/alegreya-sans-latin-400-normal.woff2', './fonts/alegreya-sans-latin-500-normal.woff2', './fonts/alegreya-sans-latin-700-normal.woff2',

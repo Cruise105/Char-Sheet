@@ -91,6 +91,15 @@ Stat blocks come from your Bestiary, so there's one place to keep them. When you
 - **Numbers that scale:** under **Adjust** (only you see it) give a companion a Max HP or AC formula, like `1 + {int} + {Artificer level}` or `13 + {prof}`. In the Bestiary's action text you can write tokens too, like `{spell attack} to hit` or `1d4 + {prof}`; the sheet fills in that character's numbers.
 - **Tokens everywhere** (features, reminders, creatures): {str} … {cha}, {prof}, {level}, {Druid level} (any class), {spell attack}, {spell save DC}, and any class table column. Written with a plus right before it, like `+{cha}`, a number shows signed ("+3").
 
+## Artificer infusions
+
+- **Infusions are Class options.** In Library → Class options, add each infusion (group "Artificer Infusions", for the Artificer, with its level) and tick **Infusion: an Artificer puts it into an item**. Tick **The infused item requires attunement** for ones like Enhanced Arcane Focus.
+- **Replicate Magic Item:** add one option per plan, like "Replicate Magic Item: Bag of Holding", and pick the item under **Magic item it makes**. Its full text comes from the magic item app (without its value). The list fills in after this device has synced once.
+- **The Artificer's class table** needs **Infusions Known** (how many they choose, with a matching Class option count) and **Infused Items** (the limit).
+- **On the sheet:** the Infusions section lists what's infused and who has it. **Infuse an item** picks an infusion, the item it goes into, and who holds it (anyone in the party). Over the limit, the oldest infusion ends. × ends one early.
+- **The holder** sees the item with their magic items, marked "from Gustaf", and can attune to it if it needs attunement (it counts toward their limit). Replicated items count toward carried weight. Your device hands items between sheets when it syncs.
+- Infused items never go into the magic item app: they only exist while the infusion lasts.
+
 ## Notes page
 
 The **Notes** tab on each sheet has a typed notes box and handwritten pages (finger or stylus). It syncs with the rest of the sheet.

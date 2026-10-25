@@ -63,6 +63,8 @@ export function entryHtml(e) {
     add('Class level', Number(e.level) ? esc(e.level) : '');
     const req = L.get(e.reqOption); add('Requires', req ? `<button class="linkbtn" type="button" data-libopen="${req.id}">${esc(req.name)}</button>` : '');
     add('Prerequisite', esc(e.prereq));
+    if (e.infusion) add('Infusion', `An Artificer can put it into an item${e.infAttune && !e.itemSnap ? '; the item requires attunement' : ''}.`);
+    if (e.itemSnap) add('Makes', `${esc(e.itemSnap.name)} <small>(${esc([e.itemSnap.type, e.itemSnap.attune].filter(Boolean).join(' · '))})</small>`);
   }
   if ((e.type === 'class' || e.type === 'subclass') && (e.optionGroups || []).length) add('Class options', e.optionGroups.map(g => `${esc(g.group)} <small>(${esc(levelsToText(g.levels))})</small>`).join('<br>'));
   if (e.type === 'spell') {
@@ -84,6 +86,7 @@ export function entryHtml(e) {
       ${e.type === 'background' && e.feature?.name ? `<h3>Feature: ${esc(e.feature.name)}</h3>${para(e.feature.text)}` : ''}
       ${e.type === 'class' && e.equipment ? `<h3>Starting equipment</h3>${para(e.equipment)}` : ''}
       ${e.desc ? para(e.desc) : ''}
+      ${e.type === 'option' && e.itemSnap ? `<h3>${esc(e.itemSnap.name)}</h3><p class="sub">${esc([e.itemSnap.type, e.itemSnap.attune].filter(Boolean).join(' · '))}</p>${para(e.itemSnap.desc)}` : ''}
       ${e.higher ? `<p><b>At Higher Levels.</b></p>${para(e.higher)}` : ''}
       ${e.langNote ? para(e.langNote) : ''}
       ${list('Traits', e.traits)}
@@ -128,7 +131,8 @@ const FIELDS = {
     ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   option: [['name', 'Name'], ['group', 'Group', 'groupText', 'Eldritch Invocations'], ['src', 'Book and page'], ['owners', 'Which classes and subclasses can choose it', 'ownerMulti'],
     ['level', 'Class level needed (0 for none)', 'num'], ['reqOption', 'Requires another option first', 'optionSel'], ['prereq', 'Other prerequisite (shown, not checked)', 'text', 'The eldritch blast cantrip'],
-    ['desc', 'Full text', 'area'], ['remind', 'Reminder', 'remindOne'], ['note', 'Table Rules note', 'area']],
+    ['desc', 'Full text', 'area'], ['infusion', 'Infusion: an Artificer puts it into an item', 'bool'], ['infAttune', 'The infused item requires attunement', 'bool'],
+    ['item', 'Magic item it makes (Replicate Magic Item)', 'miItem'], ['remind', 'Reminder', 'remindOne'], ['note', 'Table Rules note', 'area']],
   spell: [['name', 'Name'], ['level', 'Level (0 = cantrip)', 'num'], ['school', 'School'], ['src', 'Book and page'], ['time', 'Casting time'], ['range', 'Range'],
     ['components', 'Components', 'text', 'V, S, M'], ['material', 'Material'], ['duration', 'Duration'], ['conc', 'Concentration', 'bool'], ['ritual', 'Ritual', 'bool'],
     ['classes', 'Class spell lists', 'classMulti'], ['subclasses', 'Subclass lists (domain, oath, expanded spells)', 'subMulti'],
@@ -187,6 +191,12 @@ function editorHtml(d) {
       case 'named': return rows(path, label, v, (r, i) => `<div class="stackf"><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Name" aria-label="Name"><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { name: '', text: '' }, true);
       case 'leveled': return rows(path, label, v, (r, i) => `<div class="stackf"><div class="row"><label class="mini">Level <input class="f n" data-f="${path}.${i}.lvl" data-num inputmode="numeric" value="${esc(r.lvl)}"></label><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Feature name" aria-label="Name" style="flex:1"></div><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { lvl: 1, name: '', text: '' }, true);
       case 'ctable': return tableEditor(path, label, v || []);
+      case 'miItem': {
+        if (!miList && !miLoading) loadMi();
+        return `<label class="hf wide">${lab}<input class="f" data-miitem list="dl-miitems" value="${esc(d.itemSnap?.name || '')}" placeholder="${miList ? `Type to search ${miList.length} items` : 'Loading the magic item list…'}" autocomplete="off">
+          <datalist id="dl-miitems">${(miList || []).map(i => `<option value="${esc(i.name)}"></option>`).join('')}</datalist>
+          <span class="hint">${d.itemSnap ? `Linked: ${esc(d.itemSnap.name)}. Its full text comes from the magic item app (value left out). Clear the box to unlink.` : 'For a Replicate Magic Item plan: pick the item, and mark this option as an infusion. Leave blank for other infusions.'}</span></label>`;
+      }
       default: return `<label class="hf">${lab}<input class="f" data-f="${path}" value="${esc(v)}" placeholder="${esc(ph)}" autocomplete="off"></label>`;
     }
   };
@@ -216,6 +226,18 @@ function tableEditor(path, label, cols) {
     <button class="linkbtn" type="button" data-coladd="${path}">Add a column</button>
     <p class="hint wide">Level, Proficiency Bonus and Features fill in on their own. Leave a cell blank to keep the value from the level above (shown faintly). "On sheet" shows the column's current value in the character's Class features; write {Column name} in a feature or reminder to show it there, like {Sneak Attack}.</p></div>`;
 }
+// The magic item app's items, for linking Replicate Magic Item plans (read through the DM's device)
+let miList = null, miLoading = false;
+async function loadMi() {
+  miLoading = true;
+  try { miList = await ctx.magicItems?.() || []; } catch { miList = []; }
+  miLoading = false;
+  if (st.draft?.type === 'option') {
+    const el = root.querySelector('[data-miitem]'); const v = el?.value; const focused = document.activeElement === el;
+    render();
+    const n = root.querySelector('[data-miitem]'); if (n && v != null) { n.value = v; if (focused) n.focus(); }
+  }
+}
 function rows(path, label, list, row, blank, big = false) {
   list = list || [];
   return `<div class="hf wide rowsf"><span class="lbl">${label}</span>
@@ -237,6 +259,17 @@ function onInput(e) {
   if (el.dataset.given && e.type === 'change') { d.given = el.dataset.given === 'party' ? 'party' : []; return render(); }
   if (el.matches('[data-givenc]') && e.type === 'change') { const set = new Set(Array.isArray(d.given) ? d.given : []); el.checked ? set.add(el.value) : set.delete(el.value); d.given = [...set]; return; }
   if (el.dataset.optlv) { setPath(d, el.dataset.optlv, textToLevels(el.value)); return; }
+  if (el.matches('[data-miitem]')) {
+    if (e.type !== 'change') return;
+    const name = el.value.trim();
+    if (!name) { d.item = ''; d.itemSnap = null; return render(); }
+    const hit = (miList || []).find(i => i.name.toLowerCase() === name.toLowerCase());
+    if (!hit) { ctx.toast(miList?.length ? 'Pick an item from the list.' : "The magic item list isn't loaded. Sync once, then try again."); return; }
+    d.item = hit.id; d.itemSnap = { name: hit.name, type: hit.type, attune: hit.attune, desc: hit.desc, weight: hit.weight };
+    if (!d.name) d.name = `Replicate Magic Item: ${hit.name}`;
+    d.infusion = true;
+    return render();
+  }
   if (el.dataset.ctcell != null) { setPath(d, el.dataset.f, el.value); if (e.type === 'change') refreshCarry(el); return; }
   if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
   else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);

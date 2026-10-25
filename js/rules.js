@@ -101,6 +101,9 @@ export function carried(c) {
   let w = coinWeight(c);
   for (const [k] of INV_CATS) for (const r of c.inv?.[k] || []) w += rowWeight(r);
   for (const m of c.magicItems || []) w += Number(m.weight) || 0; // items the DM's magic item app gave this character
+  // infused items that are new objects (Replicate Magic Item): the artificer's own, and ones others gave them
+  for (const i of c.infused || []) if (!i.holder || i.holder === c.id) w += Number(i.weight) || 0;
+  for (const i of c.infusedHeld || []) w += Number(i.weight) || 0;
   return Math.round(w * 100) / 100;
 }
 export const capacity = c => score(c, 'str') * 15 * (c.powerful ? 2 : 1);
