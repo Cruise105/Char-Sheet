@@ -67,8 +67,10 @@ export function armorClass(c) {
     const cap = a.maxDex === '' || a.maxDex == null ? Infinity : num(a.maxDex);
     base = num(a.base || 10) + Math.min(dex, cap);
   }
-  const total = base + num(a.shield) + num(a.misc);
-  return { total, withTemp: total + num(a.temp) };
+  // a shield counts only while it's in hand (the sheet's Shield switch; on unless turned off)
+  const shield = num(a.shield), on = shield !== 0 && a.shieldOff !== true;
+  const total = base + (on ? shield : 0) + num(a.misc);
+  return { total, withTemp: total + num(a.temp), shield, shieldOn: on, other: shield ? total + num(a.temp) + (on ? -shield : shield) : null };
 }
 
 export const saveDc = (c, a) => (a ? 8 + prof(c) + amod(c, a) : null);

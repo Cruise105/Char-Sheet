@@ -172,7 +172,8 @@ function combat(c) {
   return `
   <section class="panel combatcore">${remindBox(c, 'turn') ? `<div class="turnrem"><span class="lbl">Start of your turn</span>${remindBox(c, 'turn')}</div>` : ''}
     <div class="trio">
-      <button class="stat ac" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
+      <div class="stat ac"><button class="acnum" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
+        ${Number(c.ac?.shield) ? `<button class="shtog" type="button" data-act="shield" aria-pressed="${c.ac.shieldOff !== true}"><i aria-hidden="true"></i>Shield ${c.ac.shieldOff !== true ? 'in hand' : 'stowed'}</button><small class="acalt">${calc('acalt')}</small>` : ''}</div>
       ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
       ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd">${String(c.speed || '—').split(/\s*[,;]\s*/).filter(Boolean).map(esc).join('<br>')}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><textarea class="f center spdta" data-k="speed" rows="${Math.min(4, Math.max(1, String(c.speed || '').split(',').length))}" autocomplete="off" placeholder="30 ft, swim 30 ft">${esc(c.speed)}</textarea></label>`}
     </div>
@@ -780,6 +781,7 @@ export function updateCalcs(root, c) {
       case 'init': out = R.sign(R.initiative(c)); break;
       case 'ac': { const ac = R.armorClass(c); out = ac.withTemp; break; }
       case 'acbase': out = R.armorClass(c).total; break;
+      case 'acalt': { const ac = R.armorClass(c); out = ac.other == null ? '' : `${ac.other} ${ac.shieldOn ? 'without' : 'with'} shield`; break; }
       case 'actemp': { const t = Number(c.ac.temp) || 0; out = t ? `<small>includes ${R.sign(t)} temp</small>` : ''; el.innerHTML = out; continue; }
       case 'spelldc': out = c.spell.abil ? R.saveDc(c, c.spell.abil) : '—'; break;
       case 'spellatk': out = c.spell.abil ? R.sign(R.spellAttack(c, c.spell.abil)) : '—'; break;
@@ -1008,6 +1010,7 @@ function act(b, c, root) {
       stamp(c, 'compHp');
       return touch('creatures');
     }
+    case 'shield': c.ac.shieldOff = c.ac.shieldOff !== true; ctx.toast(c.ac.shieldOff ? 'Shield stowed.' : 'Shield in hand.'); return touch('ac.shieldOff');
     case 'choicedone': c.choicesDone = [...new Set([...(c.choicesDone || []), d.t])]; return touch('choicesDone');
     case 'troll': {
       const x = T.tablesFor(c).find(y => y.t.id === d.tid); if (!x) return;
