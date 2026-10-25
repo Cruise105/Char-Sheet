@@ -6,4 +6,4 @@ export const APP_ID = '150155066546';
 
 // Paste the API key from Google Cloud here (see README, "One-time Google setup").
 // Players need it to open the character you shared with them. Until it's filled in, only the DM side works.
-export const PICKER_API_KEY = '';
+export const PICKER_API_KEY = 'AIzaSyCmp8arWXk3EowilFmug6cY-EGPcEVHW3g';
