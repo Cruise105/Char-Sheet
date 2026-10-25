@@ -203,7 +203,7 @@ const EXHAUSTION = ['', 'Disadvantage on ability checks', 'Speed halved', 'Disad
 function attacks(c) {
   const rows = (c.attacks || []).map((a, i) => `
     <details class="atk" ${a._new ? 'open' : ''}>
-      <summary><span class="an">${esc(a.name) || 'New attack'}</span><b>${calc('atkbonus', i)}</b><span class="ad">${calc('atkdmg', i)}</span></summary>
+      <summary><span class="an">${esc(a.name) || 'New attack'}</span><b>${calc('atkbonus', i)}</b><span class="atkdmgtxt">${calc('atkdmg', i)}</span></summary>
       <div class="atkedit">
         <label class="hf"><span class="lbl">Name</span><input class="f" data-k="attacks.${i}.name" value="${esc(a.name)}" autocomplete="off"></label>
         <label class="hf"><span class="lbl">Ability</span>${sel(c, `attacks.${i}.abil`, [['str', 'Strength'], ['dex', 'Dexterity'], ['finesse', 'Finesse (best of Str/Dex)'], ['spell', 'Spellcasting ability'], ['con', 'Constitution'], ['int', 'Intelligence'], ['wis', 'Wisdom'], ['cha', 'Charisma'], ['', 'None']])}</label>

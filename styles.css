@@ -320,7 +320,7 @@ button.stat{cursor:pointer}
 .atk summary::-webkit-details-marker{display:none}
 .atk .an{font-weight:700}
 .atk summary b{text-align:center;font-variant-numeric:tabular-nums;border-radius:6px;background:var(--accent-soft);padding:2px 0}
-.atk .ad{color:var(--muted)}
+.atk .atkdmgtxt{color:var(--muted)}
 .atkedit{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;padding:4px 10px 10px}
 .atkedit .wide{grid-column:1/-1}
 .atkedit .checks{grid-column:span 3;display:flex;flex-wrap:wrap}
