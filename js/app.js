@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { newCharacter, upgrade, merge, stamp, uid, hpOp } from './model.js';
+import { newCharacter, upgrade, merge, stamp, uid, hpOp, getPath } from './model.js';
 import * as R from './rules.js';
 import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor } from './sheet.js';
 import { PRESETS } from './theme.js';
@@ -589,7 +589,17 @@ async function changedFromDrive({ library = false } = {}) {
   // the Table Library carries the DM's switches (spell points, initiative, leveling): redraw for those too
   if (!res.changed && !library) return;
   const typing = document.activeElement?.closest?.('#page') && document.activeElement.matches('input,textarea,select');
-  if (typing) updateCalcs($('#page'), state.cur); else renderSheet();
+  if (typing) { refreshFields($('#page'), state.cur); updateCalcs($('#page'), state.cur); } else renderSheet();
+}
+// Someone is typing: bring every other box up to date (HP from the Bestiary, a player's change) without redrawing the page
+function refreshFields(root, c) {
+  const active = document.activeElement;
+  for (const el of root.querySelectorAll('[data-k]')) {
+    if (el === active || !('value' in el)) continue;
+    const v = getPath(c, el.dataset.k);
+    if (el.type === 'checkbox') el.checked = !!v;
+    else if (String(el.value) !== String(v ?? '')) el.value = v ?? '';
+  }
 }
 
 /* ---------- ability score breakdown ---------- */
