@@ -49,6 +49,8 @@ const isPlayer = () => !!ctx.isPlayer?.();
 const ro = (v, ph = '') => `<div class="rofield">${v ? esc(v) : `<span class="empty">${esc(ph || '—')}</span>`}</div>`;
 const roArea = (v, ph = '') => `<div class="rofield area">${v ? esc(v).replace(/\n/g, '<br>') : `<span class="empty">${esc(ph || '—')}</span>`}</div>`;
 const lockedSkill = (c, k) => isPlayer() && (c.autoFlags || []).includes(`skills.${k}`);
+// saves from the class are locked; players can add saves they earn through training
+const lockedSave = (c, k) => isPlayer() && (c.autoFlags || []).includes(`saves.${k}`);
 // text box for the DM, plain text for players
 const txtL = (c, p, ph = '') => (isPlayer() ? ro(val(c, p), ph) : txt(c, p, ph));
 const areaL = (c, p, ph = '', rows = 3) => (isPlayer() ? roArea(val(c, p), ph) : area(c, p, ph, rows));
@@ -130,7 +132,7 @@ function abilities(c) {
 
 function savesSkills(c) {
   const saves = R.ABILS.map(([k, n]) => `
-    <div class="sk">${chkL(c, `saves.${k}`, '', `aria-label="Proficient in ${n} saves"`)}<b class="sv">${calc('save', k)}</b><span>${n}</span></div>`).join('');
+    <div class="sk">${chk(c, `saves.${k}`, '', `aria-label="Proficient in ${n} saves" ${lockedSave(c, k) ? 'disabled title="From your class"' : ''}`)}<b class="sv">${calc('save', k)}</b><span>${n}</span></div>`).join('');
   const skills = R.SKILLS.map(([k, n, a]) => {
     const rank = Number(c.skills?.[k]) || 0;
     const lk = lockedSkill(c, k);

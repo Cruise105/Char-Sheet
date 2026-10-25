@@ -437,15 +437,16 @@ function openLook() {
 function closeLook() { $('#look').hidden = true; app.classList.remove('looking'); }
 
 // Pull the latest from the device store after a Drive sync brought changes
-async function changedFromDrive() {
+async function changedFromDrive({ library = false } = {}) {
   if (app.dataset.view === 'home') return showHome();
-  if (app.dataset.view === 'library') return;
+  if (app.dataset.view === 'library') { if (library) showLibrary(); return; }
   const fresh = await db.get(state.cur.id);
   if (!fresh) return;
   await flush();
   const res = merge(state.cur, fresh);
   state.cur = res.merged;
-  if (!res.changed) return;
+  // the Table Library carries the DM's switches (spell points, initiative, leveling): redraw for those too
+  if (!res.changed && !library) return;
   const typing = document.activeElement?.closest?.('#page') && document.activeElement.matches('input,textarea,select');
   if (typing) updateCalcs($('#page'), state.cur); else renderSheet();
 }

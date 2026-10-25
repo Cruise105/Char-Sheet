@@ -28,6 +28,7 @@ const ss = { connected: false, email: '', folderId: '', links: {}, lastSync: 0, 
 const LIB_NAME = 'Table Library (character sheet app).json';
 const tok = { value: null, exp: 0 };
 const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
 
 /* ---------- helpers ---------- */
 async function saveState() { await db.setMeta('sync', structuredClone(ss)); }
@@ -293,7 +294,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
     ss.connected = true; ss.lastSync = Date.now();
     await saveState();
     setStatus('ok');
-    if (names.length) ctx.changedFromDrive();
+    if (names.length) ctx.changedFromDrive({ library: names.includes('the library') });
     if (first) { ctx.toast(role() === 'dm' ? 'Google Drive connected. Sheets now live in the "Character Sheets" folder in your Drive.' : 'Google Drive connected. Now tap "Open shared files" and pick your sheet and the Table Library.'); startAuto(); }
     else if (names.length && !quiet) ctx.toast(`Updated from Drive: ${[...new Set(names)].join(', ')}`);
     else if (interactive && !names.length) ctx.toast('Everything is in sync.');
@@ -417,6 +418,7 @@ export async function openShared(into = null) {
   ss.links[c.id] = { fileId, modified: '', hash: '' };
   ss.connected = true;
   await saveState();
+  if (!gotLib && !ss.lib?.fileId && role() !== 'dm') setTimeout(() => ctx.toast('Your sheet is linked. Also open the Table Library (Settings, Open shared files) so your DM\'s rules and Library reach this device.'), 1500);
   await syncNow({ quiet: true });
   startAuto();
   return c.id;
@@ -456,7 +458,8 @@ export function renderStatus() {
     return;
   }
   const line = { ok: `Last synced ${ago(ss.lastSync)}.`, syncing: 'Syncing now…', signin: 'Google needs you to sign in again before the next sync.', offline: "You're offline. Changes will sync when you're back online.", error: `The last sync didn't finish: ${lastError}` }[status] || `Last synced ${ago(ss.lastSync)}.`;
-  box.innerHTML = `<p>${ss.email ? `Signed in as ${ss.email}. ` : ''}${line}</p>
+  const libLine = dm ? '' : (ss.lib?.fileId ? ' Table Library: connected.' : ' <b>Table Library: not connected.</b> Tap "Open shared files" and pick it, so your DM\'s rules and Library reach this device.');
+  box.innerHTML = `<p>${ss.email ? `Signed in as ${esc(ss.email)}. ` : ''}${line}${libLine}</p>
     <div class="row">
       <button class="btn primary" type="button" data-sync="now">${status === 'signin' ? 'Sign in and sync' : 'Sync now'}</button>
       ${dm ? '' : '<button class="btn" type="button" data-sync="open">Open shared files</button>'}
