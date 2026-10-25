@@ -81,6 +81,16 @@ The library lives in your Drive folder as "Table Library", and sharing a sheet w
 - **In text:** write `{Sneak Attack}` (any column name in braces) in a feature's text or reminder, and the sheet shows that character's value.
 - **Built in from the SRD:** Rages and Rage Damage, Martial Arts, Ki Points, Unarmored Movement, Sneak Attack, Sorcery Points, Invocations Known, plus cantrips, spells known and spell slots for the casters (those are left off the sheet).
 
+## Tables on any Library entry
+
+Every Library entry type (races, classes, subclasses, backgrounds, feats, class options, spells, boons) has a **Tables** field, separate from the class's level 1 to 20 table. **Add a table**, then choose its kind:
+
+- **Random roll:** set the die (d4, d20, d100, 2d6…). The first column is the roll: 1, 2-3, 01-05, or 96-00 (00 counts as 100 on a d100). The sheet gets a **Roll** button that picks and highlights the row.
+- **By level:** you choose the levels. The first column is the level each row starts at (3, 7, 11…). The sheet highlights the character's row, and the other columns work like class table columns, as {tokens} and for Wild Shape Max CR.
+- **Plain:** any rows and columns.
+
+**Show with** puts the table inside one of the entry's features on the sheet (Wild Magic Surge inside the Wild Magic Surge feature); otherwise it goes in the sheet's **Tables** section. **Paste rows from text** fills a long table at once: one row per line, columns split by a tab or |, or just the number or range followed by the text. Tokens like {prof} work in table cells.
+
 ## Creatures: Wild Shape, companions and other forms
 
 Stat blocks come from your Bestiary, so there's one place to keep them. When your device syncs, it reads the Bestiary (its built-in monsters plus yours from its Google Drive sync) and copies onto each sheet only the stat blocks that sheet needs. Players never see the rest of your Bestiary.

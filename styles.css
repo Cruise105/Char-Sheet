@@ -809,3 +809,22 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .crpage{padding:0;min-width:0;width:100%}
 .crpage>*{min-width:0}
 .crrow>summary{flex-wrap:wrap}
+
+/* ---------- extra tables ---------- */
+.xtable{margin:8px 0}
+.xthead{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px}
+.xthead .btn{margin-left:auto}
+.xtroll{margin:2px 0 6px;color:var(--accent)}
+.ctable.xt td{white-space:normal;text-align:left}
+.ctable.xt td:first-child{text-align:center;white-space:nowrap}
+.ctable.xt tr.hi td{background:var(--accent-soft);font-weight:600}
+.ctable.xt th{text-align:left}
+.xtedit{border:1px solid var(--line);border-radius:10px;padding:10px;margin:8px 0;background:var(--raise)}
+.xtrow1{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.xtgrid td .f.wide{width:min(46vw,420px)}
+.xtgrid td .f{width:80px}
+.xtpaste{flex:1;min-width:220px}
+.xtpaste summary{cursor:pointer;color:var(--accent);min-height:36px;display:flex;align-items:center}
+.xtpaste textarea{width:100%;margin:4px 0}
+.xtable .ctable-wrap{max-height:min(55vh,460px);overflow:auto}
+.xtgrid td .f.wide{text-align:left}

@@ -296,14 +296,14 @@ function featureList(c, path, title, opts = {}) {
     const rows = list.map(f => `
     <details class="feat ${f.rule ? 'rule' : ''}">
       <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
-      ${f.text ? `<div class="ftext">${fmt(T.fillTokens(c, f.text))}</div>` : ''}
+      ${f.text ? `<div class="ftext">${fmt(T.fillTokens(c, f.text))}</div>` : ''}${featTables(c, f)}
     </details>`).join('');
     return panel(title, (opts.top || '') + (rows || `<p class="empty">${esc(opts.emptyPlayer || 'None yet.')}</p>`), opts.cls || '');
   }
   const rows = list.map((f, i) => `
     <details class="feat ${f.rule ? 'rule' : ''}" ${f._new ? 'open' : ''}>
       <summary><span>${esc(f.name) || 'Untitled'}</span>${f.src ? `<small class="src">${esc(f.src)}</small>` : ''}</summary>
-      ${f.text ? `<div class="ftext">${fmt(T.fillTokens(c, f.text))}</div>` : ''}
+      ${f.text ? `<div class="ftext">${fmt(T.fillTokens(c, f.text))}</div>` : ''}${featTables(c, f)}
       <div class="featedit">
         <input class="f" data-k="${path}.${i}.name" value="${esc(f.name)}" placeholder="Name" autocomplete="off" aria-label="Name">
         ${opts.src ? `<input class="f" data-k="${path}.${i}.src" value="${esc(f.src)}" placeholder="Where it came from (Background, Level 4…)" autocomplete="off" aria-label="Source">` : ''}
@@ -373,6 +373,16 @@ function optionsPanel(c) {
     </div>`).join(''), 'optpanel');
 }
 
+// Extra tables from the Library (random rolls, by level, plain): inside their feature, or in the Tables section
+const lastRoll = {};
+const tblHtml = (c, x) => T.extraTableHtml(x.t, esc, { lvl: x.lvl, roll: lastRoll[x.t.id], rollable: true, fill: s => T.fillAll(c, s) });
+const featTables = (c, f) => T.tablesForFeature(c, f).map(x => tblHtml(c, x)).join('');
+function tablesPanel(c) {
+  const list = T.looseTables(c);
+  if (!list.length) return '<div class="dmempty"></div>';
+  return panel('Tables', list.map(x => `<details class="feat" ${lastRoll[x.t.id] ? 'open' : ''}><summary><span>${esc(x.t.title || 'Table')}</span><small class="src">${esc(x.e.name)}</small></summary>${tblHtml(c, x)}</details>`).join(''), 'tblpanel');
+}
+
 // Artificer infusions: what's infused, in what, and who has it
 // Infused items this character holds (theirs or another artificer's), shown with their magic items
 function infusedBlock(c) {
@@ -399,9 +409,9 @@ function infusionsPanel(c) {
 export const SECTION_NAMES = {
   pair: 'Inspiration and proficiency', saves: 'Saving throws', skills: 'Skills', passive: 'Passive Perception', profs: 'Proficiencies', langs: 'Languages',
   combat: 'Combat', dm: 'From your DM', attacks: 'Attacks and spellcasting', equipment: 'Equipment',
-  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', options: 'Class options', infusions: 'Infusions', feats: 'Feats', defenses: 'Defenses',
+  limited: 'Limited features', bgfeat: 'Background feature', racial: 'Racial traits', classfeat: 'Class features', options: 'Class options', infusions: 'Infusions', tables: 'Tables', feats: 'Feats', defenses: 'Defenses',
 };
-export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'options', 'infusions', 'feats', 'defenses'] };
+export const DEFAULT_LAYOUT = { A: ['pair', 'saves', 'skills', 'passive', 'profs', 'langs'], B: ['combat', 'dm', 'attacks', 'equipment'], C: ['limited', 'bgfeat', 'racial', 'classfeat', 'options', 'infusions', 'tables', 'feats', 'defenses'] };
 export const isSmall = () => matchMedia('(max-width: 700px)').matches;
 // The character's saved arrangement for this screen size, with any new or missing sections filled back in
 export function layoutFor(c) {
@@ -430,6 +440,7 @@ function sectionHtml(c) {
     classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true, top: classTableStrip(c) }),
     options: optionsPanel(c),
     infusions: infusionsPanel(c),
+    tables: tablesPanel(c),
     feats: featureList(c, 'feats', 'Feats', { one: 'a feat', src: true, empty: 'Your background feat goes here.', locked: true }),
     defenses: defenses(c),
   };
@@ -996,6 +1007,19 @@ function act(b, c, root) {
       c.creatures.splice(i, 1); if (c.compHp) delete c.compHp[d.id];
       stamp(c, 'compHp');
       return touch('creatures');
+    }
+    case 'troll': {
+      const x = T.tablesFor(c).find(y => y.t.id === d.tid); if (!x) return;
+      const n = T.rollDie(x.t.die); if (n == null) return ctx.toast(`Can't roll "${x.t.die}".`);
+      const row = T.rowForRoll(x.t, n);
+      lastRoll[x.t.id] = { n, row };
+      const res = row >= 0 ? (x.t.rows[row].slice(1).filter(Boolean).join(' · ') || x.t.rows[row][0]) : '';
+      ctx.toast(row >= 0 ? `${x.t.title || 'Rolled'}: ${n}. ${T.fillAll(c, res)}` : `Rolled ${n}: no row covers that number.`);
+      ctx.rerender();
+      // bring the result row into view inside the table
+      const hi = document.querySelector(`.xtable[data-xt="${CSS.escape(x.t.id)}"] tr.hi`), wrap = hi?.closest('.ctable-wrap');
+      if (hi && wrap) wrap.scrollTop = hi.offsetTop - wrap.clientHeight / 2 + hi.offsetHeight / 2;
+      return;
     }
     case 'infnew': return ctx.infuse?.();
     case 'infend': {

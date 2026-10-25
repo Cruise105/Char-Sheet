@@ -91,6 +91,7 @@ export function entryHtml(e) {
       ${e.langNote ? para(e.langNote) : ''}
       ${list('Traits', e.traits)}
       ${list('Features by level', e.features, true)}
+      ${(e.tables || []).filter(t => (t.rows || []).length).map(t => `${t.feature ? `<p class="hint">With ${esc(t.feature)}</p>` : ''}${T.extraTableHtml(t, esc)}`).join('')}
     </article>`;
 }
 
@@ -120,27 +121,27 @@ const FIELDS = {
   race: [['name', 'Name'], ['parent', 'Subrace of', 'raceParent'], ['src', 'Book and page'], ['speed', 'Speed (ft)', 'num'], ['size', 'Size'], ['vision', 'Vision', 'text', 'Darkvision 60 ft'],
     ['abil', 'Ability score increases', 'abil'], ['abilNote', 'Ability choice the player makes', 'text', 'Choose 2 other ability scores to increase by 1.'], ['languages', 'Languages', 'text', 'Common, Elvish'],
     ['skills', 'Skill proficiencies', 'skills'], ['armor', 'Armor', 'armor'], ['weapons', 'Weapons', 'weapons'], ['weaponsOther', 'Other weapons'], ['tools', 'Tools'],
-    ['resist', 'Resistances and immunities', 'resist'], ['traits', 'Traits', 'named'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+    ['resist', 'Resistances and immunities', 'resist'], ['traits', 'Traits', 'named'], ['desc', 'Description', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
   class: [['name', 'Name'], ['src', 'Book and page'], ['hd', 'Hit die', 'hd'], ['saves', 'Saving throws', 'saves'], ['armor', 'Armor', 'armor'], ['weapons', 'Weapons', 'weapons'],
     ['weaponsOther', 'Other weapons'], ['tools', 'Tools'], ['skillChoice', 'Skill choice', 'text', 'Choose two from …'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
     ['equipment', 'Starting equipment', 'area', '- (a) a rapier or (b) a longsword\n- Leather armor and a dagger'],
     ['caster', 'Spellcasting type', 'casterSel'], ['asi', 'Ability Score Improvement levels', 'numlist', '4, 8, 12, 16, 19'],
-    ['subclassLevel', 'Subclass chosen at level', 'num'], ['optionGroups', 'Class option choices (Invocations, Metamagic, Infusions…)', 'optgroups'], ['table', 'Class table', 'ctable'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+    ['subclassLevel', 'Subclass chosen at level', 'num'], ['optionGroups', 'Class option choices (Invocations, Metamagic, Infusions…)', 'optgroups'], ['table', 'Class table', 'ctable'], ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
   subclass: [['name', 'Name'], ['parent', 'Class', 'classSel'], ['src', 'Book and page'], ['caster', 'Makes the class a spellcaster', 'casterSub'], ['spellAbil', 'Spellcasting ability', 'abilSel'],
     ['optionGroups', 'Class option choices (Maneuvers, Runes, Fighting Styles…)', 'optgroups'], ['table', 'Subclass table columns (shown with the class\'s)', 'ctable'],
-    ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
+    ['features', 'Features', 'leveled'], ['desc', 'Description', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
   option: [['name', 'Name'], ['group', 'Group', 'groupText', 'Eldritch Invocations'], ['src', 'Book and page'], ['owners', 'Which classes and subclasses can choose it', 'ownerMulti'],
     ['level', 'Class level needed (0 for none)', 'num'], ['reqOption', 'Requires another option first', 'optionSel'], ['prereq', 'Other prerequisite (shown, not checked)', 'text', 'The eldritch blast cantrip'],
     ['desc', 'Full text', 'area'], ['infusion', 'Infusion: an Artificer puts it into an item', 'bool'], ['infAttune', 'The infused item requires attunement', 'bool'],
-    ['item', 'Magic item it makes (Replicate Magic Item)', 'miItem'], ['remind', 'Reminder', 'remindOne'], ['note', 'Table Rules note', 'area']],
+    ['item', 'Magic item it makes (Replicate Magic Item)', 'miItem'], ['remind', 'Reminder', 'remindOne'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
   spell: [['name', 'Name'], ['level', 'Level (0 = cantrip)', 'num'], ['school', 'School'], ['src', 'Book and page'], ['time', 'Casting time'], ['range', 'Range'],
     ['components', 'Components', 'text', 'V, S, M'], ['material', 'Material'], ['duration', 'Duration'], ['conc', 'Concentration', 'bool'], ['ritual', 'Ritual', 'bool'],
     ['classes', 'Class spell lists', 'classMulti'], ['subclasses', 'Subclass lists (domain, oath, expanded spells)', 'subMulti'],
-    ['desc', 'Full text', 'area'], ['higher', 'At Higher Levels', 'area'], ['note', 'Table Rules note', 'area']],
+    ['desc', 'Full text', 'area'], ['higher', 'At Higher Levels', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
   background: [['name', 'Name'], ['src', 'Book and page'], ['skills', 'Skill proficiencies', 'skills'], ['tools', 'Tools'], ['languages', 'Languages'],
-    ['feature.name', 'Feature name'], ['feature.text', 'Feature text', 'area'], ['feat', 'Assigned feat', 'featSel'], ['equipment', 'Equipment', 'area'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
-  feat: [['name', 'Name'], ['src', 'Book and page'], ['prereq', 'Prerequisite'], ['desc', 'Full text', 'area'], ['note', 'Table Rules note', 'area']],
-  boon: [['name', 'Name'], ['given', 'Given to', 'given'], ['dawnTemp', 'Temp HP at each dawn (0 for none)', 'num'], ['desc', 'Full text', 'area'], ['note', 'Table Rules note', 'area']],
+    ['feature.name', 'Feature name'], ['feature.text', 'Feature text', 'area'], ['feat', 'Assigned feat', 'featSel'], ['equipment', 'Equipment', 'area'], ['desc', 'Description', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
+  feat: [['name', 'Name'], ['src', 'Book and page'], ['prereq', 'Prerequisite'], ['desc', 'Full text', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
+  boon: [['name', 'Name'], ['given', 'Given to', 'given'], ['dawnTemp', 'Temp HP at each dawn (0 for none)', 'num'], ['desc', 'Full text', 'area'], ['tables', 'Tables (random rolls, by level, or plain)', 'xtables'], ['note', 'Table Rules note', 'area']],
   language: [['name', 'Name'], ['kind', 'Type', 'langKind'], ['script', 'Script'], ['speakers', 'Typical speakers'], ['src', 'Book and page'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
 };
 
@@ -191,6 +192,7 @@ function editorHtml(d) {
       case 'named': return rows(path, label, v, (r, i) => `<div class="stackf"><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Name" aria-label="Name"><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { name: '', text: '' }, true);
       case 'leveled': return rows(path, label, v, (r, i) => `<div class="stackf"><div class="row"><label class="mini">Level <input class="f n" data-f="${path}.${i}.lvl" data-num inputmode="numeric" value="${esc(r.lvl)}"></label><input class="f" data-f="${path}.${i}.name" value="${esc(r.name)}" placeholder="Feature name" aria-label="Name" style="flex:1"></div><textarea class="f" data-f="${path}.${i}.text" rows="4" placeholder="Full text" aria-label="Text">${esc(r.text)}</textarea><div class="row remrow"><label class="mini">Remind during <select class="f" data-f="${path}.${i}.remind.on">${opt(REMIND_ON, r.remind?.on || '')}</select></label><input class="f" data-f="${path}.${i}.remind.text" value="${esc(r.remind?.text || '')}" placeholder="Reminder text, e.g. +{cha} to saves" aria-label="Reminder text" style="flex:1"></div></div>`, { lvl: 1, name: '', text: '' }, true);
       case 'ctable': return tableEditor(path, label, v || []);
+      case 'xtables': return xtablesEditor(path, label, v || [], d);
       case 'miItem': {
         if (!miList && !miLoading) loadMi();
         return `<label class="hf wide">${lab}<input class="f" data-miitem list="dl-miitems" value="${esc(d.itemSnap?.name || '')}" placeholder="${miList ? `Type to search ${miList.length} items` : 'Loading the magic item list…'}" autocomplete="off">
@@ -226,6 +228,49 @@ function tableEditor(path, label, cols) {
     <button class="linkbtn" type="button" data-coladd="${path}">Add a column</button>
     <p class="hint wide">Level, Proficiency Bonus and Features fill in on their own. Leave a cell blank to keep the value from the level above (shown faintly). "On sheet" shows the column's current value in the character's Class features; write {Column name} in a feature or reminder to show it there, like {Sneak Attack}.</p></div>`;
 }
+// Extra tables: random rolls, by level, or plain
+function xtablesEditor(path, label, list, d) {
+  const feats = [...new Set([...(d.features || []), ...(d.traits || [])].map(f => f.name).concat(d.feature?.name ? [d.feature.name] : []).concat(['feat', 'option', 'spell', 'boon'].includes(d.type) && d.name ? [d.name] : []).filter(Boolean))];
+  const one = (t, i) => {
+    const p = `${path}.${i}`, cols = t.cols || [], rows = t.rows || [];
+    return `<div class="xtedit">
+      <div class="row xtrow1">
+        <input class="f" data-f="${p}.title" value="${esc(t.title)}" placeholder="Table name, e.g. Wild Magic Surge" aria-label="Table name" autocomplete="off" style="flex:2;min-width:180px">
+        <select class="f" data-xtkind="${i}" aria-label="Kind of table">${T.TABLE_KINDS.map(([k, n]) => `<option value="${k}" ${t.kind === k ? 'selected' : ''}>${n}</option>`).join('')}</select>
+        ${t.kind === 'roll' ? `<label class="mini">Die <input class="f" data-f="${p}.die" data-xtdie="${i}" value="${esc(t.die)}" placeholder="d100" style="width:80px" autocomplete="off"></label>` : ''}
+        <label class="mini">Show with <select class="f" data-f="${p}.feature"><option value="">Its own section</option>${feats.map(n => `<option value="${esc(n)}" ${t.feature === n ? 'selected' : ''}>${esc(n)}</option>`).join('')}${t.feature && !feats.includes(t.feature) ? `<option selected value="${esc(t.feature)}">${esc(t.feature)}</option>` : ''}</select></label>
+        <button class="x" type="button" data-xtdel="${i}" aria-label="Remove this table">×</button>
+      </div>
+      <div class="ctable-wrap"><table class="ctable edit xtgrid">
+        <tr>${cols.map((h, j) => `<th><div class="cthead"><input class="f" data-f="${p}.cols.${j}" value="${esc(h)}" placeholder="${j ? 'Column' : t.kind === 'roll' ? (t.die || 'd6') : t.kind === 'level' ? 'Level' : 'Column'}" autocomplete="off" aria-label="Column ${j + 1} name">
+          ${cols.length > 1 ? `<div class="ctbtns"><button class="x" type="button" data-xtcoldel="${i}" data-j="${j}" aria-label="Remove column">×</button></div>` : ''}</div></th>`).join('')}
+          <th class="ctlv"><button class="x" type="button" data-xtcoladd="${i}" aria-label="Add a column">+</button></th></tr>
+        ${rows.map((r, ri) => `<tr>${cols.map((_, j) => `<td><input class="f ${j ? 'wide' : ''}" data-f="${p}.rows.${ri}.${j}" value="${esc(r[j] ?? '')}" placeholder="${j ? '' : t.kind === 'roll' ? `${ri + 1}` : t.kind === 'level' ? 'Level' : ''}" autocomplete="off" aria-label="Row ${ri + 1}, column ${j + 1}"></td>`).join('')}
+          <td class="ctlv"><button class="x" type="button" data-xtrowdel="${i}" data-r="${ri}" aria-label="Remove row">×</button></td></tr>`).join('')}
+      </table></div>
+      <div class="row"><button class="linkbtn" type="button" data-xtrowadd="${i}">Add a row</button>
+        <details class="xtpaste"><summary>Paste rows from text</summary>
+          <textarea class="f" data-xtpastebox="${i}" rows="6" placeholder="${t.kind === 'roll' ? '01-05 | Roll on this table again&#10;06-10 | You turn blue for 1 minute' : t.kind === 'level' ? '3 | 1d6&#10;7 | 2d6' : 'Cell | Cell'}"></textarea>
+          <span class="hint">One row per line. Separate columns with a tab or |. ${t.kind !== 'plain' ? 'Or just put the number or range first and the text after it.' : ''} This replaces the rows above.</span>
+          <button class="btn small" type="button" data-xtpaste="${i}">Use these rows</button></details></div>
+      <p class="hint">${t.kind === 'roll' ? 'First column: the roll, like 1, 2-3 or 01-05 (00 counts as 100 on a d100). The sheet gets a Roll button.' : t.kind === 'level' ? "First column: the level each row starts at. The sheet highlights the character's row, and the other columns work as {tokens} and like class table columns." : 'Any rows and columns.'}</p>
+    </div>`;
+  };
+  return `<div class="hf wide xtables"><span class="lbl">${label}</span>${list.map(one).join('') || '<p class="hint">No tables.</p>'}
+    <button class="linkbtn" type="button" data-xtadd>Add a table</button></div>`;
+}
+function xtParse(text, kind, ncols) {
+  const out = [];
+  for (let line of String(text || '').split(/\r?\n/)) {
+    line = line.trim(); if (!line) continue;
+    let cells = line.includes('\t') ? line.split('\t') : line.includes('|') ? line.split('|') : null;
+    if (!cells) { const m = /^(\d+\s*(?:[-–—]\s*\d+|\+)?)\s+(.+)$/.exec(line); cells = kind !== 'plain' && m ? [m[1], m[2]] : [line]; }
+    out.push(cells.map(x => x.trim()));
+  }
+  const width = Math.max(ncols, ...out.map(r => r.length));
+  return { rows: out.map(r => Array.from({ length: width }, (_, j) => r[j] ?? '')), width };
+}
+
 // The magic item app's items, for linking Replicate Magic Item plans (read through the DM's device)
 let miList = null, miLoading = false;
 async function loadMi() {
@@ -270,6 +315,20 @@ function onInput(e) {
     d.infusion = true;
     return render();
   }
+  if (el.dataset.xtkind != null) {
+    if (e.type !== 'change') return;
+    const t = d.tables[Number(el.dataset.xtkind)], was = t.kind; t.kind = el.value;
+    // untouched starter rows (just 1, 2, 3… or blanks) start over for the new kind
+    if ((t.rows || []).every((r, i) => r.slice(1).every(x => !String(x).trim()) && (!String(r[0]).trim() || String(r[0]) === String(i + 1)))) t.rows = T.blankTable(t.kind).rows.map(r => Array.from({ length: t.cols.length }, (_, j) => r[j] ?? ''));
+    if (t.kind === 'roll' && !t.die) t.die = 'd6';
+    if (!t.cols[0] || t.cols[0] === (was === 'roll' ? t.die : 'Level')) t.cols[0] = t.kind === 'roll' ? t.die : t.kind === 'level' ? 'Level' : '';
+    return keepScroll(render);
+  }
+  if (el.dataset.xtdie != null && e.type === 'change') {
+    const t = d.tables[Number(el.dataset.xtdie)];
+    if (!t.cols[0] || /^\d*d\d+$/i.test(t.cols[0])) t.cols[0] = el.value.trim();
+    setPath(d, el.dataset.f, el.value); return keepScroll(render);
+  }
   if (el.dataset.ctcell != null) { setPath(d, el.dataset.f, el.value); if (e.type === 'change') refreshCarry(el); return; }
   if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
   else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
@@ -306,6 +365,19 @@ async function onClick(e) {
     ctx.toast(`Saved ${x.name}.`); ctx.libraryEdited(); return render();
   }
   if (d.rowadd) { const list = getPath(st.draft, d.rowadd) || []; list.push(JSON.parse(d.blank)); setPath(st.draft, d.rowadd, list); render(); const rs = root.querySelectorAll(`[data-f^="${d.rowadd}.${list.length - 1}."]`); rs[rs.length > 1 ? 1 : 0]?.focus(); return; }
+  if (d.xtadd != null) { st.draft.tables = [...(st.draft.tables || []), T.blankTable('roll')]; return keepScroll(render); }
+  if (d.xtdel != null) { const t = st.draft.tables[Number(d.xtdel)]; if ((t.title || t.rows?.some(r => r.some(Boolean))) && !confirm(`Remove the ${t.title || 'untitled'} table?`)) return; st.draft.tables.splice(Number(d.xtdel), 1); return keepScroll(render); }
+  if (d.xtrowadd != null) { const t = st.draft.tables[Number(d.xtrowadd)]; t.rows.push(Array((t.cols || []).length).fill('')); return keepScroll(render); }
+  if (d.xtrowdel != null) { st.draft.tables[Number(d.xtrowdel)].rows.splice(Number(d.r), 1); return keepScroll(render); }
+  if (d.xtcoladd != null) { const t = st.draft.tables[Number(d.xtcoladd)]; t.cols.push(''); t.rows.forEach(r => r.push('')); return keepScroll(render); }
+  if (d.xtcoldel != null) { const t = st.draft.tables[Number(d.xtcoldel)], j = Number(d.j); if (t.cols.length < 2) return; t.cols.splice(j, 1); t.rows.forEach(r => r.splice(j, 1)); return keepScroll(render); }
+  if (d.xtpaste != null) {
+    const i = Number(d.xtpaste), t = st.draft.tables[i], box = root.querySelector(`[data-xtpastebox="${i}"]`);
+    const { rows, width } = xtParse(box?.value, t.kind, t.cols.length);
+    if (!rows.length) { ctx.toast('Paste some rows first.'); return; }
+    while (t.cols.length < width) t.cols.push('');
+    t.rows = rows; ctx.toast(`${rows.length} rows in.`); return keepScroll(render);
+  }
   if (d.coladd) { const list = getPath(st.draft, d.coladd) || []; list.push(T.blankCol()); setPath(st.draft, d.coladd, list); render(); root.querySelector(`[data-f="${d.coladd}.${list.length - 1}.name"]`)?.focus(); return; }
   if (d.coldel) { const list = getPath(st.draft, d.coldel) || []; const col = list[Number(d.i)]; if ((col?.name || col?.vals?.some(v => v)) && !confirm(`Remove the ${col.name || 'unnamed'} column?`)) return; list.splice(Number(d.i), 1); return keepScroll(render); }
   if (d.colmove) { const list = getPath(st.draft, d.colmove) || []; const i = Number(d.i), j = i + Number(d.dir); if (j < 0 || j >= list.length) return; [list[i], list[j]] = [list[j], list[i]]; return keepScroll(render); }

@@ -249,7 +249,7 @@ function levelUp() {
           for (const a of [st.asiA, st.asiB]) { c.abil[a].adj.push({ src: 'ASI', note: `Level ${total}`, v: 1, id: uid() }); stamp(c, `abil.${a}`); }
         } else if (st.feat.trim()) {
           const f = L.findByName('feat', st.feat);
-          c.feats.push({ name: f?.name || st.feat.trim(), text: f ? [f.prereq ? `Prerequisite: ${f.prereq}` : '', f.desc].filter(Boolean).join('\n\n') : '', src: `Level ${total}`, id: uid() });
+          c.feats.push({ name: f?.name || st.feat.trim(), text: f ? [f.prereq ? `Prerequisite: ${f.prereq}` : '', f.desc].filter(Boolean).join('\n\n') : '', src: `Level ${total}`, id: uid(), ...(f ? { libId: `feat:${f.id}` } : {}) });
           stamp(c, 'feats');
         }
       }

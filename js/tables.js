@@ -33,6 +33,17 @@ export function valuesFor(c) {
         if (same >= 0) { if (v.value) mine[same] = { ...v, sheet: mine[same].sheet || v.sheet }; }
         else mine.push(v);
       }
+      // "By level" tables count too: each column after the first, at the character's row
+      for (const t of src?.tables || []) {
+        if (t.kind !== 'level') continue;
+        const ri = rowForLevel(t, lvl);
+        (t.cols || []).slice(1).forEach((name, j) => {
+          name = String(name || '').trim(); if (!name) return;
+          const v = { cls: k.name || L.get(k.clsId)?.name || '', from: src.name, level: lvl, name, value: ri >= 0 ? String(t.rows[ri][j + 1] ?? '').trim() : '', sheet: false };
+          const same = mine.findIndex(x => x.name.toLowerCase() === name.toLowerCase());
+          if (same >= 0) { if (v.value) mine[same] = { ...v, sheet: mine[same].sheet }; } else mine.push(v);
+        });
+      }
     }
     out.push(...mine);
   }
@@ -106,4 +117,79 @@ export function tableHtml(e, esc) {
     rows.push(`<tr><td>${ord(l)}</td>${isClass ? `<td>+${profAt(l)}</td>` : ''}<td class="tfeat">${fs.map(esc).join(', ') || '—'}</td>${cols.map(x => `<td>${esc(cellAt(x, l) || '—')}</td>`).join('')}</tr>`);
   }
   return `<h3>${esc(e.name)} table</h3><div class="ctable-wrap"><table class="ctable">${head}${rows.join('')}</table></div>`;
+}
+
+/* ---------- extra tables on any Library entry ----------
+   entry.tables = [{ id, title, kind: 'roll' | 'level' | 'plain', die, feature, cols: [names], rows: [[cells]] }]
+   roll:  first column is the roll ("1", "2-3", "01-05", "96-00"); the Roll button picks a row
+   level: first column is a level ("3", "7"…); the character's row is the last one at or below their level
+   plain: just rows and columns */
+export const TABLE_KINDS = [['roll', 'Random roll'], ['level', 'By level'], ['plain', 'Plain']];
+export const blankTable = (kind = 'roll') => ({ id: Math.random().toString(36).slice(2, 10), title: '', kind, die: kind === 'roll' ? 'd6' : '', feature: '',
+  cols: kind === 'roll' ? ['d6', 'Result'] : kind === 'level' ? ['Level', ''] : ['', ''], rows: kind === 'roll' ? [['1', ''], ['2', ''], ['3', ''], ['4', ''], ['5', ''], ['6', '']] : [['', ''], ['', '']] });
+
+// "2d6" -> { n: 2, d: 6 }; "d100" -> { n: 1, d: 100 }
+export function parseDie(s) { const m = /^\s*(\d*)\s*d\s*(\d+)\s*$/i.exec(String(s || '')); return m ? { n: Number(m[1] || 1), d: Number(m[2]) } : null; }
+export function rollDie(s) {
+  const p = parseDie(s); if (!p || p.n < 1 || p.d < 1) return null;
+  let t = 0; for (let i = 0; i < Math.min(p.n, 50); i++) t += 1 + Math.floor(Math.random() * p.d);
+  return t;
+}
+// Does "2-3" (or "01–05", "96-00", "7+", "1") cover n?
+export function inRange(cell, n, die) {
+  const t = String(cell || '').trim().replace(/[–—]/g, '-');
+  if (!t) return false;
+  const big = parseDie(die)?.d === 100 ? 100 : null;
+  const num = x => { const v = Number(x); return big && v === 0 && /^0+$/.test(x) ? 100 : v; };
+  let m = /^(\d+)\s*-\s*(\d+)$/.exec(t); if (m) return n >= num(m[1]) && n <= num(m[2]);
+  m = /^(\d+)\s*\+$/.exec(t); if (m) return n >= num(m[1]);
+  m = /^(\d+)$/.exec(t); if (m) return n === num(m[1]);
+  return false;
+}
+export const rowForRoll = (t, n) => (t.rows || []).findIndex(r => inRange(r[0], n, t.die));
+export function rowForLevel(t, lvl) {
+  let best = -1, at = -1;
+  (t.rows || []).forEach((r, i) => { const v = parseInt(r[0], 10); if (Number.isFinite(v) && v <= lvl && v >= at) { at = v; best = i; } });
+  return best;
+}
+
+// The Library entries a character draws on, with the level that counts for each
+export function entriesFor(c) {
+  const out = [], seen = new Set();
+  const add = (id, lvl) => { const e = L.get(id); if (e && !seen.has(e.id)) { seen.add(e.id); out.push({ e, lvl }); } };
+  const total = R.totalLevel(c);
+  const race = L.get(c.raceId); if (race) { add(race.parent, total); add(race.id, total); }
+  for (const k of c.classes || []) { const l = Number(k.level) || 0; add(k.clsId, l); add(k.subId, l); }
+  add(c.bgId, total); add(L.get(c.bgId)?.feat, total);
+  for (const f of c.feats || []) { const m = /^(?:bgfeat|feat):(.+)$/.exec(f.auto || f.libId || ''); if (m) add(m[1], total); else if (f.name) add(L.findByName?.('feat', f.name)?.id, total); }
+  for (const p of c.options || []) add(p.id, total);
+  return out;
+}
+// Every extra table this character has: [{ t, e, lvl }]
+export const tablesFor = c => entriesFor(c).flatMap(({ e, lvl }) => (e.tables || []).filter(t => (t.rows || []).length).map(t => ({ t, e, lvl })));
+// Tables shown inside a feature on the sheet (matched by the feature's name and where it came from)
+export function tablesForFeature(c, f) {
+  const all = tablesFor(c).filter(x => x.t.feature && x.t.feature.trim().toLowerCase() === String(f.name || '').trim().toLowerCase());
+  const key = `${f.auto || ''} ${f.libId || ''}`;
+  const strict = all.filter(x => key.includes(x.e.id));
+  return strict.length ? strict : all;
+}
+// Tables not tied to a feature the character has, for the sheet's Tables section
+export function looseTables(c) {
+  const names = new Set([...(c.classFeat || []), ...(c.racial || []), ...(c.feats || []), c.bgFeature || {}].map(f => String(f.name || '').trim().toLowerCase()).filter(Boolean));
+  return tablesFor(c).filter(x => !x.t.feature || !names.has(x.t.feature.trim().toLowerCase()));
+}
+
+// One table as HTML. roll: { n, row } from the last roll, to highlight
+export function extraTableHtml(t, esc, { lvl = null, roll = null, rollable = false, fill = s => s } = {}) {
+  const cols = t.cols || [];
+  const hi = t.kind === 'level' && lvl != null ? rowForLevel(t, lvl) : t.kind === 'roll' && roll ? roll.row : -1;
+  return `<div class="xtable" data-xt="${esc(t.id)}">
+    <div class="xthead">${t.title ? `<b>${esc(t.title)}</b>` : ''}${t.kind === 'roll' && t.die ? `<span class="sub">Roll ${esc(t.die)}</span>` : ''}
+      ${rollable && t.kind === 'roll' && parseDie(t.die) ? `<button class="btn small" type="button" data-act="troll" data-tid="${esc(t.id)}">Roll ${esc(t.die)}</button>` : ''}</div>
+    ${roll ? `<p class="xtroll">Rolled <b>${roll.n}</b>${roll.row < 0 ? ': no row covers that number.' : ''}</p>` : ''}
+    <div class="ctable-wrap"><table class="ctable xt">
+      <tr>${cols.map(h => `<th>${esc(h)}</th>`).join('')}</tr>
+      ${(t.rows || []).map((r, i) => !r.some(x => String(x ?? '').trim()) ? '' : `<tr class="${i === hi ? 'hi' : ''}">${cols.map((_, j) => `<td class="${j ? 'tfeat' : ''}">${esc(fill(r[j] ?? ''))}</td>`).join('')}</tr>`).join('')}
+    </table></div></div>`;
 }
