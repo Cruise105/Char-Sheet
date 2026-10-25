@@ -7,9 +7,11 @@ import { db } from './db.js';
 import * as L from './library.js';
 import * as R from './rules.js';
 import { stamp, hpOp } from './model.js';
+import * as T from './tables.js';
 
 const SN_FILE = 'session-notes-sync.json';
 const MI_FILE = 'omnithel-items.json';
+const BE_FILE = 'bestiary-sync.json';
 export const PARTY_FILE = 'charsheet-party.json';
 const DAY = 1440, DAWN = 6 * 60;
 
@@ -117,6 +119,51 @@ function campaignOf(sn, pc) {
   return list.find(c => c.id === pc?.campaignId) || list.sort((a, b) => (b.updatedAt || b.createdAt || 0) - (a.updatedAt || a.createdAt || 0))[0] || null;
 }
 
+/* ---------- the Bestiary: stat blocks for Wild Shape, familiars, companions ---------- */
+// Its built-in SRD monsters live in srd-monsters.json on the same site; yours (and SRD ones you edited) in its Drive sync file.
+let srdMonsters = null;
+async function loadSrdMonsters() {
+  if (srdMonsters) return srdMonsters;
+  for (const path of ['../Bestiary/srd-monsters.json', '../bestiary/srd-monsters.json']) {
+    try { const r = await fetch(path, { cache: 'no-cache' }); if (r.ok) { srdMonsters = await r.json(); return srdMonsters; } } catch { /* try the other spelling */ }
+  }
+  return null;
+}
+export const bestiary = { list: null, byId: new Map(), ok: null, mine: 0 };
+async function loadBestiary(io) {
+  const [srd, be] = await Promise.all([loadSrdMonsters(), io.readAppdata(BE_FILE).catch(e => { if (e.auth) throw e; return null; })]);
+  if (!srd && !be) { bestiary.ok = false; return bestiary; }
+  const gone = new Set((be?.deletedSrd || []).map(d => d.id));
+  const byId = new Map();
+  for (const m of srd || []) if (!gone.has(m.id)) byId.set(m.id, m);
+  const mine = be?.app === 'bestiary' ? (be.monsters || []) : [];
+  for (const m of mine) if (m?.id && m.name && !m.deleted) byId.set(m.id, m);
+  bestiary.byId = byId; bestiary.list = [...byId.values()].sort((a, b) => a.name.localeCompare(b.name));
+  bestiary.ok = true; bestiary.mine = mine.length;
+  return bestiary;
+}
+export { loadBestiary };
+export const crNum = cr => { const t = String(cr ?? '').trim(); if (t.includes('/')) { const [a, b] = t.split('/').map(Number); return b ? a / b : NaN; } return t === '' || t === '—' ? NaN : Number(t); };
+// Just the stat block, without lore, pictures or the DM's notes
+const SNAP_KEYS = ['id', 'name', 'size', 'type', 'subtype', 'alignment', 'ac', 'hp', 'hpFormula', 'speed', 'str', 'dex', 'con', 'int', 'wis', 'cha',
+  'saves', 'skills', 'vulnerabilities', 'resistances', 'immunities', 'conditionImmunities', 'senses', 'languages', 'cr', 'pb',
+  'traits', 'actions', 'bonusActions', 'reactions', 'source'];
+export function snapOf(m) {
+  const o = {};
+  for (const k of SNAP_KEYS) if (m[k] !== undefined && m[k] !== '' && !(Array.isArray(m[k]) && !m[k].length)) o[k] = m[k];
+  return o;
+}
+// The highest Wild Shape CR this character's classes ever reach, so a level up doesn't have to wait for your device
+function wildCap(c) {
+  let cap = NaN;
+  for (const k of c.classes || []) for (const src of [L.get(k.clsId), L.get(k.subId)]) for (const col of src?.table || []) {
+    if (!/wild shape max cr/i.test(col.name || '')) continue;
+    for (const v of col.vals || []) { const n = crNum(v); if (Number.isFinite(n)) cap = Number.isFinite(cap) ? Math.max(cap, n) : n; }
+  }
+  return cap;
+}
+const isBeast = m => /^beast/i.test(String(m.type || '').trim());
+
 /* ---------- the pass ---------- */
 // io: { readAppdata(name), writeAppdata(name, data), sheetFileId(charId), folderId }
 export async function runBridge(io) {
@@ -134,6 +181,7 @@ export async function runBridge(io) {
   sources.read = Date.now();
   const links = await getLinks();
   const boons = L.all('boon');
+  try { await loadBestiary(io); } catch (e) { if (e.auth) throw e; }
   const changed = [];
   for (const c of await db.all()) {
     let dirty = false;
@@ -164,6 +212,16 @@ export async function runBridge(io) {
           hpOp(c, { k: 'temp', n: Number(b.dawnTemp), by: `boon:${b.id}` });
           c.boonDawn[b.id] = idx; stamp(c, 'boonDawn'); dirty = true;
         }
+      }
+    }
+    // Bestiary stat blocks: every beast a Wild Shaper could take, and fresh copies of the creatures you gave them
+    if (bestiary.ok) {
+      const cap = wildCap(c);
+      const wild = Number.isFinite(cap) && cap > 0 ? bestiary.list.filter(m => isBeast(m) && crNum(m.cr) <= cap).map(snapOf) : [];
+      if (wild.length || (c.wildBeasts || []).length) put('wildBeasts', wild);
+      if ((c.creatures || []).length) {
+        const next = c.creatures.map(x => { const m = bestiary.byId.get(x.monId); return m ? { ...x, snap: snapOf(m) } : x; });
+        put('creatures', next);
       }
     }
     if (dirty) { await db.put(c); changed.push(c.name || 'a character'); }

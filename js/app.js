@@ -10,6 +10,7 @@ import { initLibrary, showLibrary, entryHtml } from './libui.js';
 import * as M from './magic.js';
 import * as O from './options.js';
 import * as B from './bridge.js';
+import * as CR from './creatures.js';
 import { isDmEmail } from './dm.js';
 
 const $ = s => document.querySelector(s);
@@ -274,6 +275,47 @@ function levelUp() {
       const go = $('#actDlg [data-lu-go]'); if (go) go.disabled = gain() == null || (st.idx === 'new' && !st.newName.trim());
     }
   });
+}
+
+// DM: give this character a companion or a form from the Bestiary
+function addCreature(kind = 'companion') {
+  const c = state.cur;
+  const st = { q: '', list: null, err: '', loading: true, open: '' };
+  const draw = () => {
+    const q = st.q.trim().toLowerCase();
+    const hits = (st.list || []).filter(m => !q || m.name.toLowerCase().includes(q) || String(m.type || '').toLowerCase().includes(q)).slice(0, 60);
+    return `<h2>Add a ${kind === 'form' ? 'form' : 'companion'}</h2>
+      <p class="sub">${kind === 'form' ? 'A shape they can take, like Polymorph. Its HP replaces theirs until it drops or they revert.' : 'A creature at their side with its own HP: Homunculus Servant, Eldritch Cannon, a familiar…'} From your Bestiary.</p>
+      <input class="f" type="search" data-crq value="${esc(st.q)}" placeholder="Search your Bestiary" aria-label="Search your Bestiary" autocomplete="off">
+      <div class="optlist">${st.loading ? '<p class="empty">Reading your Bestiary…</p>' : st.err ? `<p class="empty">${esc(st.err)}</p>` : hits.map(m => `
+        <div class="optrow"><button type="button" class="optname" data-crread="${esc(m.id)}" aria-expanded="${st.open === m.id}">${esc(m.name)} <small>${esc([m.size, m.type].filter(Boolean).join(' '))} · CR ${esc(m.cr)}</small></button>
+          <button class="btn small primary" type="button" data-crpick="${esc(m.id)}">Add</button>
+          ${st.open === m.id ? `<div class="optdesc">${CR.statBlock(c, m)}</div>` : ''}</div>`).join('') || '<p class="empty">Nothing matches. Add it to the Bestiary first, then try again.</p>'}</div>
+      <div class="row end"><button class="btn primary" type="button" data-close>Done</button></div>`;
+  };
+  const dlg = actDialog(draw, (e, paint) => {
+    const r = e.target.closest('[data-crread]');
+    if (r) { st.open = st.open === r.dataset.crread ? '' : r.dataset.crread; return paint(); }
+    const pk = e.target.closest('[data-crpick]');
+    if (pk) {
+      const m = st.list.find(x => x.id === pk.dataset.crpick); if (!m) return;
+      c.creatures = [...(c.creatures || []), { id: uid(), kind, monId: m.id, name: m.name, snap: B.snapOf(m), ov: {} }];
+      stamp(c, 'creatures'); save(c);
+      toast(`Added ${m.name} to ${c.name || 'this sheet'}.`);
+      dlg.close();
+    }
+  }, (e, paint) => {
+    if (e.type !== 'input' || !e.target.matches('[data-crq]')) return;
+    st.q = e.target.value; const pos = e.target.selectionStart; paint();
+    const f = dlg.querySelector('[data-crq]'); f.focus(); f.setSelectionRange(pos, pos);
+  });
+  sync.bestiaryMonsters().then(list => {
+    st.loading = false;
+    if (!list) st.err = navigator.onLine ? "Couldn't read your Bestiary. Make sure it's syncing with Google Drive, and that you're signed in here." : 'Adding from the Bestiary needs a connection.';
+    else st.list = list;
+    if (dlg.open) { const pos = dlg.querySelector('[data-crq]')?.selectionStart; paint(); if (pos != null) { const f = dlg.querySelector('[data-crq]'); f.focus(); f.setSelectionRange(pos, pos); } }
+  }).catch(() => { st.loading = false; st.err = "Couldn't read your Bestiary just now."; if (dlg.open) paint(); });
+  const paint = () => { dlg.querySelector('.body').innerHTML = draw(); };
 }
 
 // Choose a class option (Invocation, Metamagic…) from the Library
@@ -728,7 +770,7 @@ const sheetCtx = {
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
   isPlayer: () => !isDm(),
-  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption,
+  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature,
 };
 
 async function start() {

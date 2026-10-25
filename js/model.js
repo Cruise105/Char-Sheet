@@ -32,7 +32,7 @@ export function newCharacter(name = '') {
     personality: '', ideals: '', bonds: '', flaws: '', enemies: '',
     inv: { armor: [], weapons: [], tools: [], treasure: [], components: [], general: [] },
     coins: { cp: 0, sp: 0, ep: 0, gp: 0, pp: 0 }, powerful: false,
-    defenses: [], options: [], journal: '', inkPages: [],
+    defenses: [], options: [], journal: '', inkPages: [], creatures: [], compHp: {}, wildFav: [],
     notes: '',
     theme: {
       preset: 'night', accent: '', head: 'alegreya', body: 'sans', frame: 'clean',
@@ -82,20 +82,35 @@ export function upgrade(c) {
 // HP at the same moment, both entries survive the merge and the totals are worked out from them in time order.
 // Very old entries are folded into a starting point so the list stays short.
 const FOLD_AFTER = 6 * 3600 * 1000;
+// A form (Wild Shape, Polymorph) is part of the same log: 'form' starts one with its own HP, damage
+// goes to it first, and at 0 the character reverts and the leftover damage carries over. 'revert' ends it.
 function replayHp(c) {
   const base = c.hpBase || { cur: Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0, t: 0 };
   let cur = Number(base.cur) || 0, temp = Number(base.temp) || 0;
+  let form = base.form ? { ...base.form } : null, ended = null;
   const max = Number(c.hp?.max) || 0;
   for (const o of [...(c.hpOps || [])].sort((a, b) => a.t - b.t || String(a.id).localeCompare(String(b.id)))) {
     const n = Math.max(0, Number(o.n) || 0);
-    if (o.k === 'dmg') { const ft = Math.min(temp, n); temp -= ft; cur = Math.max(0, cur - (n - ft)); }
-    else if (o.k === 'heal') cur = max ? Math.min(max, cur + n) : cur + n;
+    if (o.k === 'dmg') {
+      const ft = Math.min(temp, n); temp -= ft;
+      let rest = n - ft;
+      if (form) {
+        const took = Math.min(form.cur, rest); form.cur -= took; rest -= took;
+        if (form.cur <= 0) { ended = { name: form.name, t: o.t, over: rest }; form = null; }
+      }
+      cur = Math.max(0, cur - rest);
+    }
+    else if (o.k === 'heal') { if (form) form.cur = Math.min(form.max, form.cur + n); else cur = max ? Math.min(max, cur + n) : cur + n; }
+    else if (o.k === 'form') { form = { name: o.name || 'Form', cid: o.cid || '', max: n, cur: n, ac: o.ac ?? null, t: o.t }; ended = null; }
+    else if (o.k === 'revert') { if (form) ended = { name: form.name, t: o.t, over: 0, chose: true }; form = null; }
+    else if (o.k === 'fset') { if (form && o.cur != null) form.cur = Math.max(0, Math.min(form.max, Number(o.cur) || 0)); }
     else if (o.k === 'gain') cur += n; // level up: max and current both rise
     else if (o.k === 'temp') temp = Math.max(temp, n);
     else if (o.k === 'set') { if (o.cur != null) cur = Math.max(0, Number(o.cur) || 0); if (o.temp != null) temp = Math.max(0, Number(o.temp) || 0); }
   }
   c.hp = c.hp || {};
   c.hp.cur = cur; c.hp.temp = temp;
+  c.hp.form = form; c.hp.formEnded = ended;
 }
 export function hpOp(c, op) {
   if (!c.hpBase) c.hpBase = { cur: Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0, t: 0 };
@@ -108,7 +123,7 @@ export function hpOp(c, op) {
     if (old.length) {
       const tmp = { hp: { max: c.hp.max }, hpBase: c.hpBase, hpOps: old };
       replayHp(tmp);
-      c.hpBase = { cur: tmp.hp.cur, temp: tmp.hp.temp, t: Math.max(...old.map(o => o.t)) };
+      c.hpBase = { cur: tmp.hp.cur, temp: tmp.hp.temp, form: tmp.hp.form || null, t: Math.max(...old.map(o => o.t)) };
       c.hpOps = c.hpOps.filter(o => o.t >= cut);
     }
   }

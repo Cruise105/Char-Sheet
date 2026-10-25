@@ -8,7 +8,7 @@ import { db } from './db.js';
 import { merge, hashOf, upgrade } from './model.js';
 import { CLIENT_ID, APP_ID, PICKER_API_KEY } from './config.js';
 import { exportCustom, mergeCustom, replaceCustom } from './library.js';
-import { runBridge, writeParty } from './bridge.js';
+import { runBridge, writeParty, loadBestiary } from './bridge.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
 // The DM's device also reads Session Notes and the magic item app, which keep their files in the app's private Drive folder
@@ -457,6 +457,13 @@ export async function trashSheet(id) {
     await api(`${API}/files/${l.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
     return true;
   } catch { return false; }
+}
+// DM: the Bestiary's monsters, for adding a creature to a sheet
+export async function bestiaryMonsters() {
+  if (!navigator.onLine) return null;
+  if (!(await ensureToken(true))) return null;
+  const b = await loadBestiary(bridgeIO());
+  return b.ok ? b.list : null;
 }
 export async function forget(id) { if (ss.links[id]) { delete ss.links[id]; await saveState(); } }
 

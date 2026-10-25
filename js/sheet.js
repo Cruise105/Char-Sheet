@@ -7,6 +7,7 @@ import { choicesFor } from './autofill.js';
 import * as M from './magic.js';
 import * as O from './options.js';
 import * as T from './tables.js';
+import * as CR from './creatures.js';
 import { renderThumb, openInkEditor } from './ink.js';
 
 let ctx; // { save(c), toast(msg), rerender() }
@@ -37,7 +38,7 @@ export const REMIND_ON = [['', 'No reminder'], ['saves', 'Saving throws'], ['che
 const REMIND_LISTS = ['racial', 'classFeat', 'feats', 'extraFeat'];
 export function reminderText(c, f) {
   const t = f.remind?.text || f.name || '';
-  return T.fillTokens(c, t).replace(/\+?\{(str|dex|con|int|wis|cha)\}/g, (_, a) => R.sign(R.amod(c, a))).replace(/\+?\{prof\}/g, R.sign(R.prof(c))).replace(/\{level\}/g, R.totalLevel(c));
+  return T.fillAll(c, t);
 }
 export function remindersFor(c, on) {
   const out = [];
@@ -174,6 +175,7 @@ function combat(c) {
       ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
       ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd">${esc(c.speed || '—')}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><input class="f center" data-k="speed" value="${esc(c.speed)}" autocomplete="off"></label>`}
     </div>
+    ${CR.formBannerHtml(c)}
     <div class="hpbox">
       <div class="hpnums">
         <label><span class="lbl">Current HP</span><input class="f hpcur n" data-k="hp.cur" data-type="num" inputmode="numeric" value="${esc(c.hp.cur)}"></label>
@@ -711,8 +713,16 @@ export function lookPanel(c) {
 }
 
 /* ---------- render + live math ---------- */
+let painting = false;
 export function renderPage(root, c, page) {
-  root.innerHTML = page === 'character' ? pageCharacter(c) : page === 'inventory' ? pageInventory(c) : page === 'spells' ? pageSpells(c) : page === 'notes' ? pageNotes(c) : pageSheet(c);
+  // redrawing removes the box being typed in, which fires its change event: don't start a second redraw inside the first
+  if (painting) return;
+  painting = true;
+  try { paintPage(root, c, page); } finally { painting = false; }
+}
+function paintPage(root, c, page) {
+  root.innerHTML = page === 'character' ? pageCharacter(c) : page === 'inventory' ? pageInventory(c) : page === 'spells' ? pageSpells(c) : page === 'notes' ? pageNotes(c)
+    : page === 'creatures' ? CR.pageCreatures(c, { isPlayer, panel }) : pageSheet(c);
   if (page === 'notes') for (const cv of root.querySelectorAll('canvas[data-ink]')) renderThumb(cv, (c.inkPages || []).find(p => p.id === cv.dataset.ink)?.strokes);
   root.dataset.page = page;
   updateCalcs(root, c);
@@ -772,6 +782,13 @@ export function bindSheet(root, getChar) {
   root.addEventListener('input', e => {
     const el = e.target;
     if (el.matches('[data-theme-k]')) return themeInput(el, getChar());
+    if (el.matches('[data-wsq]')) {
+      const c = getChar(); CR.setQuery(el.value);
+      const q = el.value.trim().toLowerCase(), favs = new Set(c.wildFav || []);
+      const shown = CR.wildChoices(c).filter(m => !q || m.name.toLowerCase().includes(q)).sort((a, b) => (favs.has(b.id) - favs.has(a.id)) || CR.crNum(b.cr) - CR.crNum(a.cr) || a.name.localeCompare(b.name));
+      const box = root.querySelector('#wsList'); if (box) box.innerHTML = CR.wildRows(c, shown, favs);
+      return;
+    }
     if (!el.dataset.k || el.type === 'checkbox' || el.tagName === 'SELECT') return;
     if (el.dataset.k === 'hp.cur' || el.dataset.k === 'hp.temp') return; // saved on change, as an adjustment
     const c = getChar();
@@ -817,12 +834,13 @@ export function bindSheet(root, getChar) {
     if (ar) return arrangeClick(ar, getChar(), root);
     const b = e.target.closest('[data-act]');
     if (!b) return;
+    if (b.closest('summary')) e.preventDefault(); // a button in a row's title shouldn't also open or close the row
     act(b, getChar(), root);
   });
   root.addEventListener('pointerdown', e => { if (ctx.arranging && e.target.closest('[data-drag]')) startDrag(e, getChar(), root); });
 }
 
-const LOCKED_LISTS = ['classes', 'racial', 'classFeat', 'feats'];
+const LOCKED_LISTS = ['classes', 'racial', 'classFeat', 'feats', 'creatures'];
 function act(b, c, root) {
   const d = b.dataset;
   if (isPlayer()) {
@@ -877,9 +895,13 @@ function act(b, c, root) {
       const hp = c.hp;
       if (d.how === 'dmg') {
         const fromTemp = Math.min(Number(hp.temp) || 0, amt);
+        const form = hp.form ? { ...hp.form } : null;
         hpOp(c, { k: 'dmg', n: amt });
         if (amt - fromTemp > 0 && c.ip === 'spent') { c.ip = 'recharging'; stamp(c, 'ip'); }
-        ctx.toast(fromTemp ? `Took ${amt}: ${fromTemp} from temp HP, ${amt - fromTemp} from HP.` : `Took ${amt} damage.`);
+        const t = fromTemp ? ` (${fromTemp} from temp HP)` : '';
+        if (form && !c.hp.form) ctx.toast(`Took ${amt}${t}. ${form.name} dropped to 0 and you're back to yourself${c.hp.formEnded?.over ? `, taking the ${c.hp.formEnded.over} left over` : ''}.`);
+        else if (form) ctx.toast(`Took ${amt}${t}. ${form.name}: ${c.hp.form.cur} of ${c.hp.form.max} HP left.`);
+        else ctx.toast(fromTemp ? `Took ${amt}: ${fromTemp} from temp HP, ${amt - fromTemp} from HP.` : `Took ${amt} damage.`);
       } else if (d.how === 'heal') {
         hpOp(c, { k: 'heal', n: amt });
         ctx.toast(`Healed ${amt}.`);
@@ -890,6 +912,64 @@ function act(b, c, root) {
         ctx.toast(amt > before ? `Temp HP is now ${amt}.` : `Kept your current ${before} temp HP (temp HP doesn't stack).`);
       }
       ctx.save(c); return ctx.rerender();
+    }
+    /* ---------- creatures ---------- */
+    case 'wsform': case 'cform': {
+      if (c.hp?.form) { ctx.toast(`Revert from ${c.hp.form.name} first.`); return; }
+      let name, n, ac, cid;
+      if (d.act === 'wsform') {
+        const m = (c.wildBeasts || []).find(x => x.id === d.id); if (!m) return;
+        name = m.name; n = Math.max(1, Number(m.hp) || 1); ac = CR.acNum(m.ac); cid = m.id;
+        const ui = CR.wildUses(c);
+        if (ui >= 0) {
+          const f = c.limited[ui], left = Number(f.left) || 0;
+          if (left <= 0 && !confirm(`No ${f.name} uses left. Transform anyway?`)) return;
+          if (left > 0) { f.left = left - 1; stamp(c, 'limited'); }
+        }
+      } else {
+        const x = (c.creatures || []).find(y => y.id === d.id); if (!x) return;
+        name = x.ov?.name || x.name; n = CR.maxHpOf(c, x); ac = CR.acNum(CR.acOf(c, x)); cid = x.id;
+      }
+      hpOp(c, { k: 'form', n, name, ac, cid });
+      ctx.toast(`You're a ${name}: ${n} HP. Damage comes off its HP first.`);
+      ctx.save(c); return ctx.rerender();
+    }
+    case 'crevert': {
+      const f = c.hp?.form; if (!f) return;
+      hpOp(c, { k: 'revert' });
+      ctx.toast(`Back to yourself (${c.hp.cur} HP).`);
+      ctx.save(c); return ctx.rerender();
+    }
+    case 'wsfav': {
+      const set = new Set(c.wildFav || []);
+      set.has(d.id) ? set.delete(d.id) : set.add(d.id);
+      c.wildFav = [...set]; return touch('wildFav');
+    }
+    case 'csum': case 'chp': {
+      const x = (c.creatures || []).find(y => y.id === d.id); if (!x) return;
+      const s = CR.compState(c, x);
+      c.compHp = c.compHp || {};
+      const rec = { cur: s.cur, temp: s.temp, out: s.out };
+      if (d.act === 'csum') { rec.out = !s.out; if (rec.out && s.cur <= 0) rec.cur = s.max; }
+      else if (d.how === 'full') { rec.cur = s.max; rec.temp = 0; }
+      else {
+        const amt = Math.abs(parseInt(root.querySelector(`[data-camt="${CSS.escape(d.id)}"]`)?.value, 10));
+        if (!amt) { ctx.toast('Type an amount first.'); root.querySelector(`[data-camt="${CSS.escape(d.id)}"]`)?.focus(); return; }
+        if (d.how === 'dmg') { const ft = Math.min(rec.temp, amt); rec.temp -= ft; rec.cur = Math.max(0, rec.cur - (amt - ft)); if (rec.cur === 0) ctx.toast(`${x.ov?.name || x.name} drops to 0 HP.`); }
+        else if (d.how === 'heal') rec.cur = Math.min(s.max, rec.cur + amt);
+        else rec.temp = Math.max(rec.temp, amt);
+      }
+      c.compHp[x.id] = rec;
+      return touch(`compHp.${x.id}`);
+    }
+    case 'cadd': if (isPlayer()) return; return ctx.addCreature?.(d.kind);
+    case 'cdel': {
+      if (isPlayer()) return;
+      const i = (c.creatures || []).findIndex(y => y.id === d.id); if (i < 0) return;
+      if (!confirm(`Remove ${c.creatures[i].ov?.name || c.creatures[i].name} from this sheet?`)) return;
+      c.creatures.splice(i, 1); if (c.compHp) delete c.compHp[d.id];
+      stamp(c, 'compHp');
+      return touch('creatures');
     }
     case 'consolidate': c.coins = R.consolidateCoins(c.coins); ctx.toast('Coins consolidated.'); return touch('coins');
     case 'imgdel': setPath(c, d.p, ''); return touch(d.p);

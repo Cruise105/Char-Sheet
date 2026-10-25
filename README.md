@@ -81,6 +81,16 @@ The library lives in your Drive folder as "Table Library", and sharing a sheet w
 - **In text:** write `{Sneak Attack}` (any column name in braces) in a feature's text or reminder, and the sheet shows that character's value.
 - **Built in from the SRD:** Rages and Rage Damage, Martial Arts, Ki Points, Unarmored Movement, Sneak Attack, Sorcery Points, Invocations Known, plus cantrips, spells known and spell slots for the casters (those are left off the sheet).
 
+## Creatures: Wild Shape, companions and other forms
+
+Stat blocks come from your Bestiary, so there's one place to keep them. When your device syncs, it reads the Bestiary (its built-in monsters plus yours from its Google Drive sync) and copies onto each sheet only the stat blocks that sheet needs. Players never see the rest of your Bestiary.
+
+- **Wild Shape:** any character whose class table has a **Wild Shape Max CR** column gets every beast from your Bestiary up to that CR on their **Creatures** page. The SRD Druid already has it, plus **Wild Shape Limitations** ("No flying or swimming speed", "No flying speed"). For a Circle of the Moon druid, give the subclass its own **Wild Shape Max CR** column (1 at 2nd, then 2, 3, 4, 5 and 6 at 6th, 9th, 12th, 15th and 18th); a subclass column with the same name replaces the class's. New beasts you add to the Bestiary show up automatically. Players can star favorites. If they have a limited feature called Wild Shape, transforming spends a use.
+- **Being in a form:** the sheet shows the beast's HP and AC. Damage comes off temp HP, then the beast; at 0 they revert and any damage left over carries to their own HP. The Bestiary's combat tracker shows the form's HP and AC too ("as Brown Bear"). **Revert** ends it early.
+- **Companions** (Homunculus Servant, Eldritch Cannon, Steel Defender, familiars, a ranger's beast) and **other forms** (Polymorph): on your device, open the character's Creatures page and tap **Add a companion** or **Add a form from the Bestiary**. Add the creature to the Bestiary first if it isn't there. Each companion has its own HP and a Summon/Dismiss switch the player controls.
+- **Numbers that scale:** under **Adjust** (only you see it) give a companion a Max HP or AC formula, like `1 + {int} + {Artificer level}` or `13 + {prof}`. In the Bestiary's action text you can write tokens too, like `{spell attack} to hit` or `1d4 + {prof}`; the sheet fills in that character's numbers.
+- **Tokens everywhere** (features, reminders, creatures): {str} … {cha}, {prof}, {level}, {Druid level} (any class), {spell attack}, {spell save DC}, and any class table column. Written with a plus right before it, like `+{cha}`, a number shows signed ("+3").
+
 ## Notes page
 
 The **Notes** tab on each sheet has a typed notes box and handwritten pages (finger or stylus). It syncs with the rest of the sheet.
