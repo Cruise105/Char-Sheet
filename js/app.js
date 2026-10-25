@@ -9,10 +9,32 @@ import { resolvePicks, syncAuto } from './autofill.js';
 import { initLibrary, showLibrary, entryHtml } from './libui.js';
 import * as M from './magic.js';
 import * as B from './bridge.js';
+import { isDmEmail } from './dm.js';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
-const state = { chars: [], cur: null, page: 'sheet', settings: { role: 'player', red: false } };
+const state = { chars: [], cur: null, page: 'sheet', settings: { role: 'player', red: false }, dmOk: false };
+// DM mode needs both: DM chosen in Settings, and this device signed in to the DM's Google account
+const isDm = () => state.settings.role === 'dm' && state.dmOk;
+async function checkEmail(email) {
+  state.dmOk = await isDmEmail(email);
+  if (state.settings.role === 'dm' && email && !state.dmOk) {
+    state.settings.role = 'player'; saveSettings();
+    toast('Dungeon Master mode is only for your DM\'s Google account. This device stays in Player mode.');
+    refreshRoleUi();
+  }
+  return state.dmOk;
+}
+function refreshRoleUi() {
+  const known = !!sync.currentEmail();
+  const dmBtn = document.querySelector('[data-role="dm"]');
+  if (dmBtn) dmBtn.hidden = known && !state.dmOk;
+  const hint = document.querySelector('#roleHint');
+  if (hint) hint.textContent = known && !state.dmOk
+    ? 'This device is signed in as a player. Dungeon Master mode is only available on your DM\'s Google account.'
+    : 'The DM keeps every sheet in a folder in their Google Drive and shares each one with its player. Players see only their own sheet.';
+  for (const b of document.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === (isDm() ? 'dm' : state.settings.role === 'dm' && !known ? 'dm' : 'player')));
+}
 
 /* ---------- toasts + choices ---------- */
 function toast(msg) {
@@ -64,7 +86,7 @@ async function showHome() {
   $('#title').textContent = 'Characters';
   document.title = 'Character Sheets';
   state.chars = (await db.all()).map(upgrade).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
-  const dm = state.settings.role === 'dm';
+  const dm = isDm();
   const list = $('#charList');
   list.innerHTML = state.chars.map(c => {
     const cls = (c.classes || []).filter(k => k.name).map(k => `${k.name}${k.sub ? ` (${k.sub})` : ''} ${k.level}`).join(' / ');
@@ -455,7 +477,7 @@ async function changedFromDrive({ library = false } = {}) {
 // Increases from a race, a class (ASI at level up), a feat or a boon come from the DM's Library: players can't change them
 const ALL_SRCS = ['Racial', 'ASI', 'Feat', 'Training', 'Magic item', 'Boon', 'Other'];
 const PLAYER_SRCS = ['Training', 'Magic item', 'Other'];
-const player = () => state.settings.role !== 'dm';
+const player = () => !isDm();
 const lockedAdj = x => player() && (x.auto || !PLAYER_SRCS.includes(x.src));
 function openAbility(a) {
   const c = state.cur;
@@ -614,7 +636,7 @@ async function deleteChar(id) {
   const c = await db.get(id); if (!c) return;
   const linked = sync.linkOf(id);
   const msg = linked
-    ? `Delete ${c.name || 'this character'} from this device? ${state.settings.role === 'dm' ? 'The copy in your Drive folder stays; delete it there too if you want it gone.' : 'The copy in Drive stays with your DM.'}`
+    ? `Delete ${c.name || 'this character'} from this device? ${isDm() ? 'The copy in your Drive folder stays; delete it there too if you want it gone.' : 'The copy in Drive stays with your DM.'}`
     : `Delete ${c.name || 'this character'}? This can't be undone. Use "Save a copy" first if you might want it back.`;
   if (!confirm(msg)) return;
   await db.del(id); await sync.forget(id);
@@ -625,7 +647,7 @@ async function deleteChar(id) {
 /* ---------- settings dialog ---------- */
 function renderTableRules() {
   const box = $('#tableRules'), t = L.tableSettings();
-  if (state.settings.role === 'dm') {
+  if (isDm()) {
     box.innerHTML = `<div class="trrow"><span>Spellcasting</span><div class="seg" role="group" aria-label="Spellcasting"><button type="button" data-ts="spellMode" data-v="points" aria-pressed="${t.spellMode === 'points'}">Spell points</button><button type="button" data-ts="spellMode" data-v="slots" aria-pressed="${t.spellMode === 'slots'}">Spell slots</button></div></div>
       <div class="trrow"><span>Leveling</span><div class="seg" role="group" aria-label="Leveling"><button type="button" data-ts="leveling" data-v="xp" aria-pressed="${t.leveling === 'xp'}">Experience points</button><button type="button" data-ts="leveling" data-v="milestone" aria-pressed="${t.leveling === 'milestone'}">Milestone</button></div></div>
       <div class="trrow"><span>Initiative</span><div class="seg" role="group" aria-label="Initiative"><button type="button" data-ts="initiative" data-v="active" aria-pressed="${t.initiative === 'active'}">Active Initiative</button><button type="button" data-ts="initiative" data-v="standard" aria-pressed="${t.initiative === 'standard'}">Standard</button></div></div>
@@ -637,7 +659,7 @@ function renderTableRules() {
 // DM: which Session Notes character and which magic item character each sheet belongs to
 async function renderLinked() {
   const box = $('#linkedApps'), set = $('#linkedSet');
-  set.hidden = state.settings.role !== 'dm';
+  set.hidden = !isDm();
   if (set.hidden) return;
   const src = B.sources, opts = B.linkOptions(), links = await B.getLinks();
   const chars = (await db.all()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
@@ -653,7 +675,7 @@ function openSettings() {
   const dlg = $('#settingsDlg');
   renderTableRules();
   renderLinked();
-  for (const b of dlg.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
+  refreshRoleUi();
   sync.renderStatus();
   dlg.showModal();
 }
@@ -664,7 +686,7 @@ const sheetCtx = {
   rerender: () => renderSheet(),
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
-  isPlayer: () => state.settings.role !== 'dm',
+  isPlayer: () => !isDm(),
   levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine',
 };
 
@@ -672,7 +694,7 @@ async function start() {
   await loadSettings();
   await L.loadLibrary();
   initSheet(sheetCtx);
-  initLibrary($('#libview'), { toast, isDm: () => state.settings.role === 'dm', libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })) });
+  initLibrary($('#libview'), { toast, isDm: () => isDm(), libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })) });
   $('#libBtn').addEventListener('click', () => openLibraryView());
   bindSheet($('#app'), () => state.cur);
   const tb = () => document.documentElement.style.setProperty('--tb', `${$('.topbar').offsetHeight}px`);
@@ -706,7 +728,9 @@ async function start() {
     const r = e.target.closest('[data-role]');
     if (r) {
       state.settings.role = r.dataset.role; saveSettings();
-      for (const b of sd.querySelectorAll('[data-role]')) b.setAttribute('aria-pressed', String(b.dataset.role === state.settings.role));
+      refreshRoleUi();
+      if (r.dataset.role === 'dm' && !state.dmOk) toast(sync.currentEmail() ? 'Dungeon Master mode is only for your DM\'s Google account.' : 'Connect Google Drive with your DM account to turn on Dungeon Master mode.');
+      if (state.cur) renderSheet();
       sync.renderStatus();
       renderTableRules();
       renderLinked();
@@ -734,10 +758,14 @@ async function start() {
 
   await sync.initSync({
     toast, choose,
-    settings: () => state.settings,
+    // before the account is known (first sign-in on the DM's device) the chosen role is used, so the sign-in asks for the DM's access
+    settings: () => ({ ...state.settings, role: state.settings.role === 'dm' && (state.dmOk || !sync.currentEmail()) ? 'dm' : 'player' }),
+    checkEmail,
     changedFromDrive,
     openCharacter,
   });
+  // know whether this device is the DM's before drawing anything
+  await checkEmail(sync.currentEmail());
   await showHome();
   registerSW();
 }

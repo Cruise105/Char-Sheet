@@ -32,6 +32,12 @@ When anyone signs in the first time, Google shows "Google hasn't verified this a
 
 Every sheet in the folder shows up on your device, and you can open and edit any of them.
 
+## Dungeon Master mode is tied to your Google account
+
+DM mode only turns on when the device is signed in to your Google account. On anyone else's device the Dungeon Master option is hidden, and the sheet stays in Player mode with the Library-based fields locked. Your address is stored only as a scrambled fingerprint in `js/dm.js`.
+
+**Changing the DM account:** ask Claude for a new fingerprint for the new address, or make one yourself (any "SHA-256 generator" site, the address in all lowercase) and paste it into `js/dm.js`.
+
 ## Your wife's tablet (a player)
 
 1. Open `https://cruise105.github.io/charsheet/` in Chrome → **⋮** → **Add to home screen** → **Install**.

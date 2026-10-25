@@ -37,6 +37,7 @@ function loadToken() { try { const t = JSON.parse(localStorage.getItem('charshee
 const tokenValid = () => tok.value && tok.exp > Date.now() + 30000 && (tok.scope || SCOPE) === scopeFor();
 export const role = () => ctx?.settings().role || 'player';
 export const linkOf = id => ss.links[id] || null;
+export const currentEmail = () => ss.email || '';
 
 function ago(t) {
   if (!t) return 'never';
@@ -247,6 +248,8 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       const me = await (await api(`${API}/about?fields=user(emailAddress)`)).json();
       ss.email = me.user?.emailAddress || '';
     }
+    // only the DM's Google account can run Dungeon Master mode
+    if (ctx.checkEmail) await ctx.checkEmail(ss.email);
     const names = [];
     if (role() === 'dm') {
       await ensureFolder();
