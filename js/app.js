@@ -13,6 +13,7 @@ import * as B from './bridge.js';
 import * as CR from './creatures.js';
 import * as INF from './infuse.js';
 import { isDmEmail } from './dm.js';
+import { fmt, tabIndent } from './text.js';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
@@ -391,7 +392,7 @@ function infuseDialog() {
 function pickOption(group) {
   const c = state.cur;
   const st = { open: '' };
-  const para = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+  const para = fmt;
   const draw = () => {
     const g = O.groupsFor(c).find(x => x.group === group);
     const left = g ? g.count - g.chosen.length : 0;
@@ -1037,6 +1038,8 @@ async function start() {
   $('#importFile').addEventListener('change', e => { const f = e.target.files?.[0]; if (f) importFile(f); e.target.value = ''; sd.close(); });
   for (const d of document.querySelectorAll('dialog')) d.addEventListener('click', e => { if (e.target === d) d.close(); });
 
+  // Tab indents inside text boxes (Shift+Tab steps back) instead of jumping to the next field
+  document.addEventListener('keydown', tabIndent);
   document.addEventListener('keydown', e => { if (e.key === 'Escape' && !$('#look').hidden && !document.querySelector('dialog[open]')) closeLook(); });
   window.addEventListener('pagehide', flush);
   document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'hidden') flush(); });

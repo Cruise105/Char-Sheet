@@ -3,6 +3,7 @@ import * as L from './library.js';
 import { getPath, setPath } from './model.js';
 import { ABILS, SKILLS, DEFENSE_KINDS } from './rules.js';
 import { esc, REMIND_ON } from './sheet.js';
+import { fmt } from './text.js';
 import { levelsToText, textToLevels } from './options.js';
 import * as T from './tables.js';
 
@@ -24,7 +25,7 @@ export function showLibrary(id = null) {
 }
 
 /* ---------- reading an entry (also used by the sheet's info buttons) ---------- */
-const para = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+const para = fmt; // **bold**, *italic*, ***both*** and indented lines (text.js)
 const names = arr => arr.map(k => SKILLS.find(s => s[0] === k)?.[1] || k).join(', ');
 const yes = (o, keys, labels) => keys.filter(k => o?.[k]).map(k => labels[k]).join(', ');
 const ARMOR_L = { light: 'Light armor', medium: 'Medium armor', heavy: 'Heavy armor', shields: 'Shields' };

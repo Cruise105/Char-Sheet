@@ -855,3 +855,7 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .shtog[aria-pressed="true"]{color:var(--accent);border-color:var(--accent)}
 .shtog[aria-pressed="true"] i{background:var(--accent)}
 .acalt{display:block;text-align:center;color:var(--muted);font-size:.75rem}
+
+/* typed text: indented lines */
+.tx{margin:0 0 .6em}
+.txl{min-height:1.2em}

@@ -1,6 +1,7 @@
 // Renders a character's pages and keeps the math live as fields change.
 import * as R from './rules.js';
 import { getPath, setPath, stamp, uid, hpOp } from './model.js';
+import { fmt as fmtText } from './text.js';
 import { PRESETS, CLASS_ACCENTS, HEAD_FONTS, BODY_FONTS, FRAMES, applyTheme } from './theme.js';
 import * as L from './library.js';
 import { choiceList } from './autofill.js';
@@ -23,7 +24,8 @@ const nfield = (c, p, ph = '', cls = '') => `<input class="f n ${cls}" data-k="$
 const area = (c, p, ph = '', rows = 3) => `<textarea class="f" data-k="${p}" rows="${rows}" placeholder="${esc(ph)}">${esc(val(c, p))}</textarea>`;
 const chk = (c, p, label = '', extra = '') => `<label class="chk"><input type="checkbox" data-k="${p}" ${getPath(c, p) ? 'checked' : ''} ${extra}><span>${label}</span></label>`;
 const sel = (c, p, opts, extra = '') => `<select class="f" data-k="${p}" ${extra}>${opts.map(([v, l]) => `<option value="${esc(v)}" ${String(val(c, p)) === String(v) ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`;
-const fmt = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+// typed text with **bold**, *italic*, ***both*** and indented lines (one shared copy in text.js)
+const fmt = fmtText;
 const calc = (key, arg = '') => `<span data-calc="${key}" data-arg="${arg}"></span>`;
 const panel = (title, body, cls = '', extra = '') => `<section class="panel ${cls}" ${extra}><h3 class="ph">${title}</h3>${body}</section>`;
 // Active Initiative (Darker Dungeons): one Interrupt Point, Ready / Spent / Recharging

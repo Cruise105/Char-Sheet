@@ -9,7 +9,7 @@ import * as T from './tables.js';
 import * as R from './rules.js';
 
 export const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
-const fmt = t => esc(t || '').replace(/\*\*(.+?)\*\*/g, '<b>$1</b>').replace(/\*(.+?)\*/g, '<i>$1</i>').split(/\n{2,}/).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('');
+import { fmt } from './text.js'; // **bold**, *italic*, ***both*** and indented lines
 export const crNum = cr => { const t = String(cr ?? '').trim(); if (t.includes('/')) { const [a, b] = t.split('/').map(Number); return b ? a / b : NaN; } return t === '' || t === '—' ? NaN : Number(t); };
 const ABL = [['str', 'STR'], ['dex', 'DEX'], ['con', 'CON'], ['int', 'INT'], ['wis', 'WIS'], ['cha', 'CHA']];
 
