@@ -1,6 +1,6 @@
 // Offline support: the app's files are cached on first visit, then served from the device.
 // When you publish an update, bump VERSION so devices pick up the new files on their next launch.
-const VERSION = 'charsheet-v31';
+const VERSION = 'charsheet-v32';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/model.js', './js/rules.js', './js/sheet.js', './js/theme.js', './js/sync.js', './js/config.js', './js/library.js', './js/autofill.js', './js/libui.js', './js/magic.js', './js/bridge.js', './js/dm.js', './js/options.js', './js/ink.js', './js/tables.js', './js/creatures.js', './js/infuse.js', './data/srd.json',
@@ -13,7 +13,8 @@ const FILES = [
 
 self.addEventListener('install', e => {
   // cache: 'reload' skips the browser's own cache, so an update never picks up stale copies
-  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(u => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting()));
+  e.waitUntil(caches.open(VERSION).then(c => c.addAll(FILES.map(u => new Request(u, { cache: 'reload' })))).then(() => caches.open(VERSION)).then(c => c.add(new Request('/core/suite.js', { cache: 'reload' })).catch(() => {})) // the suite core, if reachable
+    .then(() => self.skipWaiting()));
 });
 self.addEventListener('activate', e => {
   e.waitUntil(caches.keys()
@@ -23,6 +24,12 @@ self.addEventListener('activate', e => {
 // Anything not cached at install (the extra fonts) is saved the first time it's used, so it works offline after that
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
+  // The shared suite core (/core/) lives outside this app: always try the newest copy, fall back to the saved one offline
+  if (e.request.method === 'GET' && url.origin === location.origin && url.pathname.startsWith('/core/')) {
+    e.respondWith(fetch(e.request).then(res => { if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); } return res; })
+      .catch(() => caches.match(e.request, { ignoreSearch: true })));
+    return;
+  }
   // only this app's own files: the other apps on this site (magic items, Session Notes) handle theirs
   if (e.request.method !== 'GET' || url.origin !== location.origin || !url.pathname.startsWith(new URL(self.registration.scope).pathname)) return;
   e.respondWith(caches.match(e.request, { ignoreSearch: true }).then(hit => hit || fetch(e.request).then(res => {

@@ -34,7 +34,22 @@ const esc = v => String(v ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<':
 async function saveState() { await db.setMeta('sync', structuredClone(ss)); }
 function saveToken() { try { localStorage.setItem('charsheet-token', JSON.stringify(tok)); } catch { /* memory only */ } }
 function loadToken() { try { const t = JSON.parse(localStorage.getItem('charsheet-token') || 'null'); if (t && t.exp > Date.now()) Object.assign(tok, t); } catch { /* ignore */ } }
-const tokenValid = () => tok.value && tok.exp > Date.now() + 30000 && (tok.scope || SCOPE) === scopeFor();
+const ownValid = () => tok.value && tok.exp > Date.now() + 30000 && (tok.scope || SCOPE) === scopeFor();
+const tokenValid = () => ownValid() || (adoptShared() && ownValid());
+
+/* ---------- suite core: one shared Google sign-in for every app on this site ---------- */
+let core = null;
+async function loadCore() {
+  try { core = await import('/core/suite.js'); } catch { core = null; } // not reachable: this app signs in on its own as before
+}
+// Another app on the site already signed in with what this device needs? Use that instead of asking again.
+// Only for the same Google account this device syncs with, so a player's sheet never lands in someone else's Drive.
+function adoptShared() {
+  const t = core?.signedIn(scopeFor(), { app: 'character-sheet', email: ss.email || '' });
+  if (!t || t.value === tok.value) return false;
+  tok.value = t.value; tok.exp = t.exp; tok.scope = scopeFor(); saveToken();
+  return true;
+}
 export const role = () => ctx?.settings().role || 'player';
 export const linkOf = id => ss.links[id] || null;
 export const currentEmail = () => ss.email || '';
@@ -70,6 +85,7 @@ async function signIn() {
         tok.value = r.access_token; tok.scope = scopeFor();
         tok.exp = Date.now() + (Number(r.expires_in) || 3600) * 1000;
         saveToken();
+        core?.share(r, { app: 'character-sheet' });
         resolve();
       },
       error_callback: e => reject(new Error(e?.type === 'popup_closed' ? 'Sign-in was closed before it finished.' : (e?.message || 'Sign-in failed.'))),
@@ -87,7 +103,7 @@ async function ensureToken(interactive) {
 /* ---------- Drive calls ---------- */
 async function api(url, opts = {}) {
   const r = await fetch(url, { ...opts, headers: { Authorization: `Bearer ${tok.value}`, ...(opts.headers || {}) } });
-  if (r.status === 401) { tok.value = null; saveToken(); const e = new Error('auth'); e.auth = true; throw e; }
+  if (r.status === 401) { core?.forget(tok.value); tok.value = null; saveToken(); const e = new Error('auth'); e.auth = true; throw e; }
   if (r.status === 403) {
     let j = null; try { j = await r.clone().json(); } catch { /* not json */ }
     if (JSON.stringify(j || '').includes('insufficient')) { tok.value = null; ss.needScope = true; saveToken(); const e = new Error('auth'); e.auth = true; e.scope = true; throw e; }
@@ -439,6 +455,7 @@ export const isConnected = () => ss.connected;
 
 async function disconnect() {
   if (tok.value && window.google?.accounts?.oauth2) { try { google.accounts.oauth2.revoke(tok.value, () => {}); } catch { /* ignore */ } }
+  core?.forget(tok.value);
   tok.value = null; tok.exp = 0; saveToken();
   Object.assign(ss, { connected: false, email: '', folderId: '', links: {}, dropped: {}, lastSync: 0, lib: { fileId: '', modified: '', hash: '' } });
   await saveState();
@@ -502,6 +519,7 @@ export async function initSync(helpers) {
   ctx = helpers;
   const saved = await db.getMeta('sync');
   if (saved) Object.assign(ss, saved);
+  await loadCore();
   loadToken();
   status = ss.connected ? (tokenValid() ? 'ok' : 'signin') : 'off';
   renderStatus();
