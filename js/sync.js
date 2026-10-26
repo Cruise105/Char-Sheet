@@ -219,6 +219,8 @@ async function writeAppdata(name, data) {
 const bridgeIO = () => ({ readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId, currentCampaignId: core?.currentCampaign?.()?.id || '' });
 // The suite's campaigns (DM's device), for tagging characters and the campaign filter
 export const campaignList = () => core?.campaigns?.() || [];
+// The live link for fights (Firebase), or null if it can't load
+export const live = () => Promise.resolve(core?.live?.() || null).catch(() => null);
 // Why campaigns aren't showing, if they aren't (for the Linked apps settings)
 let suiteNote = '';
 export const suiteStatus = () => ({ note: suiteNote, version: core?.VERSION || 0, campaigns: campaignList().length, current: core?.currentCampaign?.()?.name || '' });

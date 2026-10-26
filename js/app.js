@@ -1,7 +1,7 @@
 import { db } from './db.js';
 import { newCharacter, upgrade, merge, stamp, uid, hpOp, getPath } from './model.js';
 import * as R from './rules.js';
-import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor } from './sheet.js';
+import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor, setLiveView, combatView, refreshCombatBar } from './sheet.js';
 import { PRESETS } from './theme.js';
 import * as sync from './sync.js';
 import * as L from './library.js';
@@ -83,6 +83,7 @@ function applyRed() {
 async function showHome() {
   await flush();
   state.cur = null;
+  liveFollow(null);
   app.dataset.view = 'home';
   applyTheme(document.body, newCharacter().theme);
   document.body.style.removeProperty('--bg-blur');
@@ -584,6 +585,23 @@ function renderSheet() {
     sheetCtx.openNew = null;
   }
   themeChanged(false);
+  liveFollow(c);
+}
+// While a sheet is open and its character is in a fight, hear the combat tracker instantly over the live link
+const follow = { id: '', table: '', stop: null };
+function liveFollow(c) {
+  const table = (c && combatView(c)?.live) || c?.combat?.live || '';
+  const id = table ? c.id : '';
+  if (id === follow.id && table === follow.table) return;
+  follow.stop?.(); Object.assign(follow, { id, table, stop: null });
+  if (!id) return;
+  sync.live().then(L => {
+    if (!L || follow.id !== id || follow.table !== table) return;
+    follow.stop = L.watchView(table, id, v => {
+      setLiveView(id, v);
+      if (state.cur?.id === id) refreshCombatBar($('#page'), state.cur);
+    });
+  });
 }
 function themeChanged(rerenderLook) {
   const c = state.cur; if (!c) return;
@@ -853,6 +871,7 @@ const sheetCtx = {
   levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
   // send a change right away (a turn button), once the save has landed
   syncSoon: () => setTimeout(async () => { await flush(); sync.syncNow({ quiet: true }); }, 300),
+  liveSend: (table, id, req) => sync.live().then(L => L?.sendRequest(table, id, req)),
 };
 
 async function start() {

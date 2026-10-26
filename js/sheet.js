@@ -335,9 +335,30 @@ function defenses(c) {
 }
 
 // The fight, as the DM's combat tracker (Bestiary) sees it: whose turn it is, and this character's turn buttons.
-// A tap goes to the tracker, which checks it's allowed and moves the fight on; this updates within a few seconds.
-function combatBar(c) {
-  const v = c.combat;
+// It arrives two ways: instantly over the live link, and a few seconds later in the sheet file on Drive.
+// Whichever is newer wins. A tap goes to the tracker, which checks it's allowed and moves the fight on.
+const liveViews = new Map();
+export function setLiveView(id, v) { if (v) liveViews.set(id, v); else liveViews.delete(id); }
+export function combatView(c) {
+  const a = c.combat, b = liveViews.get(c.id);
+  return b && (!a || (b.t || 0) >= (a.t || 0)) ? b : a;
+}
+export function refreshCombatBar(root, c) {
+  const slot = root.querySelector(`.cbslot[data-cb="${CSS.escape(c.id)}"]`);
+  if (slot) slot.innerHTML = combatBarInner(c);
+}
+// Ask the combat tracker: straight over the live link, and in the sheet file as a backup (the tracker uses whichever
+// reaches it first and ignores the other, since both carry the same id)
+function combatRequest(c, kind) {
+  const v = combatView(c);
+  c.combatReq = { id: uid(), kind, round: v?.round || 0, at: Date.now() };
+  stamp(c, 'combatReq'); ctx.save(c); ctx.rerender();
+  if (v?.live) ctx.liveSend?.(v.live, c.id, c.combatReq);
+  ctx.syncSoon?.();
+}
+const combatBar = c => `<div class="cbslot" data-cb="${esc(c.id)}">${combatBarInner(c)}</div>`;
+function combatBarInner(c) {
+  const v = combatView(c);
   if (!v?.on) return '';
   const waiting = c.combatReq?.id && c.combatReq.id !== v.done && Date.now() - (c.combatReq.at || 0) < 60000;
   const status = v.mine ? 'Your turn' : v.picks ? 'You pick who goes next' : v.acted ? "You've acted this round"
@@ -1082,17 +1103,13 @@ function act(b, c, root) {
     }
     case 'shortrest': return ctx.shortRest();
     case 'longrest': return ctx.longRest();
-    case 'cbt': {
-      // ask the combat tracker; it answers by updating c.combat
-      c.combatReq = { id: uid(), kind: d.k, round: c.combat?.round || 0, at: Date.now() };
-      touch('combatReq'); ctx.syncSoon?.(); return;
-    }
+    case 'cbt': return combatRequest(c, d.k);
     case 'ip': {
       // In a fight, using the point is an interrupt: it asks the combat tracker to start this character's turn
-      if (c.combat?.on && (c.ip || 'ready') === 'ready') {
-        if (!c.combat.point) { ctx.toast('You can use your Interrupt Point right after an enemy finishes their turn, if you haven\'t acted this round.'); return; }
-        c.combatReq = { id: uid(), kind: 'point', round: c.combat.round || 0, at: Date.now() };
-        touch('combatReq'); ctx.syncSoon?.(); return;
+      const cv = combatView(c);
+      if (cv?.on && (c.ip || 'ready') === 'ready') {
+        if (!cv.point) { ctx.toast('You can use your Interrupt Point right after an enemy finishes their turn, if you haven\'t acted this round.'); return; }
+        return combatRequest(c, 'point');
       }
       const st = c.ip || 'ready'; c.ip = st === 'ready' ? 'spent' : 'ready'; return touch('ip'); }
     case 'cast': return ctx.cast(d.id);
