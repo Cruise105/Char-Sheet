@@ -1,6 +1,7 @@
 // Text you type (library entries, notes, boons) shown on the page, with a little formatting:
 //   ***words***  bold italic      **words**  bold      *words*  italic
-//   a line that starts with spaces or tabs is indented (4 spaces or 1 tab per step)
+//   a line that starts with spaces or tabs starts indented, like a paragraph in a book: only its first line
+//   steps in (4 spaces or 1 tab per step); the lines it wraps onto go back to the margin
 //   a blank line starts a new paragraph
 // One copy for every place in the app, so the library, the sheet and the creature cards all agree.
 const esc = s => String(s ?? '').replace(/[&<>"']/g, ch => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[ch]));
@@ -26,7 +27,7 @@ export function fmt(t) {
   return text.split(/\n{2,}/).map(par => {
     const lines = par.split('\n').map(l => ({ ...indentOf(l) }));
     if (!lines.some(l => l.lvl)) return `<p>${lines.map(l => inline(esc(l.rest))).join('<br>')}</p>`;
-    return `<div class="tx">${lines.map(l => `<div class="txl"${l.lvl ? ` style="padding-left:${l.lvl * 1.5}em"` : ''}>${inline(esc(l.rest)) || '&nbsp;'}</div>`).join('')}</div>`;
+    return `<div class="tx">${lines.map(l => `<div class="txl"${l.lvl ? ` style="text-indent:${l.lvl * 1.5}em"` : ''}>${inline(esc(l.rest)) || '&nbsp;'}</div>`).join('')}</div>`;
   }).join('');
 }
 
