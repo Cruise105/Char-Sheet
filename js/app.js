@@ -1025,7 +1025,7 @@ async function start() {
     }
     const ts = e.target.closest('[data-ts]');
     if (e.target.closest('#linkSync')) { sync.syncNow({ interactive: true }).then(renderLinked); }
-    if (ts) { L.setTableSetting(ts.dataset.ts, ts.dataset.v).then(() => { renderTableRules(); if (state.cur) renderSheet(); }); }
+    if (ts) { L.setTableSetting(ts.dataset.ts, ts.dataset.v).then(() => { renderTableRules(); if (state.cur) renderSheet(); sync.syncNow({ quiet: true }); }); } // every app follows
     if (e.target.closest('#exportAll')) exportAll();
     if (e.target.closest('[data-close]')) sd.close();
   });

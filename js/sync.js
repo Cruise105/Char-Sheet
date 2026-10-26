@@ -7,7 +7,7 @@
 import { db } from './db.js';
 import { merge, hashOf, upgrade } from './model.js';
 import { CLIENT_ID, APP_ID, PICKER_API_KEY } from './config.js';
-import { exportCustom, mergeCustom, replaceCustom } from './library.js';
+import { exportCustom, mergeCustom, replaceCustom, tableSettings, setTableSetting } from './library.js';
 import { runBridge, writeParty, loadBestiary } from './bridge.js';
 
 const SCOPE = 'https://www.googleapis.com/auth/drive.file';
@@ -226,6 +226,21 @@ async function loadCoreExtras() {
   try { coreViews = (await core?.views?.()) || null; } catch { coreViews = null; }
   try { liveNow = (await core?.live?.()) || null; } catch { liveNow = null; }
 }
+// Table Rules (spell points or slots, initiative, leveling) are the suite's: set them in any app and every app
+// follows. The Table Library carries them to the players; the newest choice wins, in either direction.
+const TABLE_KEYS = ['spellMode', 'initiative', 'leveling'];
+async function syncTableSettings() {
+  if (!core?.tableSettings || !core.saveSuite) return;
+  const ts = core.tableSettings(), lib = tableSettings(), libAt = Number(lib.updated) || 0;
+  const push = {};
+  for (const k of TABLE_KEYS) {
+    if (ts[k] === lib[k]) continue;
+    const sAt = ts.at[k] || 0;
+    if (sAt > libAt) await setTableSetting(k, ts[k]);
+    else if (libAt > sAt) push[k] = lib[k];
+  }
+  if (Object.keys(push).length) await core.saveSuite(tok.value, { settings: push, settingsAt: libAt });
+}
 // The suite's campaigns (DM's device), for tagging characters and the campaign filter
 export const campaignList = () => core?.campaigns?.() || [];
 // The live link for fights (Firebase), or null if it can't load
@@ -291,7 +306,10 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       if (!core) suiteNote = "Couldn't load the suite core from cruise105.github.io/core/, so campaigns aren't available yet.";
       else if (!core.loadSuite) suiteNote = `This device has an older copy of the suite core (version ${core.VERSION || 1}). Close and reopen the app to pick up the new one.`;
       else {
-        try { await core.loadSuite(tok.value); if (!core.campaigns().length) suiteNote = 'No campaigns yet. Create one in Session Notes.'; }
+        try {
+          await core.loadSuite(tok.value); if (!core.campaigns().length) suiteNote = 'No campaigns yet. Create one in Session Notes.';
+          await syncTableSettings();
+        }
         catch (e) { if (e.auth) throw e; suiteNote = `Couldn't read the suite's campaigns: ${e.message}`; }
       }
       // pull in Session Notes and magic items first, so this pass uploads what changed
