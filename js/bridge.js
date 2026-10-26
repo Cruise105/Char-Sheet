@@ -63,11 +63,11 @@ export { loadSeed };
 
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 const firstWord = s => norm(s).split(' ')[0];
-// Find the record in another app that is this character: one that carries this character's permanent id
-// (the suite's way), then an explicit link set on this device, then the same name (the old way)
+// Find the record in another app that is this character: the one carrying this character's permanent id.
+// Only while that app hasn't joined the suite yet (none of its records carry an id) does the old way apply:
+// a link set on this device, then the same name.
 function matchBy(list, linkId, name, charId) {
-  const byId = charId && list.find(x => x.charId === charId);
-  if (byId) return byId;
+  if (list.some(x => x.charId)) return (charId && list.find(x => x.charId === charId)) || null;
   if (linkId === 'none') return null;
   if (linkId) return list.find(x => x.id === linkId) || null;
   const n = norm(name), f = firstWord(name);

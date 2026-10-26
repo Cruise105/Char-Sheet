@@ -932,7 +932,9 @@ async function renderLinked() {
   const src = B.sources, opts = B.linkOptions(), links = await B.getLinks();
   const chars = (await db.all()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (!src.read) { box.innerHTML = `<p class="hint">Connect Google Drive and sync once. Your device then reads Session Notes and the magic item app and links each sheet to the same character there, by name.</p>`; return; }
-  const sel = (c, app, list, cur) => `<select class="f" data-link="${app}" data-char="${c.id}"><option value="">${cur ? 'Match by name' : 'Match by name (none found)'}</option><option value="none" ${links[c.id]?.[app] === 'none' ? 'selected' : ''}>Not linked</option>${list.map(o => `<option value="${esc(o.id)}" ${links[c.id]?.[app] === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>`;
+  // Apps that have joined the suite link by permanent id on their own: show the link, nothing to choose
+  const joined = { sn: (src.sn?.pcs || []).some(p => p.charId), mi: (src.mi?.state?.pcs || []).some(p => p.charId) };
+  const sel = (c, app, list, cur) => joined[app] ? `<span class="hint">${cur ? 'Linked by ID' : 'Not in that app yet (it adds the current campaign\'s characters on its next sync)'}</span>` : `<select class="f" data-link="${app}" data-char="${c.id}"><option value="">${cur ? 'Match by name' : 'Match by name (none found)'}</option><option value="none" ${links[c.id]?.[app] === 'none' ? 'selected' : ''}>Not linked</option>${list.map(o => `<option value="${esc(o.id)}" ${links[c.id]?.[app] === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>`;
   const su = sync.suiteStatus();
   box.innerHTML = `${src.error ? `<p class="warn">${esc(src.error)}</p>` : ''}
     <p class="hint">Suite core ${su.version ? `version ${su.version}` : 'not loaded'}${su.campaigns ? `: ${su.campaigns} campaign${su.campaigns === 1 ? '' : 's'}, current is ${esc(su.current || 'none')}.` : '.'}</p>
