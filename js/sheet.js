@@ -1087,7 +1087,14 @@ function act(b, c, root) {
       c.combatReq = { id: uid(), kind: d.k, round: c.combat?.round || 0, at: Date.now() };
       touch('combatReq'); ctx.syncSoon?.(); return;
     }
-    case 'ip': { const st = c.ip || 'ready'; c.ip = st === 'ready' ? 'spent' : 'ready'; return touch('ip'); }
+    case 'ip': {
+      // In a fight, using the point is an interrupt: it asks the combat tracker to start this character's turn
+      if (c.combat?.on && (c.ip || 'ready') === 'ready') {
+        if (!c.combat.point) { ctx.toast('You can use your Interrupt Point right after an enemy finishes their turn, if you haven\'t acted this round.'); return; }
+        c.combatReq = { id: uid(), kind: 'point', round: c.combat.round || 0, at: Date.now() };
+        touch('combatReq'); ctx.syncSoon?.(); return;
+      }
+      const st = c.ip || 'ready'; c.ip = st === 'ready' ? 'spent' : 'ready'; return touch('ip'); }
     case 'cast': return ctx.cast(d.id);
     case 'mine': {
       const set = new Set(c.mySpells || []);

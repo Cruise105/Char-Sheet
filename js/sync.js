@@ -571,6 +571,17 @@ function startAuto() {
     last = h;
     renderStatus();
   }, 5000);
+  // During a fight: check this device's fighting characters every 1.5 seconds, so turns from the combat tracker
+  // show up fast (one small request per sheet; a full sync only when something changed)
+  setInterval(async () => {
+    if (!ss.connected || syncing || !navigator.onLine || !tokenValid() || document.visibilityState !== 'visible') return;
+    const chars = (await db.all()).filter(c => ss.links[c.id] && c.combat?.on).slice(0, 6);
+    for (const c of chars) {
+      const l = ss.links[c.id];
+      if (l.hash !== hashOf(c)) { syncNow({ quiet: true }); return; }
+      try { if ((await meta(l.fileId)).modifiedTime !== l.modified) { syncNow({ quiet: true }); return; } } catch { return; }
+    }
+  }, 1500);
   document.addEventListener('visibilitychange', () => syncNow({ quiet: document.visibilityState === 'hidden' }));
   window.addEventListener('online', () => syncNow({ quiet: true }));
   window.addEventListener('offline', () => setStatus('offline'));
