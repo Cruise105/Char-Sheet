@@ -85,6 +85,7 @@ function header(c) {
         <button class="btn small" type="button" data-act="shortrest">Short rest</button>
         <button class="btn small" type="button" data-act="longrest">Long rest</button>
       </div>
+      ${combatBar(c)}
     </div>
     <div class="headgrid">
       <div class="hf wide"><span class="lbl">Class &amp; level</span><div data-list="classes">${classes}</div>
@@ -331,6 +332,25 @@ function defenses(c) {
       <button class="linkbtn" type="button" data-act="defadd" data-kind="${k}">Add</button></div>`;
   }).join('');
   return panel('Defenses', `<div data-list="defenses" class="defs">${groups}</div>`);
+}
+
+// The fight, as the DM's combat tracker (Bestiary) sees it: whose turn it is, and this character's turn buttons.
+// A tap goes to the tracker, which checks it's allowed and moves the fight on; this updates within a few seconds.
+function combatBar(c) {
+  const v = c.combat;
+  if (!v?.on) return '';
+  const waiting = c.combatReq?.id && c.combatReq.id !== v.done && Date.now() - (c.combatReq.at || 0) < 60000;
+  const status = v.mine ? 'Your turn' : v.picks ? 'You pick who goes next' : v.acted ? "You've acted this round"
+    : v.current ? `${esc(v.current)} is acting` : 'Waiting for the next turn';
+  const b = (k, label, cls = '') => `<button class="btn small ${cls}" type="button" data-act="cbt" data-k="${k}"${waiting ? ' disabled' : ''}>${label}</button>`;
+  const btns = [
+    v.mine ? b('end', 'End my turn', 'primary') : '',
+    v.start ? b('start', 'Start my turn', 'primary') : '',
+    v.point && (c.ip || 'ready') === 'ready' ? b('point', 'Interrupt (use my point)') : '',
+    v.free ? b('free', 'Interrupt (free, I was hurt)') : '',
+  ].join('');
+  return `<div class="combatbar${v.mine ? ' mine' : ''}" role="status"><span class="cbround">Round ${esc(v.round)}</span><b>${status}</b>
+    ${btns ? `<span class="cbbtns">${btns}</span>` : ''}${waiting ? '<small class="cbwait">Sent to your DM…</small>' : ''}</div>`;
 }
 
 // What the DM's apps send to this sheet: conditions from the Bestiary's combat tracker, Session Notes (deaths,
@@ -1062,6 +1082,11 @@ function act(b, c, root) {
     }
     case 'shortrest': return ctx.shortRest();
     case 'longrest': return ctx.longRest();
+    case 'cbt': {
+      // ask the combat tracker; it answers by updating c.combat
+      c.combatReq = { id: uid(), kind: d.k, round: c.combat?.round || 0, at: Date.now() };
+      touch('combatReq'); ctx.syncSoon?.(); return;
+    }
     case 'ip': { const st = c.ip || 'ready'; c.ip = st === 'ready' ? 'spent' : 'ready'; return touch('ip'); }
     case 'cast': return ctx.cast(d.id);
     case 'mine': {

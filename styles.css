@@ -504,6 +504,11 @@ table.links td small{display:block;color:var(--muted);font-size:.75rem}
 
 /* ---------- level up + rests ---------- */
 .restbar{display:flex;flex-wrap:wrap;gap:6px;margin-top:10px}
+.combatbar{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin-top:10px;padding:8px 10px;border:1px solid var(--line);border-left:4px solid var(--accent);border-radius:8px;background:var(--accent-soft)}
+.combatbar.mine{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent) inset}
+.combatbar .cbround{color:var(--muted);font-size:.85rem}
+.combatbar .cbbtns{display:flex;flex-wrap:wrap;gap:6px;width:100%}
+.combatbar .cbwait{color:var(--muted)}
 .lusec{border-top:1px solid var(--line);padding-top:8px}
 .lusec h3{margin:0 0 6px;font:700 1.05rem/1.2 var(--head)}
 .lugain{font-size:1.15rem;font-weight:700;margin:8px 0 0}

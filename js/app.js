@@ -851,6 +851,8 @@ const sheetCtx = {
   picked, viewEntry,
   isPlayer: () => !isDm(),
   levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
+  // send a change right away (a turn button), once the save has landed
+  syncSoon: () => setTimeout(async () => { await flush(); sync.syncNow({ quiet: true }); }, 300),
 };
 
 async function start() {
