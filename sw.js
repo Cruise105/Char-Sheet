@@ -1,6 +1,6 @@
 // Offline support: the app's files are cached on first visit, then served from the device.
 // When you publish an update, bump VERSION so devices pick up the new files on their next launch.
-const VERSION = 'charsheet-v34';
+const VERSION = 'charsheet-v35';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/app.js', './js/db.js', './js/model.js', './js/rules.js', './js/sheet.js', './js/theme.js', './js/sync.js', './js/config.js', './js/library.js', './js/autofill.js', './js/libui.js', './js/magic.js', './js/bridge.js', './js/dm.js', './js/options.js', './js/ink.js', './js/tables.js', './js/creatures.js', './js/infuse.js', './data/srd.json',
@@ -26,7 +26,8 @@ self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   // The shared suite core (/core/) lives outside this app: always try the newest copy, fall back to the saved one offline
   if (e.request.method === 'GET' && url.origin === location.origin && url.pathname.startsWith('/core/')) {
-    e.respondWith(fetch(e.request).then(res => { if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); } return res; })
+    // no-cache: check with the server every time (GitHub Pages otherwise lets browsers reuse a copy for 10 minutes)
+    e.respondWith(fetch(e.request, { cache: 'no-cache' }).then(res => { if (res.ok) { const copy = res.clone(); caches.open(VERSION).then(c => c.put(e.request, copy)); } return res; })
       .catch(() => caches.match(e.request, { ignoreSearch: true })));
     return;
   }

@@ -825,7 +825,10 @@ async function renderLinked() {
   const chars = (await db.all()).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   if (!src.read) { box.innerHTML = `<p class="hint">Connect Google Drive and sync once. Your device then reads Session Notes and the magic item app and links each sheet to the same character there, by name.</p>`; return; }
   const sel = (c, app, list, cur) => `<select class="f" data-link="${app}" data-char="${c.id}"><option value="">${cur ? 'Match by name' : 'Match by name (none found)'}</option><option value="none" ${links[c.id]?.[app] === 'none' ? 'selected' : ''}>Not linked</option>${list.map(o => `<option value="${esc(o.id)}" ${links[c.id]?.[app] === o.id ? 'selected' : ''}>${esc(o.name)}</option>`).join('')}</select>`;
+  const su = sync.suiteStatus();
   box.innerHTML = `${src.error ? `<p class="warn">${esc(src.error)}</p>` : ''}
+    <p class="hint">Suite core ${su.version ? `version ${su.version}` : 'not loaded'}${su.campaigns ? `: ${su.campaigns} campaign${su.campaigns === 1 ? '' : 's'}, current is ${esc(su.current || 'none')}.` : '.'}</p>
+    ${su.note ? `<p class="warn">${esc(su.note)}</p>` : ''}
     <p class="hint">${src.sn ? 'Session Notes found.' : 'Session Notes not found in your Drive.'} ${src.mi ? `Magic item app found${src.miSaved ? `, last saved to Drive ${esc(src.miSaved)}` : ''}.` : 'Magic item app not found in your Drive (turn on its Google Drive sync).'}${src.mi && src.seedOk === false ? " Couldn't load the magic item list from the magic-items site." : ''}</p>
     <table class="links"><thead><tr><th>Sheet</th><th>Session Notes</th><th>Magic items</th></tr></thead><tbody>
     ${chars.map(c => { const r = B.resolvedLinks(c, links); return `<tr><td>${esc(c.name || 'Unnamed')}</td><td>${sel(c, 'sn', opts.sn, r.sn)}${r.sn ? `<small>${esc(r.sn.name)}</small>` : ''}</td><td>${sel(c, 'mi', opts.mi, r.mi)}${r.mi ? `<small>${esc(r.mi.name)}${(() => { const n = src.miCounts[c.id]; if (!n) return ''; return n.held === n.shown ? ` · ${n.held} item${n.held === 1 ? '' : 's'}` : ` · ${n.held} held, only ${n.shown} found in the item list`; })()}</small>` : ''}</td></tr>`; }).join('')}

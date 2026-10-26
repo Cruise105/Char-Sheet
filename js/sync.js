@@ -219,6 +219,9 @@ async function writeAppdata(name, data) {
 const bridgeIO = () => ({ readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId, currentCampaignId: core?.currentCampaign?.()?.id || '' });
 // The suite's campaigns (DM's device), for tagging characters and the campaign filter
 export const campaignList = () => core?.campaigns?.() || [];
+// Why campaigns aren't showing, if they aren't (for the Linked apps settings)
+let suiteNote = '';
+export const suiteStatus = () => ({ note: suiteNote, version: core?.VERSION || 0, campaigns: campaignList().length, current: core?.currentCampaign?.()?.name || '' });
 export const currentCampaignId = () => core?.currentCampaign?.()?.id || '';
 
 /* ---------- the library file ---------- */
@@ -273,7 +276,13 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
     if (role() === 'dm') {
       await ensureFolder();
       // the suite's campaign list and current campaign, so characters can be tagged and the party filtered
-      try { await core?.loadSuite?.(tok.value); } catch (e) { if (e.auth) throw e; }
+      suiteNote = '';
+      if (!core) suiteNote = "Couldn't load the suite core from cruise105.github.io/core/, so campaigns aren't available yet.";
+      else if (!core.loadSuite) suiteNote = `This device has an older copy of the suite core (version ${core.VERSION || 1}). Close and reopen the app to pick up the new one.`;
+      else {
+        try { await core.loadSuite(tok.value); if (!core.campaigns().length) suiteNote = 'No campaigns yet. Create one in Session Notes.'; }
+        catch (e) { if (e.auth) throw e; suiteNote = `Couldn't read the suite's campaigns: ${e.message}`; }
+      }
       // pull in Session Notes and magic items first, so this pass uploads what changed
       try { const b = await runBridge(bridgeIO()); if (b.changed.length) names.push(...b.changed); ss.needScope = false; }
       catch (e) { if (e.auth) throw e; }
