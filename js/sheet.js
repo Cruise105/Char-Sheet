@@ -333,17 +333,20 @@ function defenses(c) {
   return panel('Defenses', `<div data-list="defenses" class="defs">${groups}</div>`);
 }
 
-// What the DM's apps send to this sheet: Session Notes (deaths, Favor of Fate, revealed diseases, survival) and boons
+// What the DM's apps send to this sheet: conditions from the Bestiary's combat tracker, Session Notes (deaths,
+// Favor of Fate, diseases, survival) and boons
 function dmPanel(c) {
-  const sn = c.sn, boons = c.boons || [];
-  if (!sn && !boons.length) return '<div class="dmempty"></div>';
+  const sn = c.sn, boons = c.boons || [], conds = (c.conditions || []).filter(x => x?.name);
+  if (!sn && !boons.length && !conds.length) return '<div class="dmempty"></div>';
   const STAGE = n => ['', 'Fine', 'Fine', 'Fine', 'Hindered', 'Exhausting', 'Exhausting', 'Critical'][Math.max(0, Math.min(7, Number(n) || 0))] || '';
   const surv = sn?.survival ? `<div class="survrow">${['hunger', 'thirst', 'fatigue'].map(k => `<span><small>${k[0].toUpperCase() + k.slice(1)}</small><b>${esc(sn.survival[k])}</b></span>`).join('')}</div>` : '';
-  const dis = (sn?.diseases || []).map(d => `<details class="dis"><summary><b>${esc(d.name)}</b><small>${d.state === 'declining' ? 'getting better' : `stage ${d.stage}`}${d.dc ? ` · DC ${d.dc} Con` : ''}</small></summary>
-    ${d.effects.length ? `<ul>${d.effects.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : '<p class="hint">No symptoms yet.</p>'}
-    <p class="hint">Saving throws so far: ${d.pass} passed, ${d.fail} failed.</p></details>`).join('');
+  // Only what's affecting the character right now: no stages to come, no DC, no save tally
+  const dis = (sn?.diseases || []).map(d => `<details class="dis" open><summary><b>${esc(d.name)}</b>${d.state === 'declining' ? '<small>getting better</small>' : ''}</summary>
+    ${(d.effects || []).length ? `<ul>${d.effects.map(e => `<li>${esc(e)}</li>`).join('')}</ul>` : '<p class="hint">No symptoms yet.</p>'}</details>`).join('');
+  const cnd = conds.map(x => `<details class="dis cond"><summary><b>${esc(x.name)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}</summary>${x.text ? fmt(x.text) : ''}</details>`).join('');
   const bn = boons.map(b => `<details class="dis boon"><summary><b>${esc(b.name)}</b>${b.dawnTemp ? `<small>${b.dawnTemp} temp HP at dawn</small>` : ''}</summary>${fmt(b.text)}</details>`).join('');
   return panel('From your DM', `
+    ${cnd ? `<span class="lbl">Conditions</span>${cnd}` : ''}
     ${sn ? `<div class="dmrow"><span class="lbl">Favor of Fate</span><b class="${sn.favorSpent ? 'spent' : 'fresh'}">${sn.favorSpent ? 'Spent' : 'Available'}</b>
       <span class="lbl">Deaths</span><b>${esc(sn.deaths)}</b></div>` : ''}
     ${bn ? `<span class="lbl">Boons</span>${bn}` : ''}

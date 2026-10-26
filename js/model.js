@@ -12,7 +12,7 @@ export function newCharacter(name = '') {
   const now = Date.now();
   return {
     app: 'charsheet', v: 1, id: uid(), created: now, updated: now, edits: {},
-    name, player: '', playerEmail: '', race: '', raceId: '', background: '', bgId: '', autoVals: {}, autoFlags: [], alignment: '', xp: '', nextLevel: '',
+    name, player: '', playerEmail: '', campaignId: '', conditions: [], race: '', raceId: '', background: '', bgId: '', autoVals: {}, autoFlags: [], alignment: '', xp: '', nextLevel: '',
     classes: [{ name: '', sub: '', clsId: '', subId: '', level: 1, hd: 8, hdUsed: 0 }],
     abil: { str: ABIL(), dex: ABIL(), con: ABIL(), int: ABIL(), wis: ABIL(), cha: ABIL() },
     saves: {}, skills: {}, jack: false, profOverride: '', inspiration: false,

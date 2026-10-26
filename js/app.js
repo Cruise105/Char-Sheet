@@ -90,8 +90,28 @@ async function showHome() {
   document.title = 'Character Sheets';
   state.chars = (await db.all()).map(upgrade).sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const dm = isDm();
+  // DM: the suite's campaigns. The filter here only changes what this screen shows, never the other apps.
+  const camps = dm ? sync.campaignList() : [];
+  const bar = $('#campBar');
+  bar.hidden = !camps.length;
+  let view = state.settings.campView;
+  if (view == null || (view !== 'all' && view !== 'none' && !camps.some(k => k.id === view))) view = sync.currentCampaignId() || 'all';
+  const untagged = state.chars.some(c => !c.campaignId);
+  if (camps.length) {
+    const cur = sync.currentCampaignId();
+    bar.innerHTML = `<label>Show <select class="f" id="campView">
+      <option value="all"${view === 'all' ? ' selected' : ''}>All characters</option>
+      ${camps.map(k => `<option value="${esc(k.id)}"${view === k.id ? ' selected' : ''}>${esc(k.name || 'Unnamed campaign')}${k.id === cur ? ' (current)' : ''}</option>`).join('')}
+      ${untagged || view === 'none' ? `<option value="none"${view === 'none' ? ' selected' : ''}>No campaign</option>` : ''}
+    </select></label>`;
+  }
+  const shown = !camps.length || view === 'all' ? state.chars : state.chars.filter(c => (view === 'none' ? !c.campaignId : c.campaignId === view));
+  const campSel = c => `<select class="f campsel" data-camp="${c.id}" aria-label="Campaign for ${esc(c.name || 'this character')}">
+    ${c.campaignId && !camps.some(k => k.id === c.campaignId) ? `<option value="${esc(c.campaignId)}" selected>Unknown campaign</option>` : ''}
+    <option value=""${c.campaignId ? '' : ' selected'}>No campaign</option>
+    ${camps.map(k => `<option value="${esc(k.id)}"${c.campaignId === k.id ? ' selected' : ''}>${esc(k.name || 'Unnamed campaign')}</option>`).join('')}</select>`;
   const list = $('#charList');
-  list.innerHTML = state.chars.map(c => {
+  list.innerHTML = shown.map(c => {
     const cls = (c.classes || []).filter(k => k.name).map(k => `${k.name}${k.sub ? ` (${k.sub})` : ''} ${k.level}`).join(' / ');
     const linked = sync.linkOf(c.id);
     return `<li><article class="card" data-id="${c.id}">
@@ -107,11 +127,19 @@ async function showHome() {
         ${dm ? `<button class="btn small" type="button" data-share="${c.id}">Share with player</button>` : (linked ? '' : `<button class="btn small" type="button" data-link="${c.id}">Link to Drive</button>`)}
         <button class="btn small" type="button" data-export="${c.id}">Save a copy</button>
         <button class="btn small danger" type="button" data-del="${c.id}">Delete</button>
+        ${camps.length ? campSel(c) : ''}
       </div>
     </article></li>`;
   }).join('');
   for (const card of list.querySelectorAll('.card')) applyTheme(card, state.chars.find(c => c.id === card.dataset.id).theme);
-  $('#homeEmpty').hidden = state.chars.length > 0;
+  $('#homeEmpty').hidden = shown.length > 0;
+  if (!shown.length && state.chars.length) {
+    $('#homeEmpty').hidden = false;
+    $('#homeEmpty').innerHTML = '<p>No characters in this campaign yet. Pick "All characters" above to see everyone.</p>';
+    $('#newBtn2').hidden = false;
+    applyRed();
+    return;
+  }
   $('#newBtn2').hidden = state.chars.length > 0;
   $('#homeEmpty').innerHTML = dm
     ? '<p>No characters yet. Make one here, or connect Google Drive in Settings to pull in the sheets already in your Character Sheets folder.</p>'
@@ -846,6 +874,18 @@ async function start() {
   $('#settingsBtn').addEventListener('click', openSettings);
   for (const b of document.querySelectorAll('[data-page]')) b.addEventListener('click', () => { state.page = b.dataset.page; sheetCtx.arranging = false; renderSheet(); $('#sheetwrap').scrollTop = 0; });
 
+  // DM: the campaign view filter (this screen only) and each character's campaign tag
+  $('#campBar').addEventListener('change', e => {
+    if (e.target.id !== 'campView') return;
+    state.settings.campView = e.target.value; saveSettings(); showHome();
+  });
+  $('#charList').addEventListener('change', async e => {
+    const sel = e.target.closest('[data-camp]'); if (!sel) return;
+    const c = await db.get(sel.dataset.camp); if (!c) return;
+    c.campaignId = sel.value; stamp(c, 'campaignId'); await db.put(c);
+    toast(sel.value ? `${c.name || 'Character'} moved to ${sel.selectedOptions[0].textContent}.` : `${c.name || 'Character'} has no campaign now.`);
+    showHome(); sync.syncNow({ quiet: true });
+  });
   $('#charList').addEventListener('click', e => {
     const t = e.target.closest('button'); if (!t) return;
     if (t.dataset.open) openCharacter(t.dataset.open);

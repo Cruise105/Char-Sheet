@@ -63,8 +63,11 @@ export { loadSeed };
 
 const norm = s => String(s || '').toLowerCase().replace(/[^a-z0-9 ]/g, '').trim();
 const firstWord = s => norm(s).split(' ')[0];
-// Find the record in another app that is this character: an explicit link first, then the same name
-function matchBy(list, linkId, name) {
+// Find the record in another app that is this character: one that carries this character's permanent id
+// (the suite's way), then an explicit link set on this device, then the same name (the old way)
+function matchBy(list, linkId, name, charId) {
+  const byId = charId && list.find(x => x.charId === charId);
+  if (byId) return byId;
   if (linkId === 'none') return null;
   if (linkId) return list.find(x => x.id === linkId) || null;
   const n = norm(name), f = firstWord(name);
@@ -86,8 +89,8 @@ export async function setLink(charId, app, id) {
 }
 export function resolvedLinks(c, links) {
   const l = links[c.id] || {};
-  const sn = matchBy(snLivePcs(sources.sn), l.sn, c.name);
-  const mi = matchBy(sources.mi?.state?.pcs || [], l.mi, c.name);
+  const sn = matchBy(snLivePcs(sources.sn), l.sn, c.name, c.id);
+  const mi = matchBy(sources.mi?.state?.pcs || [], l.mi, c.name, c.id);
   return { sn, mi };
 }
 
@@ -95,21 +98,21 @@ export function resolvedLinks(c, links) {
 function snView(sn, pc) {
   if (!pc) return null;
   const dis = new Map((sn.diseases || []).map(d => [d.id, d]));
-  const cases = (sn.cases || []).filter(cs => cs.pcId === pc.id && !cs.deleted && cs.revealed && ['incubating', 'sick', 'declining'].includes(cs.state));
+  // A disease shows once symptoms start (on its own), or while incubating only if the DM revealed it
+  const cases = (sn.cases || []).filter(cs => cs.pcId === pc.id && !cs.deleted
+    && (['sick', 'declining'].includes(cs.state) || (cs.state === 'incubating' && cs.revealed)));
   const sv = pc.survival || {};
   return {
     pcId: pc.id,
     deaths: (pc.deaths || []).length,
     favorSpent: !!pc.favor?.spent,
     survival: sv.hunger != null ? { hunger: sv.hunger, thirst: sv.thirst, fatigue: sv.fatigue } : null,
+    // Only what's affecting them right now: every effect in force at the current stage (stages build on each
+    // other), never the stages still to come, the save DC, or how their saves have gone
     diseases: cases.map(cs => {
       const d = dis.get(cs.diseaseId) || {};
-      const log = cs.log || [];
-      return {
-        id: cs.id, name: d.name || 'Disease', state: cs.state, stage: cs.stage || 0, dc: d.dc || null,
-        effects: (d.stages || []).slice(0, Math.max(0, cs.stage || 0)),
-        pass: log.filter(x => x.result === 'success').length, fail: log.filter(x => x.result === 'failure').length,
-      };
+      const stage = cs.state === 'incubating' ? 0 : Math.max(0, cs.stage || 0);
+      return { id: cs.id, name: d.name || 'Disease', state: cs.state, effects: (d.stages || []).slice(0, stage) };
     }),
   };
 }
@@ -207,8 +210,11 @@ export async function runBridge(io) {
   try { await loadBestiary(io); } catch (e) { if (e.auth) throw e; }
   const changed = [];
   const all = await db.all();
-  // the party roster players see (names only), so an artificer can hand an infused item to someone
-  const roster = all.filter(c => c.name).map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
+  // A character with no campaign yet joins the suite's current campaign (new characters, and everyone the first time)
+  const cur = io.currentCampaignId || '';
+  if (cur) for (const c of all) if (!c.campaignId) { c.campaignId = cur; stamp(c, 'campaignId'); await db.put(c); changed.push(c.name || 'a character'); }
+  // the party roster players see (names only), so an artificer can hand an infused item to someone: their own campaign's party
+  const roster = all.filter(c => c.name && (!cur || c.campaignId === cur)).map(c => ({ id: c.id, name: c.name })).sort((a, b) => a.name.localeCompare(b.name));
   if (JSON.stringify(L.tableSettings().party || []) !== JSON.stringify(roster)) await L.setTableSetting('party', roster);
   // infused items held by someone other than the artificer who made them
   const heldBy = new Map();
@@ -271,7 +277,7 @@ export async function writeParty(io) {
   const chars = (await db.all()).map(c => {
     const { sn, mi } = resolvedLinks(c, links);
     return {
-      id: c.id, fileId: io.sheetFileId(c.id) || '', name: c.name || '', player: c.player || '',
+      id: c.id, fileId: io.sheetFileId(c.id) || '', name: c.name || '', player: c.player || '', campaignId: c.campaignId || '',
       level: R.totalLevel(c), classes: (c.classes || []).filter(k => k.name).map(k => `${k.name} ${k.level}`).join(' / '),
       race: c.race || '', maxHp: Number(c.hp?.max) || 0, hp: Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0,
       ac: R.armorClass(c).withTemp, pp: R.passivePerception(c), ip: c.ip || 'ready', exhaustion: Number(c.exhaustion) || 0,

@@ -216,7 +216,10 @@ async function writeAppdata(name, data) {
   }
   ss.appHash[name] = h;
 }
-const bridgeIO = () => ({ readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId });
+const bridgeIO = () => ({ readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId, currentCampaignId: core?.currentCampaign?.()?.id || '' });
+// The suite's campaigns (DM's device), for tagging characters and the campaign filter
+export const campaignList = () => core?.campaigns?.() || [];
+export const currentCampaignId = () => core?.currentCampaign?.()?.id || '';
 
 /* ---------- the library file ---------- */
 // DM: one file in the folder, merged both ways so your PC and tablet stay in step.
@@ -269,6 +272,8 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
     const names = [];
     if (role() === 'dm') {
       await ensureFolder();
+      // the suite's campaign list and current campaign, so characters can be tagged and the party filtered
+      try { await core?.loadSuite?.(tok.value); } catch (e) { if (e.auth) throw e; }
       // pull in Session Notes and magic items first, so this pass uploads what changed
       try { const b = await runBridge(bridgeIO()); if (b.changed.length) names.push(...b.changed); ss.needScope = false; }
       catch (e) { if (e.auth) throw e; }
