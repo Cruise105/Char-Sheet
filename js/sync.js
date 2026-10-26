@@ -216,7 +216,16 @@ async function writeAppdata(name, data) {
   }
   ss.appHash[name] = h;
 }
-const bridgeIO = () => ({ readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId, currentCampaignId: core?.currentCampaign?.()?.id || '' });
+const bridgeIO = () => ({
+  readAppdata, writeAppdata, sheetFileId: id => ss.links[id]?.fileId || '', folderId: ss.folderId, currentCampaignId: core?.currentCampaign?.()?.id || '',
+  views: coreViews, live: liveNow,
+});
+// The core's shared sheet views and live link, once loaded (null if they can't load: the app's own copies are used)
+let coreViews = null, liveNow = null;
+async function loadCoreExtras() {
+  try { coreViews = (await core?.views?.()) || null; } catch { coreViews = null; }
+  try { liveNow = (await core?.live?.()) || null; } catch { liveNow = null; }
+}
 // The suite's campaigns (DM's device), for tagging characters and the campaign filter
 export const campaignList = () => core?.campaigns?.() || [];
 // The live link for fights (Firebase), or null if it can't load
@@ -286,6 +295,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
         catch (e) { if (e.auth) throw e; suiteNote = `Couldn't read the suite's campaigns: ${e.message}`; }
       }
       // pull in Session Notes and magic items first, so this pass uploads what changed
+      if (!coreViews || !liveNow) await loadCoreExtras();
       try { const b = await runBridge(bridgeIO()); if (b.changed.length) names.push(...b.changed); ss.needScope = false; }
       catch (e) { if (e.auth) throw e; }
       const files = await listFolder();

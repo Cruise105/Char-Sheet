@@ -191,6 +191,11 @@ function wildCap(c) {
 const isBeast = m => /^beast/i.test(String(m.type || '').trim());
 
 /* ---------- the pass ---------- */
+const sentBoons = new Map();
+function newLiveKey() {
+  const abc = 'abcdefghijklmnopqrstuvwxyz0123456789';
+  return Array.from(crypto.getRandomValues(new Uint8Array(32)), b => abc[b % abc.length]).join('');
+}
 // io: { readAppdata(name), writeAppdata(name, data), sheetFileId(charId), folderId }
 export async function runBridge(io) {
   sources.error = '';
@@ -229,17 +234,26 @@ export async function runBridge(io) {
       if (JSON.stringify(c[path] ?? null) === JSON.stringify(val ?? null)) return;
       c[path] = val; stamp(c, path); dirty = true;
     };
+    // every character gets its own secret key for the live link (only this sheet's player and the DM know it)
+    if (!c.liveKey) put('liveKey', newLiveKey());
     const { sn: pc, mi: holder } = resolvedLinks(c, links);
-    if (sources.sn) put('sn', snView(sources.sn, pc));
+    const V = io.views || { snView, miView }; // the suite core's shared rules when available
+    if (sources.sn) put('sn', V.snView(sources.sn, pc));
     if (sources.mi) {
-      const v = miView(sources.mi, seed, holder);
+      const v = V.miView(sources.mi, seed, holder);
       sources.miCounts[c.id] = v ? { held: v.held, shown: v.items.length } : null;
       put('magicItems', v ? v.items : []);
       if (v && Number(c.attuneMax) !== v.limit) { c.attuneMax = v.limit; stamp(c, 'attuneMax'); dirty = true; }
     }
     // Boons the DM gave this character (or the whole party)
     const mine = boons.filter(b => b.given === 'party' || (Array.isArray(b.given) && b.given.includes(c.id)));
-    put('boons', mine.map(b => ({ id: b.id, name: b.name, text: b.desc || '', dawnTemp: Number(b.dawnTemp) || 0 })));
+    const boonList = mine.map(b => ({ id: b.id, name: b.name, text: b.desc || '', dawnTemp: Number(b.dawnTemp) || 0 }));
+    put('boons', boonList);
+    // boons reach the player's sheet at once over the live link (only when they changed)
+    if (io.live && c.liveKey) {
+      const k = JSON.stringify(boonList);
+      if (sentBoons.get(c.id) !== k) { sentBoons.set(c.id, k); io.live.channel(c.liveKey, 'boons', { boons: boonList }); }
+    }
     // Dawn effects: temp HP when Session Notes' clock passes dawn (never stacks: keeps the higher)
     const camp = campaignOf(sources.sn, pc);
     if (camp && camp.current != null) {
@@ -277,7 +291,7 @@ export async function writeParty(io) {
   const chars = (await db.all()).map(c => {
     const { sn, mi } = resolvedLinks(c, links);
     return {
-      id: c.id, fileId: io.sheetFileId(c.id) || '', name: c.name || '', player: c.player || '', campaignId: c.campaignId || '',
+      id: c.id, fileId: io.sheetFileId(c.id) || '', name: c.name || '', player: c.player || '', campaignId: c.campaignId || '', liveKey: c.liveKey || '',
       level: R.totalLevel(c), classes: (c.classes || []).filter(k => k.name).map(k => `${k.name} ${k.level}`).join(' / '),
       race: c.race || '', maxHp: Number(c.hp?.max) || 0, hp: Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0,
       ac: R.armorClass(c).withTemp, pp: R.passivePerception(c), ip: c.ip || 'ready', exhaustion: Number(c.exhaustion) || 0,

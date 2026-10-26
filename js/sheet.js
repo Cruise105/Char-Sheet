@@ -353,7 +353,7 @@ function combatRequest(c, kind) {
   const v = combatView(c);
   c.combatReq = { id: uid(), kind, round: v?.round || 0, at: Date.now() };
   stamp(c, 'combatReq'); ctx.save(c); ctx.rerender();
-  if (v?.live) ctx.liveSend?.(v.live, c.id, c.combatReq);
+  if (c.liveKey) ctx.liveSend?.(c.liveKey, c.combatReq);
   ctx.syncSoon?.();
 }
 const combatBar = c => `<div class="cbslot" data-cb="${esc(c.id)}">${combatBarInner(c)}</div>`;

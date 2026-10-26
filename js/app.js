@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { newCharacter, upgrade, merge, stamp, uid, hpOp, getPath, replayHp } from './model.js';
+import { newCharacter, upgrade, merge, stamp, uid, hpOp, getPath, setPath, replayHp } from './model.js';
 import * as R from './rules.js';
 import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor, setLiveView, combatView, refreshCombatBar } from './sheet.js';
 import { PRESETS } from './theme.js';
@@ -588,56 +588,109 @@ function renderSheet() {
   themeChanged(false);
   liveFollow(c);
 }
-// While a sheet is open and its character's table has a fight link, hear the combat tracker instantly over the
-// live link (turns, HP changes, conditions), and send this sheet's own HP changes the same way. Drive still
-// carries everything a few seconds later, and every HP change has an id, so nothing counts twice.
-const follow = { id: '', table: '', stop: null, known: new Set() };
+// Live link: while a sheet is open, everything the player sees arrives the moment it changes, and this sheet's
+// own changes go out the same way. All of it lives under this character's own secret key (liveKey), which only
+// this sheet's player and the DM know. Drive still carries everything a few seconds later as the saved copy;
+// every change carries a time (and HP changes an id), so nothing is applied twice or overwrites newer work.
+const HP_PATHS = new Set(['hpOps', 'hpBase', 'hp', 'hp.cur', 'hp.temp']);
+const NOT_LIVE = new Set(['combat', 'combatReq', 'edits', 'updated']); // turns travel on their own path
+const follow = { id: '', key: '', stop: null, known: new Set(), pushed: {}, stats: '', chT: {} };
+let liveRedraw = null;
+function redrawSoon() { clearTimeout(liveRedraw); liveRedraw = setTimeout(() => { if (state.cur) renderSheet(); }, 120); }
 function liveFollow(c) {
-  const table = (c && combatView(c)?.live) || c?.combat?.live || '';
-  const id = table ? c.id : '';
-  if (id === follow.id && table === follow.table) return;
-  follow.stop?.(); Object.assign(follow, { id, table, stop: null, known: new Set((c?.hpOps || []).map(o => o.id)) });
+  const key = c?.liveKey || '';
+  const id = key ? c.id : '';
+  if (id === follow.id && key === follow.key) return;
+  follow.stop?.();
+  Object.assign(follow, { id, key, stop: null, known: new Set((c?.hpOps || []).map(o => o.id)), pushed: { ...(c?.edits || {}) }, stats: '', chT: {} });
   if (!id) return;
   sync.live().then(L => {
-    if (!L || follow.id !== id || follow.table !== table) return;
+    if (!L || follow.id !== id || follow.key !== key) return;
     const cur = () => (state.cur?.id === id ? state.cur : null);
     const stops = [
-      L.watchView(table, id, v => {
-        setLiveView(id, v);
-        if (cur()) refreshCombatBar($('#page'), cur());
-      }),
-      // HP changes from the combat tracker
-      L.watch(table, `ops/${id}`, all => {
+      // where the fight stands for this character (combat tracker)
+      L.cwatch(key, 'view', v => { setLiveView(id, v); if (cur()) refreshCombatBar($('#page'), cur()); }),
+      // HP changes from the combat tracker (or this character's other devices)
+      L.cwatch(key, 'ops', all => {
         const c = cur(); if (!c) return;
         let added = 0;
         for (const op of Object.values(all || {})) {
-          follow.known.add(op?.id);
-          if (!op?.id || (c.hpOps || []).some(o => o.id === op.id) || op.t <= (c.hpBase?.t || 0)) continue;
+          if (!op?.id) continue;
+          follow.known.add(op.id);
+          if ((c.hpOps || []).some(o => o.id === op.id) || op.t <= (c.hpBase?.t || 0)) continue;
           c.hpOps = [...(c.hpOps || []), op]; added++;
         }
         if (!added) return;
         replayHp(c); c.edits = c.edits || {}; c.edits.hpOps = Date.now(); c.updated = Date.now();
-        db.put(c); renderSheet();
+        db.put(c); liveStats(c); redrawSoon();
       }),
-      // conditions set in the combat tracker
-      L.watch(table, `conds/${id}`, v => {
-        const c = cur(); if (!c || !v || !Array.isArray(v.list)) return;
-        if (JSON.stringify(c.conditions || []) === JSON.stringify(v.list)) return;
-        c.conditions = v.list; renderSheet();
+      // any other field of this sheet changed on another device (the player's or the DM's) or by the tracker
+      L.cwatch(key, 'sheet', all => {
+        const c = cur(); if (!c || !all) return;
+        const le = c.edits || (c.edits = {});
+        let changed = 0;
+        for (const [enc, rec] of Object.entries(all)) {
+          const path = L.decPath(enc), t = Number(rec?.t) || 0;
+          if (!t || HP_PATHS.has(path) || NOT_LIVE.has(path)) continue;
+          // a newer local change to this field (or a whole list/section it sits in) wins
+          if (Object.keys(le).some(k => (path === k || path.startsWith(k + '.')) && le[k] >= t)) continue;
+          for (const k of Object.keys(le)) if (k.startsWith(path + '.')) delete le[k];
+          setPath(c, path, rec.v === undefined ? null : structuredClone(rec.v));
+          le[path] = t; follow.pushed[path] = t; c.updated = Math.max(c.updated || 0, t);
+          changed++;
+        }
+        if (!changed) return;
+        db.put(c); liveStats(c); redrawSoon();
+      }),
+      // channels from the DM's other apps: Session Notes, Magic Items, boons, combat conditions, and later ones
+      L.cwatch(key, 'ch', all => {
+        const c = cur(); if (!c || !all) return;
+        let changed = 0;
+        for (const [name, ch] of Object.entries(all)) {
+          if (!ch?.fields || (ch.t || 0) <= (follow.chT[name] || 0)) continue;
+          follow.chT[name] = ch.t;
+          for (const [f, v] of Object.entries(ch.fields)) if (JSON.stringify(c[f] ?? null) !== JSON.stringify(v ?? null)) { c[f] = v; changed++; }
+        }
+        if (changed) redrawSoon();
       }),
     ];
     follow.stop = () => stops.forEach(s => s());
+    liveStats(c);
   });
 }
-// This sheet's own HP changes (typed by the player) go straight to the tracker during a fight
+// This sheet's own changes go straight out: HP changes, every other field, and the numbers the tracker shows
 function liveSendOps(c) {
-  if (!follow.table || c?.id !== follow.id) return;
-  for (const op of c.hpOps || []) {
-    if (follow.known.has(op.id)) continue;
-    follow.known.add(op.id);
-    if (op.by === 'bestiary' || Date.now() - (op.t || 0) > 15000) continue;
-    sync.live().then(L => L?.put(follow.table, `ops/${c.id}/${op.id}`, op));
-  }
+  if (!follow.key || c?.id !== follow.id) return;
+  sync.live().then(L => {
+    if (!L || follow.key !== c.liveKey) return;
+    for (const op of c.hpOps || []) {
+      if (follow.known.has(op.id)) continue;
+      follow.known.add(op.id);
+      if (Date.now() - (op.t || 0) > 15000) continue;
+      L.cput(follow.key, `ops/${op.id}`, op);
+    }
+    for (const [path, t] of Object.entries(c.edits || {})) {
+      if ((follow.pushed[path] || 0) >= t || HP_PATHS.has(path) || NOT_LIVE.has(path)) continue;
+      follow.pushed[path] = t;
+      const v = getPath(c, path);
+      L.cput(follow.key, `sheet/${L.encPath(path)}`, { v: v === undefined ? null : v, t });
+    }
+    liveStats(c);
+  });
+}
+function liveStats(c) {
+  if (!follow.key || c?.id !== follow.id) return;
+  let s;
+  try {
+    const f = c.hp?.form;
+    s = { hp: f ? f.cur : Number(c.hp?.cur) || 0, temp: Number(c.hp?.temp) || 0, maxHp: f ? f.max : Number(c.hp?.max) || 0,
+      ac: f && f.ac != null ? f.ac : R.armorClass(c).withTemp, passive: R.passivePerception(c), ip: c.ip || 'ready',
+      exh: Number(c.exhaustion) || 0, form: f ? f.name : '' };
+  } catch { return; }
+  const k = JSON.stringify(s);
+  if (k === follow.stats) return;
+  follow.stats = k;
+  sync.live().then(L => L?.cput(follow.key, 'stats', { ...s, t: Date.now() }));
 }
 function themeChanged(rerenderLook) {
   const c = state.cur; if (!c) return;
@@ -907,7 +960,7 @@ const sheetCtx = {
   levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
   // send a change right away (a turn button), once the save has landed
   syncSoon: () => setTimeout(async () => { await flush(); sync.syncNow({ quiet: true }); }, 300),
-  liveSend: (table, id, req) => sync.live().then(L => L?.sendRequest(table, id, req)),
+  liveSend: (key, req) => sync.live().then(L => L?.cput(key, 'req', req)),
 };
 
 async function start() {
