@@ -1,5 +1,5 @@
 import { db } from './db.js';
-import { newCharacter, upgrade, merge, stamp, uid, hpOp, getPath } from './model.js';
+import { newCharacter, upgrade, merge, stamp, uid, hpOp, getPath, replayHp } from './model.js';
 import * as R from './rules.js';
 import { initSheet, renderPage, bindSheet, updateCalcs, lookPanel, applyTheme, esc, remindersFor, setLiveView, combatView, refreshCombatBar } from './sheet.js';
 import { PRESETS } from './theme.js';
@@ -63,6 +63,7 @@ let saveTimer = null;
 function save(c) {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => db.put(c), 250);
+  liveSendOps(c);
 }
 async function flush() { if (saveTimer && state.cur) { clearTimeout(saveTimer); saveTimer = null; await db.put(state.cur); } }
 
@@ -587,21 +588,56 @@ function renderSheet() {
   themeChanged(false);
   liveFollow(c);
 }
-// While a sheet is open and its character is in a fight, hear the combat tracker instantly over the live link
-const follow = { id: '', table: '', stop: null };
+// While a sheet is open and its character's table has a fight link, hear the combat tracker instantly over the
+// live link (turns, HP changes, conditions), and send this sheet's own HP changes the same way. Drive still
+// carries everything a few seconds later, and every HP change has an id, so nothing counts twice.
+const follow = { id: '', table: '', stop: null, known: new Set() };
 function liveFollow(c) {
   const table = (c && combatView(c)?.live) || c?.combat?.live || '';
   const id = table ? c.id : '';
   if (id === follow.id && table === follow.table) return;
-  follow.stop?.(); Object.assign(follow, { id, table, stop: null });
+  follow.stop?.(); Object.assign(follow, { id, table, stop: null, known: new Set((c?.hpOps || []).map(o => o.id)) });
   if (!id) return;
   sync.live().then(L => {
     if (!L || follow.id !== id || follow.table !== table) return;
-    follow.stop = L.watchView(table, id, v => {
-      setLiveView(id, v);
-      if (state.cur?.id === id) refreshCombatBar($('#page'), state.cur);
-    });
+    const cur = () => (state.cur?.id === id ? state.cur : null);
+    const stops = [
+      L.watchView(table, id, v => {
+        setLiveView(id, v);
+        if (cur()) refreshCombatBar($('#page'), cur());
+      }),
+      // HP changes from the combat tracker
+      L.watch(table, `ops/${id}`, all => {
+        const c = cur(); if (!c) return;
+        let added = 0;
+        for (const op of Object.values(all || {})) {
+          follow.known.add(op?.id);
+          if (!op?.id || (c.hpOps || []).some(o => o.id === op.id) || op.t <= (c.hpBase?.t || 0)) continue;
+          c.hpOps = [...(c.hpOps || []), op]; added++;
+        }
+        if (!added) return;
+        replayHp(c); c.edits = c.edits || {}; c.edits.hpOps = Date.now(); c.updated = Date.now();
+        db.put(c); renderSheet();
+      }),
+      // conditions set in the combat tracker
+      L.watch(table, `conds/${id}`, v => {
+        const c = cur(); if (!c || !v || !Array.isArray(v.list)) return;
+        if (JSON.stringify(c.conditions || []) === JSON.stringify(v.list)) return;
+        c.conditions = v.list; renderSheet();
+      }),
+    ];
+    follow.stop = () => stops.forEach(s => s());
   });
+}
+// This sheet's own HP changes (typed by the player) go straight to the tracker during a fight
+function liveSendOps(c) {
+  if (!follow.table || c?.id !== follow.id) return;
+  for (const op of c.hpOps || []) {
+    if (follow.known.has(op.id)) continue;
+    follow.known.add(op.id);
+    if (op.by === 'bestiary' || Date.now() - (op.t || 0) > 15000) continue;
+    sync.live().then(L => L?.put(follow.table, `ops/${c.id}/${op.id}`, op));
+  }
 }
 function themeChanged(rerenderLook) {
   const c = state.cur; if (!c) return;
