@@ -13,7 +13,8 @@ let srd = new Map();
 // custom: { entries: {id: entry}, deleted: {id: time}, updated }
 // settings: the table-wide switches the DM controls (synced to players with the library)
 // Rules as written to start with; a table switches on its own rules (spell points, Active Initiative…) in Table Rules
-const DEFAULT_SETTINGS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp', updated: 0 };
+// abilMethods: how new characters may set their ability scores (rolling, the standard array, point buy)
+const DEFAULT_SETTINGS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp', abilMethods: 'roll,array,pointbuy', updated: 0 };
 let custom = { entries: {}, deleted: {}, updated: 0, settings: { ...DEFAULT_SETTINGS } };
 let merged = new Map();
 const listeners = new Set();

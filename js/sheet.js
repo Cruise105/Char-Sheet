@@ -129,7 +129,8 @@ function datalists(c) {
 }
 
 function abilities(c) {
-  return `<section class="panel abilities" aria-label="Ability scores">
+  const todo = c.abilGen && !c.abilGen.done;
+  return `${todo ? `<div class="scorescall"><button class="btn primary" type="button" data-act="scores">Set your ability scores</button><small>Roll, use the standard array or point buy, whichever your table allows.</small></div>` : ''}<section class="panel abilities" aria-label="Ability scores">
     ${R.ABILS.map(([k, n]) => `
       <button class="abil" type="button" data-act="abil" data-a="${k}" aria-label="${n}: edit score and sources">
         <span class="an">${n}</span>
@@ -1126,6 +1127,7 @@ function act(b, c, root) {
     case 'consolidate': c.coins = R.consolidateCoins(c.coins); ctx.toast('Coins consolidated.'); return touch('coins');
     case 'imgdel': setPath(c, d.p, ''); return touch(d.p);
     case 'abil': return ctx.openAbility(d.a);
+    case 'scores': return ctx.openScores();
     case 'libview': return ctx.viewEntry(d.id);
     case 'levelup': return ctx.levelUp();
     case 'optpick': return ctx.pickOption(d.group);

@@ -155,6 +155,7 @@ async function showHome() {
 async function newChar() {
   const c = newCharacter('');
   c.edits = {};
+  c.abilGen = { done: false }; // a new character sets their scores with a method the table allows
   await db.put(c);
   await openCharacter(c.id);
   setTimeout(() => $('#page .charname')?.focus(), 50);
@@ -761,7 +762,9 @@ function openAbility(a) {
     dlg.querySelector('.body').innerHTML = `
       <h2>${name}</h2>
       <div class="abilsum"><b>${R.score(c, a)}</b><span>${R.sign(R.amod(c, a))}</span></div>
-      <label class="hf"><span class="lbl">Base score (rolled or point-buy)</span><input class="f n" data-ab="base" inputmode="numeric" value="${esc(ab.base)}"></label>
+      ${player() && c.abilGen?.done ? `<div class="srow rorow"><span>Base score (${esc(METHOD_NAMES[c.abilGen.method] || 'set')})</span><b>${esc(ab.base)}</b></div>`
+        : `<label class="hf"><span class="lbl">Base score (rolled or point-buy)</span><input class="f n" data-ab="base" inputmode="numeric" value="${esc(ab.base)}"></label>`}
+      ${!player() || (c.abilGen && !c.abilGen.done) ? `<button class="linkbtn" type="button" data-scores>${c.abilGen && !c.abilGen.done ? 'Set all six scores (roll, array or point buy)' : 'Set all six scores with a method'}</button>` : ''}
       <span class="lbl">Increases and where they came from</span>
       <div class="adjlist">${(ab.adj || []).map((x, i) => lockedAdj(x) ? `
         <div class="srow rorow"><span>${esc(x.src)}${x.note ? ` · ${esc(x.note)}` : ''}</span><b>${R.sign(Number(x.v) || 0)}</b></div>` : `
@@ -785,6 +788,7 @@ function openAbility(a) {
   };
   dlg.onchange = dlg.oninput;
   dlg.onclick = e => {
+    if (e.target.closest('[data-scores]')) { dlg.close(); return openScores(); }
     if (e.target.closest('[data-adjadd]')) { c.abil[a].adj.push({ src: player() ? 'Training' : 'Racial', note: '', v: 1, id: uid() }); touch(); draw(); dlg.querySelector('.adjlist .srow:last-child input.n')?.focus(); }
     const del = e.target.closest('[data-adjdel]');
     if (del && !lockedAdj(c.abil[a].adj[Number(del.dataset.adjdel)])) { c.abil[a].adj.splice(Number(del.dataset.adjdel), 1); touch(); draw(); }
@@ -794,6 +798,62 @@ function openAbility(a) {
   dlg.showModal();
 }
 
+
+/* ---------- ability scores for a new character: roll, standard array or point buy (whichever the table allows) ---------- */
+const METHOD_NAMES = { roll: 'rolled', array: 'standard array', pointbuy: 'point buy' };
+const ARRAY = [15, 14, 13, 12, 10, 8];
+const PB_COST = { 8: 0, 9: 1, 10: 2, 11: 3, 12: 4, 13: 5, 14: 7, 15: 9 }, PB_POINTS = 27;
+const d6 = () => { const b = new Uint32Array(1); crypto.getRandomValues(b); return 1 + (b[0] % 6); };
+// 4d6, the lowest die set aside
+function rollScore() { const dice = [d6(), d6(), d6(), d6()]; const low = dice.indexOf(Math.min(...dice)); return { dice, low, total: dice.reduce((t, x, i) => t + (i === low ? 0 : x), 0) }; }
+const allowedMethods = () => { const m = String(L.tableSettings().abilMethods || 'roll,array,pointbuy').split(',').filter(x => METHOD_NAMES[x]); return m.length ? m : ['roll', 'array', 'pointbuy']; };
+function openScores() {
+  const c = state.cur, ok = allowedMethods();
+  c.abilGen = c.abilGen || { done: false };
+  const keys = R.ABILS.map(([k]) => k);
+  const st = { method: ok.includes(c.abilGen.method) ? c.abilGen.method : (c.abilGen.rolls && ok.includes('roll') ? 'roll' : ok[0]), pick: {}, pb: Object.fromEntries(keys.map(k => [k, 8])) };
+  const adj = k => (c.abil[k].adj || []).reduce((t, x) => t + (Number(x.v) || 0), 0);
+  const pool = () => (st.method === 'roll' ? (c.abilGen.rolls || []).map(r => r.total) : st.method === 'array' ? ARRAY : []);
+  const base = k => (st.method === 'pointbuy' ? st.pb[k] : st.pick[k] == null ? null : pool()[st.pick[k]]);
+  const spent = () => keys.reduce((t, k) => t + PB_COST[st.pb[k]], 0);
+  const complete = () => (st.method === 'pointbuy' ? spent() <= PB_POINTS : pool().length === 6 && keys.every(k => st.pick[k] != null));
+  const draw = () => {
+    const p = pool(), used = new Set(Object.values(st.pick));
+    const rows = R.ABILS.map(([k, n]) => {
+      const b = base(k), a = adj(k), fin = b == null ? '—' : b + a;
+      const ctrl = st.method === 'pointbuy'
+        ? `<button class="step" type="button" data-pb="${k}" data-d="-1" ${st.pb[k] <= 8 ? 'disabled' : ''} aria-label="Lower ${n}">−</button><b class="pbv">${st.pb[k]}</b><button class="step" type="button" data-pb="${k}" data-d="1" ${st.pb[k] >= 15 || PB_COST[st.pb[k] + 1] - PB_COST[st.pb[k]] > PB_POINTS - spent() ? 'disabled' : ''} aria-label="Raise ${n}">+</button>`
+        : `<select class="f" data-pick="${k}" aria-label="${n}" ${p.length ? '' : 'disabled'}><option value="">Choose</option>${p.map((v, i) => `<option value="${i}" ${st.pick[k] === i ? 'selected' : ''} ${used.has(i) && st.pick[k] !== i ? 'disabled' : ''}>${v}</option>`).join('')}</select>`;
+      return `<div class="scrow"><span class="scn">${n}</span><span class="scc">${ctrl}</span><span class="sca">${a ? R.sign(a) : ''}</span><b class="scf">${fin}</b><small class="scm">${b == null ? '' : R.sign(R.mod(b + a))}</small></div>`;
+    }).join('');
+    const tabs = ok.length > 1 ? `<div class="seg" role="group" aria-label="Method">${ok.map(m => `<button type="button" data-m="${m}" aria-pressed="${st.method === m}">${m === 'roll' ? 'Roll' : m === 'array' ? 'Standard array' : 'Point buy'}</button>`).join('')}</div>` : `<p class="hint">Your table uses ${METHOD_NAMES[ok[0]] === 'rolled' ? 'rolling' : METHOD_NAMES[ok[0]]}.</p>`;
+    const rolled = c.abilGen.rolls;
+    const how = st.method === 'roll'
+      ? (rolled ? `<div class="rolls">${rolled.map(r => `<span class="rollset"><b>${r.total}</b><small>${r.dice.map((x, i) => i === r.low ? `<s>${x}</s>` : x).join(' ')}</small></span>`).join('')}</div>
+          <p class="hint">Rolled 4d6 six times, the lowest die set aside each time. Put each number on an ability.</p>${isDm() ? '<button class="linkbtn" type="button" data-reroll>Roll again (DM)</button>' : ''}`
+        : `<p class="hint">Roll 4d6 six times; the lowest die of each roll is set aside. The rolls are kept on the sheet, so they count.</p><button class="btn primary" type="button" data-roll>Roll the dice</button>`)
+      : st.method === 'array' ? '<p class="hint">Put each of 15, 14, 13, 12, 10 and 8 on an ability.</p>'
+      : `<p class="hint">Every score starts at 8. Raising one costs points (14 costs 7, 15 costs 9); 15 is the highest you can buy.</p><p class="pbleft ${spent() > PB_POINTS ? 'over' : ''}"><b>${PB_POINTS - spent()}</b> of ${PB_POINTS} points left</p>`;
+    return `<h2>Ability scores</h2>${tabs}${how}
+      <div class="scgrid"><div class="scrow head"><span></span><span>Base</span><span>Race</span><span>Score</span><span></span></div>${rows}</div>
+      <div class="row end"><button class="btn ghost" type="button" data-close>Later</button><button class="btn primary" type="button" data-apply ${complete() ? '' : 'disabled'}>Use these scores</button></div>`;
+  };
+  actDialog(draw, (e, paint) => {
+    const m = e.target.closest('[data-m]'); if (m) { st.method = m.dataset.m; st.pick = {}; return paint(); }
+    if (e.target.closest('[data-roll]') || e.target.closest('[data-reroll]')) {
+      if (c.abilGen.rolls && !isDm()) return;
+      c.abilGen = { ...c.abilGen, rolls: Array.from({ length: 6 }, rollScore), rolledAt: Date.now() }; st.pick = {};
+      stamp(c, 'abilGen'); save(c); return paint(); // kept straight away, so closing the window doesn't undo a roll
+    }
+    const pb = e.target.closest('[data-pb]');
+    if (pb) { const k = pb.dataset.pb, d = Number(pb.dataset.d), v = st.pb[k] + d; if (v >= 8 && v <= 15 && (d < 0 || spent() - PB_COST[st.pb[k]] + PB_COST[v] <= PB_POINTS)) st.pb[k] = v; return paint(); }
+    if (e.target.closest('[data-apply]') && complete()) {
+      for (const k of keys) { c.abil[k].base = base(k); stamp(c, `abil.${k}`); }
+      c.abilGen = { ...c.abilGen, method: st.method, done: true, at: Date.now() };
+      stamp(c, 'abilGen'); save(c); $('#actDlg').close(); toast('Ability scores set.');
+    }
+  }, (e, paint) => { const s = e.target.closest('[data-pick]'); if (s) { st.pick[s.dataset.pick] = s.value === '' ? null : Number(s.value); paint(); } });
+}
 /* ---------- armor class ---------- */
 // How the AC is worked out, in a few words ("Unarmored Defense (10 + Dex + Con) · includes +1 temp")
 function acHow(c) {
@@ -942,9 +1002,10 @@ function renderTableRules() {
     box.innerHTML = `<div class="trrow"><span>Spellcasting</span><div class="seg" role="group" aria-label="Spellcasting"><button type="button" data-ts="spellMode" data-v="points" aria-pressed="${t.spellMode === 'points'}">Spell points</button><button type="button" data-ts="spellMode" data-v="slots" aria-pressed="${t.spellMode === 'slots'}">Spell slots</button></div></div>
       <div class="trrow"><span>Leveling</span><div class="seg" role="group" aria-label="Leveling"><button type="button" data-ts="leveling" data-v="xp" aria-pressed="${t.leveling === 'xp'}">Experience points</button><button type="button" data-ts="leveling" data-v="milestone" aria-pressed="${t.leveling === 'milestone'}">Milestone</button></div></div>
       <div class="trrow"><span>Initiative</span><div class="seg" role="group" aria-label="Initiative"><button type="button" data-ts="initiative" data-v="active" aria-pressed="${t.initiative === 'active'}">Active Initiative</button><button type="button" data-ts="initiative" data-v="standard" aria-pressed="${t.initiative === 'standard'}">Standard</button></div></div>
-      <p class="hint">These apply to every sheet at the table. Players get the change with the Table Library.</p>`;
+      <div class="trrow"><span>Ability scores</span><div class="seg" role="group" aria-label="Ways to set ability scores">${['roll', 'array', 'pointbuy'].map(m => `<button type="button" data-tsm="${m}" aria-pressed="${allowedMethods().includes(m)}">${m === 'roll' ? 'Rolling' : m === 'array' ? 'Standard array' : 'Point buy'}</button>`).join('')}</div></div>
+      <p class="hint">These apply to every sheet at the table. Players get the change with the Table Library. Ability scores: pick every way new characters may use (at least one).</p>`;
   } else {
-    box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'}, ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'} and ${t.leveling === 'milestone' ? 'milestone leveling' : 'experience points'}.</p>`;
+    box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'}, ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'} and ${t.leveling === 'milestone' ? 'milestone leveling' : 'experience points'}. New characters set ability scores by ${allowedMethods().map(m => ({ roll: 'rolling', array: 'the standard array', pointbuy: 'point buy' })[m]).join(' or ')}.</p>`;
   }
 }
 // DM: which Session Notes character and which magic item character each sheet belongs to
@@ -983,7 +1044,7 @@ const sheetCtx = {
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
   isPlayer: () => !isDm(),
-  levelUp, shortRest, longRest, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
+  levelUp, shortRest, longRest, openScores, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
   // send a change right away (a turn button), once the save has landed
   syncSoon: () => setTimeout(async () => { await flush(); sync.syncNow({ quiet: true }); }, 300),
   liveSend: (key, req) => sync.live().then(L => L?.cput(key, 'req', req)),
@@ -1048,6 +1109,12 @@ async function start() {
       renderLinked();
       if (app.dataset.view === 'home') showHome();
       if (app.dataset.view === 'library') showLibrary();
+    }
+    const tsm = e.target.closest('[data-tsm]');
+    if (tsm) {
+      const cur = new Set(allowedMethods()), m = tsm.dataset.tsm;
+      if (cur.has(m)) { if (cur.size === 1) { toast('Keep at least one way to set ability scores.'); return; } cur.delete(m); } else cur.add(m);
+      L.setTableSetting('abilMethods', ['roll', 'array', 'pointbuy'].filter(x => cur.has(x)).join(',')).then(() => { renderTableRules(); sync.syncNow({ quiet: true }); });
     }
     const ts = e.target.closest('[data-ts]');
     if (e.target.closest('#linkSync')) { sync.syncNow({ interactive: true }).then(renderLinked); }
