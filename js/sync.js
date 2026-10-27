@@ -75,6 +75,11 @@ function loadScript(src, ready) {
 
 /* ---------- sign-in ---------- */
 async function signIn() {
+  // Stay signed in through the suite's key keeper when it's set up; the one-hour sign-in below if it isn't (or fails)
+  if (core?.keeperReady?.()) {
+    try { const t = await core.signInLong(scopeFor(), { app: 'character-sheet' }); tok.value = t.value; tok.exp = t.exp; tok.scope = scopeFor(); ss.needScope = false; saveToken(); return; }
+    catch (e) { if (/closed before/.test(e.message)) throw e; console.warn('key keeper', e); }
+  }
   await loadScript('https://accounts.google.com/gsi/client', () => window.google?.accounts?.oauth2);
   return new Promise((resolve, reject) => {
     const client = google.accounts.oauth2.initTokenClient({
