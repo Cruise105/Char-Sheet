@@ -487,7 +487,8 @@ function longRest() {
     if (Number(c.exhaustion) && st.ate) c.exhaustion = Number(c.exhaustion) - 1;
     M.restoreAll(c);
     c.ip = 'ready';
-    for (const p of ['classes', 'limited', 'death', 'exhaustion', 'magic', 'ip']) stamp(c, p);
+    c.rage = { on: false, used: 0 };
+    for (const p of ['classes', 'limited', 'death', 'exhaustion', 'magic', 'ip', 'rage']) stamp(c, p);
     save(c);
     $('#actDlg').close();
     toast('Long rest done. You wake refreshed.');
@@ -794,18 +795,23 @@ function openAbility(a) {
 }
 
 /* ---------- armor class ---------- */
+// How the AC is worked out, in a few words ("Unarmored Defense (10 + Dex + Con) · includes +1 temp")
+function acHow(c) {
+  const ac = R.armorClass(c), t = Number(c.ac.temp) || 0;
+  return [ac.how, ...(ac.feat || []).map(b => `${b.name} +${b.v}`), t ? `includes ${R.sign(t)} temp` : ''].filter(Boolean).map(esc).join(' · ');
+}
 function openAc() {
   const c = state.cur, a = c.ac, dlg = $('#acDlg');
   const draw = () => {
     dlg.querySelector('.body').innerHTML = `
       <h2>Armor class</h2>
-      <div class="abilsum"><b>${R.armorClass(c).withTemp}</b><span>${Number(a.temp) ? `includes ${R.sign(Number(a.temp))} temp` : ''}</span></div>
+      <div class="abilsum"><b>${R.armorClass(c).withTemp}</b><span>${acHow(c)}</span></div>
       <div class="seg" role="group" aria-label="Armor or unarmored">
         <button type="button" data-mode="armor" aria-pressed="${a.mode !== 'unarmored'}">Wearing armor</button>
         <button type="button" data-mode="unarmored" aria-pressed="${a.mode === 'unarmored'}">Unarmored</button>
       </div>
       ${a.mode === 'unarmored' ? `
-        <p class="hint">10 + Dexterity, plus a second ability for Unarmored Defense (Constitution for Barbarians, Wisdom for Monks).</p>
+        <p class="hint">10 + Dexterity. Unarmored Defense (Barbarian, Monk) and Draconic Resilience count on their own when they're among your features; only pick an ability below for something else that works the same way.</p>
         <label class="hf"><span class="lbl">Unarmored Defense adds</span><select class="f" data-ac="unarmoredAbil"><option value="">Nothing</option>${R.ABILS.filter(([k]) => k !== 'dex').map(([k, n]) => `<option value="${k}" ${a.unarmoredAbil === k ? 'selected' : ''}>${n}</option>`).join('')}</select></label>`
       : `
         <div class="grid2">
@@ -824,7 +830,7 @@ function openAc() {
       </div>`;
   };
   draw();
-  const sum = () => { dlg.querySelector('.abilsum').innerHTML = `<b>${R.armorClass(c).withTemp}</b><span>${Number(a.temp) ? `includes ${R.sign(Number(a.temp))} temp` : ''}</span>`; };
+  const sum = () => { dlg.querySelector('.abilsum').innerHTML = `<b>${R.armorClass(c).withTemp}</b><span>${acHow(c)}</span>`; };
   dlg.oninput = e => {
     const el = e.target;
     if (el.dataset.init != null) { c.init.misc = Number(el.value) || 0; stamp(c, 'init.misc'); save(c); return; }
@@ -986,6 +992,7 @@ const sheetCtx = {
 async function start() {
   await loadSettings();
   await L.loadLibrary();
+  R.F.useLibrary(L.get); // class tables and option names, for features that change the numbers
   initSheet(sheetCtx);
   initLibrary($('#libview'), { toast, isDm: () => isDm(), libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })), magicItems: () => B.magicItemList() });
   $('#libBtn').addEventListener('click', () => openLibraryView());

@@ -178,8 +178,10 @@ function combat(c) {
       <div class="stat ac"><button class="acnum" type="button" data-act="ac"><span class="lbl">Armor class</span><b>${calc('ac')}</b>${calc('actemp')}</button>
         ${Number(c.ac?.shield) ? `<button class="shtog" type="button" data-act="shield" aria-pressed="${c.ac.shieldOff !== true}"><i aria-hidden="true"></i>Shield ${c.ac.shieldOff !== true ? 'in hand' : 'stowed'}</button><small class="acalt">${calc('acalt')}</small>` : ''}</div>
       ${L.tableSettings().initiative === 'active' ? interruptPoint(c) : `<label class="stat"><span class="lbl">Initiative</span><b>${calc('init')}</b></label>`}
-      ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd">${String(c.speed || '—').split(/\s*[,;]\s*/).filter(Boolean).map(esc).join('<br>')}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><textarea class="f center spdta" data-k="speed" rows="${Math.min(4, Math.max(1, String(c.speed || '').split(',').length))}" autocomplete="off" placeholder="30 ft, swim 30 ft">${esc(c.speed)}</textarea></label>`}
+      ${isPlayer() ? `<div class="stat"><span class="lbl">Speed</span><b class="spd" data-calc="speed">${speedHtml(c)}</b></div>` : `<label class="stat"><span class="lbl">Speed</span><textarea class="f center spdta" data-k="speed" rows="${Math.min(4, Math.max(1, String(c.speed || '').split(',').length))}" autocomplete="off" placeholder="30 ft, swim 30 ft">${esc(c.speed)}</textarea><small class="spdnow" data-calc="speednow">${speedNow(c)}</small></label>`}
     </div>
+    ${rageBar(c)}
+    <div class="featfx" data-calc="featfx">${featFxHtml(c)}</div>
     ${CR.formBannerHtml(c)}
     <div class="hpbox">
       <div class="hpnums">
@@ -208,6 +210,27 @@ function combat(c) {
     <div class="hf"><span class="lbl">Vision</span>${txtL(c, 'vision', isPlayer() ? 'Normal' : 'Darkvision 60 ft')}</div>
   </section>`;
 }
+// Speed after class features, armor and exhaustion (the typed speed is the race's, before any of that)
+function speedHtml(c) { return String(R.speedInfo(c).text || '—').split(/\s*[,;]\s*/).filter(Boolean).map(esc).join('<br>'); }
+function speedNow(c) { const s = R.speedInfo(c); return s.walk !== s.typed ? `Walking ${s.walk} ft right now` : ''; }
+// Rage: a switch on the sheet, with the rages left until a long rest
+function rageBar(c) {
+  const F = R.F; if (!F.canRage(c)) return '';
+  const max = F.ragesMax(c), used = Number(c.rage?.used) || 0, on = F.raging(c);
+  const left = max === Infinity ? 'unlimited' : `${Math.max(0, max - used)} of ${max} left`;
+  return `<div class="ragebar ${on ? 'on' : ''}"><button class="btn ${on ? 'primary' : ''}" type="button" data-act="rage" aria-pressed="${on}">${on ? 'Raging: end rage' : 'Rage'}</button><small>${on ? `+${F.rageDamage(c)} melee damage · resistant to bludgeoning, piercing, slashing` : `Rages: ${left}`}</small></div>`;
+}
+// What class and race features are doing to the numbers right now
+function featFxHtml(c) {
+  const sc = x => R.score(c, x), lines = [];
+  const ac = R.armorClass(c);
+  if (/Unarmored Defense|Draconic Resilience/.test(ac.how || '')) lines.push({ name: 'AC', txt: ac.how });
+  for (const b of ac.feat || []) lines.push({ name: b.name, txt: `+${b.v} AC` });
+  for (const p of R.speedInfo(c).parts) lines.push({ name: p.name, txt: p.v ? `${p.v > 0 ? '+' : '−'}${Math.abs(p.v)} ft speed` : '' });
+  lines.push(...R.F.summary(c, sc));
+  if (!lines.length) return '';
+  return `<span class="lbl">Features at work</span>${lines.map(l => `<div class="fxrow"><b>${esc(l.name)}</b><span>${esc(l.txt)}</span></div>`).join('')}`;
+}
 // SRD 5.1 exhaustion levels (each level includes the ones before it)
 const EXHAUSTION = ['', 'Disadvantage on ability checks', 'Speed halved', 'Disadvantage on attack rolls and saving throws', 'Hit point maximum halved', 'Speed reduced to 0', 'Death'];
 
@@ -221,7 +244,7 @@ function attacks(c) {
         <label class="hf"><span class="lbl">Extra to-hit</span><input class="f n" data-k="attacks.${i}.bonus" data-type="num" inputmode="numeric" value="${esc(a.bonus)}"></label>
         <label class="hf"><span class="lbl">Damage dice</span><input class="f" data-k="attacks.${i}.dmg" value="${esc(a.dmg)}" placeholder="1d8" autocomplete="off"></label>
         <label class="hf"><span class="lbl">Damage type</span><input class="f" data-k="attacks.${i}.type" value="${esc(a.type)}" placeholder="slashing" autocomplete="off"></label>
-        <div class="hf checks">${chk(c, `attacks.${i}.prof`, 'Proficient')}${chk(c, `attacks.${i}.addMod`, 'Add ability to damage')}</div>
+        <div class="hf checks">${chk(c, `attacks.${i}.prof`, 'Proficient')}${chk(c, `attacks.${i}.addMod`, 'Add ability to damage')}${chk(c, `attacks.${i}.ranged`, 'Ranged')}</div>
         <label class="hf wide"><span class="lbl">Notes</span><input class="f" data-k="attacks.${i}.notes" value="${esc(a.notes)}" placeholder="Range, properties, riders" autocomplete="off"></label>
         <button class="linkbtn danger" type="button" data-act="rowdel" data-list="attacks" data-i="${i}">Remove attack</button>
       </div>
@@ -832,6 +855,9 @@ export function updateCalcs(root, c) {
       case 'init': out = R.sign(R.initiative(c)); break;
       case 'ac': { const ac = R.armorClass(c); out = ac.withTemp; break; }
       case 'acbase': out = R.armorClass(c).total; break;
+      case 'speed': el.innerHTML = speedHtml(c); continue;
+      case 'speednow': out = speedNow(c); break;
+      case 'featfx': el.innerHTML = featFxHtml(c); continue;
       case 'acalt': { const ac = R.armorClass(c); out = ac.other == null ? '' : `${ac.other} ${ac.shieldOn ? 'without' : 'with'} shield`; break; }
       case 'actemp': { const t = Number(c.ac.temp) || 0; out = t ? `<small>includes ${R.sign(t)} temp</small>` : ''; el.innerHTML = out; continue; }
       case 'spelldc': out = c.spell.abil ? R.saveDc(c, c.spell.abil) : '—'; break;
@@ -1060,6 +1086,14 @@ function act(b, c, root) {
       c.creatures.splice(i, 1); if (c.compHp) delete c.compHp[d.id];
       stamp(c, 'compHp');
       return touch('creatures');
+    }
+    case 'rage': {
+      const F = R.F;
+      if (F.raging(c)) { c.rage = { ...(c.rage || {}), on: false }; ctx.toast('Rage ended.'); return touch('rage'); }
+      const max = F.ragesMax(c), used = Number(c.rage?.used) || 0;
+      if (used >= max) { ctx.toast('No rages left. They come back after a long rest.'); return; }
+      c.rage = { on: true, used: used + 1 };
+      ctx.toast(`Raging! +${F.rageDamage(c)} damage on Strength melee attacks.`); return touch('rage');
     }
     case 'shield': c.ac.shieldOff = c.ac.shieldOff !== true; ctx.toast(c.ac.shieldOff ? 'Shield stowed.' : 'Shield in hand.'); return touch('ac.shieldOff');
     case 'choicedone': c.choicesDone = [...new Set([...(c.choicesDone || []), d.t])]; return touch('choicesDone');

@@ -1,5 +1,8 @@
 // D&D 5e (2014) math for the sheet. Everything here is pure: give it a character, get numbers back.
 
+import * as F from './features.js';
+export { F };
+
 export const ABILS = [
   ['str', 'Strength'], ['dex', 'Dexterity'], ['con', 'Constitution'],
   ['int', 'Intelligence'], ['wis', 'Wisdom'], ['cha', 'Charisma'],
@@ -54,6 +57,8 @@ export function baseScore(c, a) {
 }
 export function score(c, a) {
   let s = baseScore(c, a) + fxSum(c, 'abil', a);
+  const r = F.scoreRaise(c, a); // Primal Champion: +4, to at most 24
+  if (r) s = s >= r.max ? s : Math.min(r.max, s + r.v);
   for (const e of fxFor(c, 'abilSet', a)) s = Math.max(s, num(e.v)); // "Your Strength score is 19" never lowers it
   return s;
 }
@@ -68,35 +73,48 @@ export function prof(c) {
   return Math.ceil(totalLevel(c) / 4) + 1;
 }
 
-export const save = (c, a) => amod(c, a) + (c.saves?.[a] ? prof(c) : 0) + fxSum(c, 'save', a);
+export const save = (c, a) => amod(c, a) + (c.saves?.[a] || F.allSaves(c) ? prof(c) : 0) + fxSum(c, 'save', a) + (F.saveBonus(c, x => score(c, x))?.v || 0);
 
 export function skill(c, key) {
   const def = SKILLS.find(s => s[0] === key);
   const rank = num(c.skills?.[key]);
   const p = prof(c);
-  let bonus = rank === 2 ? p * 2 : rank === 1 ? p : (c.jack ? Math.floor(p / 2) : 0);
+  // not proficient: Jack of All Trades (half, rounded down) or Remarkable Athlete on Str/Dex/Con (half, rounded up)
+  const half = Math.max(F.jack(c) ? Math.floor(p / 2) : 0, F.athlete(c) && ['str', 'dex', 'con'].includes(def[2]) ? Math.ceil(p / 2) : 0);
+  let bonus = rank === 2 ? p * 2 : rank === 1 ? p : half;
   return amod(c, def[2]) + bonus + fxSum(c, 'check', 'all');
 }
 export const passivePerception = c => 10 + skill(c, 'perception');
-export const initiative = c => amod(c, 'dex') + num(c.init?.misc) + (c.jack ? Math.floor(prof(c) / 2) : 0) + fxSum(c, 'check', 'all');
+export const initiative = c => amod(c, 'dex') + num(c.init?.misc) + Math.max(F.jack(c) ? Math.floor(prof(c) / 2) : 0, F.athlete(c) ? Math.ceil(prof(c) / 2) : 0) + fxSum(c, 'check', 'all');
 
 export function armorClass(c) {
   const a = c.ac || {};
   const dex = amod(c, 'dex');
-  let base;
-  if (a.mode === 'unarmored') base = 10 + dex + (a.unarmoredAbil ? amod(c, a.unarmoredAbil) : 0);
-  else {
-    const cap = a.maxDex === '' || a.maxDex == null ? Infinity : num(a.maxDex);
-    base = num(a.base || 10) + Math.min(dex, cap);
-  }
   // a shield counts only while it's in hand (the sheet's Shield switch; on unless turned off)
   const shield = num(a.shield), on = shield !== 0 && a.shieldOff !== true;
-  const total = base + (on ? shield : 0) + num(a.misc) + fxSum(c, 'ac');
-  return { total, withTemp: total + num(a.temp), shield, shieldOn: on, other: shield ? total + num(a.temp) + (on ? -shield : shield) : null };
+  // without armor: the best of 10 + Dex and what the character's features allow (Unarmored Defense and the like)
+  const baseFor = withShield => {
+    if (F.wearingArmor(c)) {
+      const cap = a.maxDex === '' || a.maxDex == null ? Infinity : num(a.maxDex);
+      return { base: num(a.base || 10) + Math.min(dex, cap), how: a.armorName || 'Armor' };
+    }
+    let best = { base: 10 + dex + (a.unarmoredAbil ? amod(c, a.unarmoredAbil) : 0), how: a.unarmoredAbil ? `10 + Dex + ${ABIL_SHORT[a.unarmoredAbil]}` : '10 + Dex' };
+    for (const o of F.unarmoredOptions(c, x => score(c, x))) if (!(o.noShield && withShield) && o.base > best.base) best = { base: o.base, how: o.name };
+    return best;
+  };
+  const feat = F.acBonuses(c), featV = feat.reduce((t, x) => t + x.v, 0);
+  const extra = num(a.misc) + fxSum(c, 'ac') + featV;
+  const b = baseFor(on), total = b.base + (on ? shield : 0) + extra;
+  // the other way round (shield stowed, or taken up): a Monk's Unarmored Defense changes with it
+  const alt = shield ? baseFor(!on).base + (on ? 0 : shield) + extra + num(a.temp) : null;
+  return { total, withTemp: total + num(a.temp), shield, shieldOn: on, other: alt, how: b.how, feat };
 }
 
 // kind: 'spell' for spells, 'ki' for class feature DCs (Ki and the like)
 export const saveDc = (c, a, kind = 'spell') => (a ? 8 + prof(c) + amod(c, a) + fxSum(c, 'dc', kind) : null);
+/** Walking speed after features, armor and exhaustion: { walk, typed, parts, text } */
+export const speedInfo = c => F.speed(c, x => score(c, x), fxSum(c, 'speed'));
+
 export const spellAttack = (c, a) => (a ? prof(c) + amod(c, a) + fxSum(c, 'spellatk') : null);
 // effects that only count for attacks made with that item ("+1 bonus to attack and damage rolls made with this weapon")
 const baseName = s => String(s || '').toLowerCase().replace(/\s*,?\s*[+]\d+\b/g, '').replace(/\s*\([^)]*\)/g, '').trim();
@@ -114,11 +132,13 @@ export function attackAbil(c, atk) {
   return atk.abil || '';
 }
 export function attackBonus(c, atk) {
-  return amod(c, attackAbil(c, atk)) + (atk.prof ? prof(c) : 0) + num(atk.bonus) + itemFx(c, 'atk', atk);
+  return amod(c, attackAbil(c, atk)) + (atk.prof ? prof(c) : 0) + num(atk.bonus) + itemFx(c, 'atk', atk) + (atk.ranged && F.archery(c) ? 2 : 0);
 }
 export function damageText(c, atk) {
   const dice = (atk.dmg || '').trim();
-  const m = (atk.addMod ? amod(c, attackAbil(c, atk)) : 0) + itemFx(c, 'dmg', atk);
+  // Rage Damage: melee weapon attacks using Strength, while raging
+  const rage = F.raging(c) && !atk.ranged && attackAbil(c, atk) === 'str' ? F.rageDamage(c) : 0;
+  const m = (atk.addMod ? amod(c, attackAbil(c, atk)) : 0) + itemFx(c, 'dmg', atk) + rage;
   const parts = [];
   if (dice) parts.push(m ? `${dice} ${m > 0 ? '+' : '−'} ${Math.abs(m)}` : dice);
   else if (atk.addMod) parts.push(String(m));
