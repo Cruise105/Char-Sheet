@@ -595,6 +595,10 @@ function renderSheet() {
 // every change carries a time (and HP changes an id), so nothing is applied twice or overwrites newer work.
 const HP_PATHS = new Set(['hpOps', 'hpBase', 'hp', 'hp.cur', 'hp.temp']);
 const NOT_LIVE = new Set(['combat', 'combatReq', 'edits', 'updated']); // turns travel on their own path
+// Fields that arrive from the DM's other apps on their own channels, or that are too big to send on every change
+// (handwritten note pages, every beast a Wild Shaper can take): these stay on Drive's few-second path
+const BIG_OR_CHANNEL = ['sn', 'magicItems', 'attuneMax', 'boons', 'conditions', 'wildBeasts', 'creatures', 'infusedHeld', 'inkPages'];
+const notLive = path => HP_PATHS.has(path) || NOT_LIVE.has(path) || BIG_OR_CHANNEL.some(f => path === f || path.startsWith(f + '.'));
 const follow = { id: '', key: '', stop: null, known: new Set(), pushed: {}, stats: '', chT: {} };
 let liveRedraw = null;
 function redrawSoon() { clearTimeout(liveRedraw); liveRedraw = setTimeout(() => { if (state.cur) renderSheet(); }, 120); }
@@ -612,51 +616,40 @@ function liveFollow(c) {
       // where the fight stands for this character (combat tracker)
       L.cwatch(key, 'view', v => { setLiveView(id, v); if (cur()) refreshCombatBar($('#page'), cur()); }),
       // HP changes from the combat tracker (or this character's other devices)
-      L.cwatch(key, 'ops', all => {
-        const c = cur(); if (!c) return;
-        let added = 0;
-        for (const op of Object.values(all || {})) {
-          if (!op?.id) continue;
-          follow.known.add(op.id);
-          if ((c.hpOps || []).some(o => o.id === op.id) || op.t <= (c.hpBase?.t || 0)) continue;
-          c.hpOps = [...(c.hpOps || []), op]; added++;
-        }
-        if (!added) return;
+      L.cwatchEach(key, 'ops', (_, op) => {
+        const c = cur(); if (!c || !op?.id) return;
+        follow.known.add(op.id);
+        if ((c.hpOps || []).some(o => o.id === op.id) || op.t <= (c.hpBase?.t || 0)) return;
+        c.hpOps = [...(c.hpOps || []), op];
         replayHp(c); c.edits = c.edits || {}; c.edits.hpOps = Date.now(); c.updated = Date.now();
         db.put(c); liveStats(c); redrawSoon();
       }),
       // any other field of this sheet changed on another device (the player's or the DM's) or by the tracker
-      L.cwatch(key, 'sheet', all => {
-        const c = cur(); if (!c || !all) return;
+      L.cwatchEach(key, 'sheet', (enc, rec) => {
+        const c = cur(); if (!c || !rec) return;
         const le = c.edits || (c.edits = {});
-        let changed = 0;
-        for (const [enc, rec] of Object.entries(all)) {
-          const path = L.decPath(enc), t = Number(rec?.t) || 0;
-          if (!t || HP_PATHS.has(path) || NOT_LIVE.has(path)) continue;
-          // a newer local change to this field (or a whole list/section it sits in) wins
-          if (Object.keys(le).some(k => (path === k || path.startsWith(k + '.')) && le[k] >= t)) continue;
-          for (const k of Object.keys(le)) if (k.startsWith(path + '.')) delete le[k];
-          setPath(c, path, rec.v === undefined ? null : structuredClone(rec.v));
-          le[path] = t; follow.pushed[path] = t; c.updated = Math.max(c.updated || 0, t);
-          changed++;
-        }
-        if (!changed) return;
+        const path = L.decPath(enc), t = Number(rec.t) || 0;
+        if (!t || notLive(path)) return;
+        // a newer local change to this field (or a whole list/section it sits in) wins
+        if (Object.keys(le).some(k => (path === k || path.startsWith(k + '.')) && le[k] >= t)) return;
+        for (const k of Object.keys(le)) if (k.startsWith(path + '.')) delete le[k];
+        setPath(c, path, rec.v === undefined ? null : structuredClone(rec.v));
+        le[path] = t; follow.pushed[path] = t; c.updated = Math.max(c.updated || 0, t);
         db.put(c); liveStats(c); redrawSoon();
       }),
       // channels from the DM's other apps: Session Notes, Magic Items, boons, combat conditions, and later ones
-      L.cwatch(key, 'ch', all => {
-        const c = cur(); if (!c || !all) return;
+      L.cwatchEach(key, 'ch', (name, ch) => {
+        const c = cur(); if (!c || !ch?.fields || (ch.t || 0) <= (follow.chT[name] || 0)) return;
+        follow.chT[name] = ch.t;
         let changed = 0;
-        for (const [name, ch] of Object.entries(all)) {
-          if (!ch?.fields || (ch.t || 0) <= (follow.chT[name] || 0)) continue;
-          follow.chT[name] = ch.t;
-          for (const [f, v] of Object.entries(ch.fields)) if (JSON.stringify(c[f] ?? null) !== JSON.stringify(v ?? null)) { c[f] = v; changed++; }
-        }
+        for (const [f, v] of Object.entries(ch.fields)) if (JSON.stringify(c[f] ?? null) !== JSON.stringify(v ?? null)) { c[f] = v; changed++; }
         if (changed) redrawSoon();
       }),
     ];
     follow.stop = () => stops.forEach(s => s());
     liveStats(c);
+    // clear out big fields an earlier version sent live, so they're never downloaded again
+    for (const f of BIG_OR_CHANNEL) L.cput(key, `sheet/${L.encPath(f)}`, null);
   });
 }
 // This sheet's own changes go straight out: HP changes, every other field, and the numbers the tracker shows
@@ -671,7 +664,7 @@ function liveSendOps(c) {
       L.cput(follow.key, `ops/${op.id}`, op);
     }
     for (const [path, t] of Object.entries(c.edits || {})) {
-      if ((follow.pushed[path] || 0) >= t || HP_PATHS.has(path) || NOT_LIVE.has(path)) continue;
+      if ((follow.pushed[path] || 0) >= t || notLive(path)) continue;
       follow.pushed[path] = t;
       const v = getPath(c, path);
       L.cput(follow.key, `sheet/${L.encPath(path)}`, { v: v === undefined ? null : v, t });
