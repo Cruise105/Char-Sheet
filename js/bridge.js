@@ -18,9 +18,21 @@ const DAY = 1440, DAWN = 6 * 60;
 // What the last read found, for the Linked apps settings
 export const sources = { sn: null, mi: null, seed: null, read: 0, error: '', miCounts: {}, miSaved: '', seedOk: null };
 
-// The magic item app's item list lives in its own data.js on the same site
-async function loadSeed() {
+// The magic item app's item list: the DM's own library from their Drive (private), or the SRD list in the magic
+// item app's data.js on the same site
+const LIB_FILE = 'omnithel-items-library.json';
+let libIo = null;
+async function loadSeed(io = libIo) {
+  if (io) libIo = io;
   if (sources.seed) return sources.seed;
+  if (libIo) {
+    try {
+      const lib = await libIo.readAppdata(LIB_FILE);
+      if (lib?.app === 'omnithel-items-library' && Array.isArray(lib.items)) {
+        sources.seed = new Map(lib.items.map(i => [i.id, i])); sources.seedOk = true; sources.seedAt = Date.now(); return sources.seed;
+      }
+    } catch (e) { if (e.auth) throw e; }
+  }
   try {
     // GitHub Pages addresses follow the repository name's capitals (yours is Magic-Items); try both spellings
     let r = null;
@@ -32,7 +44,7 @@ async function loadSeed() {
     const t = await r.text();
     const json = t.slice(t.indexOf('=') + 1).trim().replace(/;\s*$/, '');
     const seed = JSON.parse(json);
-    sources.seed = new Map(seed.items.map(i => [i.id, i]));
+    sources.seed = new Map(seed.items.map(i => [i.id, i])); sources.seedAt = Date.now();
     sources.seedOk = true;
     return sources.seed;
   } catch { sources.seedOk = false; return null; }
@@ -208,7 +220,9 @@ export async function runBridge(io) {
     if (e.auth || e.scope) throw e;
     sources.error = e.message; return { changed: [] };
   }
-  const seed = sources.mi ? await loadSeed() : null;
+  if (sources.seed && Date.now() - (sources.seedAt || 0) > 10 * 60000) sources.seed = null; // pick up library changes now and then
+  const seed = sources.mi ? await loadSeed(io) : null;
+  if (seed && !sources.seedAt) sources.seedAt = Date.now();
   sources.read = Date.now();
   const links = await getLinks();
   const boons = L.all('boon');
