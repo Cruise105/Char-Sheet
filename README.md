@@ -50,7 +50,7 @@ Then one of these:
 
 ## The Library
 
-Tap **Library** on the character list. It has every SRD 5.1 race, class, subclass, background, feat and language built in. On your device (DM role) you can:
+Tap **Library** on the character list. It has every SRD race, class, subclass, background, feat, spell, language and piece of equipment built in, from both editions: SRD 5.1 (2014 rules) and SRD 5.2 (2024 rules). **Settings → Table Rules → Rules** picks which edition your table plays; the Library and the pickers show that one, and sheets already made keep what they have. On your device (DM role) you can:
 
 - **Add your own entries**: New race, class, subclass, background, feat or language. Type the text word for word from the book. A subrace is a race with "Subrace of" set; a subclass is linked to its class.
 - **Give each background its feat**: pick it under **Assigned feat** (add the feat first).
@@ -141,3 +141,8 @@ Upload the new files to the same repository (all of them, every time, so nothing
 ## Credits
 
 Includes material from the System Reference Document 5.1 by Wizards of the Coast LLC, licensed under CC BY 4.0 (https://creativecommons.org/licenses/by/4.0/). Fonts: all under the SIL Open Font License (see the LICENSE files in the fonts folder). Fonts nobody has picked yet download the first time they're chosen, then work offline.
+
+
+## Credits
+
+This work includes material from the System Reference Document 5.1 and the System Reference Document 5.2 by Wizards of the Coast LLC, available at https://dnd.wizards.com/resources/systems-reference-document, licensed under the Creative Commons Attribution 4.0 International License (https://creativecommons.org/licenses/by/4.0/legalcode). Data prepared from the 5e-bits 5e-database project (MIT license).
