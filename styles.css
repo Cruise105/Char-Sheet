@@ -893,3 +893,11 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .pbleft{margin:6px 0}
 .pbleft b{font-size:1.2rem}
 .pbleft.over b{color:var(--bad,#e66)}
+/* the equipment list */
+.eqlist{display:grid;gap:4px;max-height:55vh;overflow:auto;margin:8px 0}
+.eqrow{display:flex;justify-content:space-between;align-items:baseline;gap:10px;text-align:left;padding:8px 10px;border:1px solid var(--line);border-radius:8px;background:var(--raise);color:inherit;font:inherit;cursor:pointer}
+.eqrow small{color:var(--muted);text-align:right}
+.eqrow:hover{border-color:var(--accent)}
+.eqbtn{display:inline-block;margin-top:3px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font:500 .72rem/1.4 var(--body);cursor:pointer}
+.eqbtn.on{color:var(--accent);border-color:var(--accent)}
+.eqnote{display:block;margin-top:3px;font-size:.72rem;color:var(--muted)}

@@ -743,11 +743,29 @@ function pageCharacter(c) {
 }
 
 /* ---------- page: inventory ---------- */
+// Armor and weapons from the equipment list: wear the armor, hold the shield, make an attack for the weapon
+function eqActs(c, k, i, r) {
+  const e = r.eqId ? L.get(r.eqId) : null; if (!e) return '';
+  const a = c.ac || {};
+  if (e.cat === 'armor' && e.armor?.kind === 'shield') {
+    const on = a.shieldFrom === r.id && Number(a.shield);
+    return `<button class="eqbtn ${on ? 'on' : ''}" type="button" data-act="eqshield" data-cat="${k}" data-i="${i}">${on ? 'Using this shield' : 'Use this shield'}</button>`;
+  }
+  if (e.cat === 'armor') {
+    const on = a.armorFrom === r.id && a.mode !== 'unarmored';
+    return `<button class="eqbtn ${on ? 'on' : ''}" type="button" data-act="eqwear" data-cat="${k}" data-i="${i}">${on ? 'Wearing · take off' : 'Wear'}</button>`;
+  }
+  if (e.cat === 'weapon') {
+    const has = (c.attacks || []).some(x => x.eqRow === r.id);
+    return has ? '<span class="eqnote">In your attacks</span>' : `<button class="eqbtn" type="button" data-act="eqattack" data-cat="${k}" data-i="${i}">Make an attack</button>`;
+  }
+  return '';
+}
 function pageInventory(c) {
   const cats = R.INV_CATS.map(([k, n]) => {
     const rows = (c.inv[k] || []).map((r, i) => `
       <tr>
-        <td><input class="f" data-k="inv.${k}.${i}.name" value="${esc(r.name)}" aria-label="Item name" autocomplete="off"></td>
+        <td><input class="f" data-k="inv.${k}.${i}.name" value="${esc(r.name)}" aria-label="Item name" autocomplete="off">${eqActs(c, k, i, r)}</td>
         <td><input class="f n" data-k="inv.${k}.${i}.wt" data-type="num" inputmode="decimal" value="${esc(r.wt)}" aria-label="Weight each"></td>
         <td><input class="f n" data-k="inv.${k}.${i}.qty" data-type="num" inputmode="numeric" value="${esc(r.qty)}" aria-label="Quantity"></td>
         <td class="num">${calc('rowwt', `${k}.${i}`)}</td>
@@ -758,7 +776,7 @@ function pageInventory(c) {
     return panel(n, `<div class="tablewrap"><table class="inv">
       <thead><tr><th>Item</th><th>Weight each</th><th>Qty</th><th>Weight</th><th>Magical</th><th>Description</th><th></th></tr></thead>
       <tbody data-list="inv.${k}">${rows}</tbody></table></div>
-      <div class="invfoot"><button class="linkbtn" type="button" data-act="rowadd" data-list="inv.${k}">Add to ${esc(n)}</button><span class="sub">${calc('catwt', k)}</span></div>`, 'invcat');
+      <div class="invfoot"><button class="linkbtn" type="button" data-act="rowadd" data-list="inv.${k}">Add to ${esc(n)}</button><button class="linkbtn" type="button" data-act="eqpick" data-cat="${k}">Add from the equipment list</button><span class="sub">${calc('catwt', k)}</span></div>`, 'invcat');
   }).join('');
   const coins = R.COINS.map(([k, n]) => `<label class="coin c-${k}"><span class="lbl">${n}</span><input class="f n" data-k="coins.${k}" data-type="num" inputmode="numeric" value="${esc(c.coins[k])}"></label>`).join('');
   return `
@@ -1128,6 +1146,8 @@ function act(b, c, root) {
     case 'imgdel': setPath(c, d.p, ''); return touch(d.p);
     case 'abil': return ctx.openAbility(d.a);
     case 'scores': return ctx.openScores();
+    case 'eqpick': return ctx.pickEquipment(d.cat);
+    case 'eqwear': case 'eqshield': case 'eqattack': { const r = c.inv[d.cat]?.[Number(d.i)]; if (r) ctx.useEquipment(d.act, r); return; }
     case 'libview': return ctx.viewEntry(d.id);
     case 'levelup': return ctx.levelUp();
     case 'optpick': return ctx.pickOption(d.group);

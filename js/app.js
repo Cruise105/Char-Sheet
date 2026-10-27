@@ -854,6 +854,69 @@ function openScores() {
     }
   }, (e, paint) => { const s = e.target.closest('[data-pick]'); if (s) { st.pick[s.dataset.pick] = s.value === '' ? null : Number(s.value); paint(); } });
 }
+
+/* ---------- the equipment list: add gear to the inventory; armor sets AC when worn, weapons become attacks ---------- */
+const EQ_CAT = { armor: 'armor', weapon: 'weapons', tool: 'tools', gear: 'general', mount: 'general' };
+const EQ_KINDS = [['', 'Everything'], ['weapon', 'Weapons'], ['armor', 'Armor'], ['gear', 'Gear'], ['tool', 'Tools'], ['mount', 'Mounts and vehicles']];
+function pickEquipment(cat) {
+  const c = state.cur;
+  const st = { q: '', kind: { armor: 'armor', weapons: 'weapon', tools: 'tool' }[cat] || '', added: [] };
+  const list = () => L.all('item').filter(e => (!st.kind || e.cat === st.kind) && (!st.q || `${e.name} ${e.sub || ''}`.toLowerCase().includes(st.q.toLowerCase())));
+  const draw = () => `<h2>Equipment</h2>
+    <div class="row"><input class="f" data-eqq placeholder="Search: longsword, rope, chain mail…" value="${esc(st.q)}" autocomplete="off" style="flex:1"><select class="f" data-eqk>${EQ_KINDS.map(([k, n]) => `<option value="${k}" ${st.kind === k ? 'selected' : ''}>${n}</option>`).join('')}</select></div>
+    <div class="eqlist">${list().slice(0, 150).map(e => `<button type="button" class="eqrow" data-eqadd="${esc(e.id)}"><b>${esc(e.name)}</b><small>${esc([e.sub, Number(e.wt) ? `${e.wt} lb` : '', e.cat === 'weapon' && e.weapon ? [e.weapon.dmg, e.weapon.type].filter(Boolean).join(' ') : '', e.cat === 'armor' && e.armor ? (e.armor.kind === 'shield' ? `+${e.armor.base} AC` : `AC ${e.armor.base}`) : ''].filter(Boolean).join(' · '))}</small></button>`).join('') || '<p class="empty">Nothing matches.</p>'}</div>
+    ${st.added.length ? `<p class="hint">Added: ${st.added.map(esc).join(', ')}</p>` : ''}
+    <div class="row end"><button class="btn primary" type="button" data-close>Done</button></div>`;
+  const dlg = actDialog(draw, (e, paint) => {
+    const b = e.target.closest('[data-eqadd]'); if (!b) return;
+    const it = L.get(b.dataset.eqadd); if (!it) return;
+    const where = EQ_CAT[it.cat] || 'general';
+    const row = { id: uid(), name: it.name, wt: Number(it.wt) || 0, qty: 1, magic: false, desc: [it.cost ? `${it.cost}` : '', it.weapon?.props || ''].filter(Boolean).join(' · '), eqId: it.id };
+    c.inv[where] = [...(c.inv[where] || []), row]; stamp(c, `inv.${where}`);
+    if (it.cat === 'weapon') addWeaponAttack(c, it, row);
+    save(c); st.added.push(it.name);
+    const box = dlg.querySelector('.eqlist'), top = box?.scrollTop || 0; paint(); const nb = dlg.querySelector('.eqlist'); if (nb) nb.scrollTop = top;
+    toast(it.cat === 'weapon' ? `${it.name} added, with an attack for it.` : it.cat === 'armor' ? `${it.name} added. Tap ${it.armor?.kind === 'shield' ? 'Use this shield' : 'Wear'} in your inventory to put it on.` : `${it.name} added.`);
+  }, (e, paint) => {
+    if (e.target.matches('[data-eqq]')) { st.q = e.target.value; const pos = e.target.selectionStart; paint(); const q = dlg.querySelector('[data-eqq]'); q.focus(); q.setSelectionRange(pos, pos); }
+    if (e.target.matches('[data-eqk]') && e.type === 'change') { st.kind = e.target.value; paint(); }
+  });
+}
+// Proficient with this weapon? Simple/Martial from the class, or named among other weapons ("longswords, rapiers")
+function weaponProf(c, it) {
+  const w = it.weapon || {};
+  if (c.profs?.[w.kind]) return true;
+  const other = String(c.profs?.weaponsOther || '').toLowerCase(), n = it.name.toLowerCase().replace(/,.*$/, '');
+  return !!other && (other.includes(n) || other.includes(n.replace(/s$/, '')) || other.includes(`${n}s`));
+}
+function addWeaponAttack(c, it, row) {
+  const w = it.weapon || {}, props = String(w.props || '').toLowerCase();
+  const monk = R.F.classLevel(c, 'Monk') > 0 && w.monk; // Martial Arts: Dexterity works with monk weapons
+  const abil = props.includes('finesse') || monk ? 'finesse' : w.ranged ? 'dex' : 'str';
+  const notes = [w.props, w.range ? `range ${w.range} ft` : '', w.versatile ? `${w.versatile} two-handed` : ''].filter(Boolean).join(' · ');
+  c.attacks = [...(c.attacks || []), { id: uid(), name: it.name, abil, prof: weaponProf(c, it), bonus: 0, dmg: w.dmg || '', addMod: !!w.dmg, type: w.type || '', notes, ranged: !!w.ranged, eqRow: row.id }];
+  stamp(c, 'attacks');
+}
+function useEquipment(act, row) {
+  const c = state.cur, it = L.get(row.eqId); if (!it) return;
+  const a = c.ac;
+  if (act === 'eqattack') { addWeaponAttack(c, it, row); save(c); renderSheet(); toast(`${it.name} is in your attacks.`); return; }
+  if (act === 'eqshield') {
+    if (a.shieldFrom === row.id && Number(a.shield)) { a.shield = 0; a.shieldFrom = ''; toast('Shield put away.'); }
+    else { a.shield = Number(it.armor?.base) || 2; a.shieldFrom = row.id; a.shieldOff = false; toast(c.profs?.shields ? `Using the ${it.name}.` : `Using the ${it.name}. You aren't proficient with shields: disadvantage on Strength and Dexterity checks, saves and attacks, and no spells.`); }
+    stamp(c, 'ac'); save(c); renderSheet(); return;
+  }
+  if (act === 'eqwear') {
+    if (a.armorFrom === row.id && a.mode !== 'unarmored') {
+      Object.assign(a, { mode: 'unarmored', armorName: '', base: 10, maxDex: '', str: '', stealthDis: false, armorFrom: '' }); toast(`${it.name} taken off.`);
+    } else {
+      const x = it.armor || {};
+      Object.assign(a, { mode: 'armor', armorName: it.name, base: Number(x.base) || 10, maxDex: x.dexCap === '' || x.dexCap == null ? '' : Number(x.dexCap), str: x.str || '', stealthDis: !!x.stealthDis, armorFrom: row.id });
+      toast(c.profs?.[x.kind] ? `Wearing the ${it.name}.` : `Wearing the ${it.name}. You aren't proficient with ${x.kind} armor: disadvantage on Strength and Dexterity checks, saves and attacks, and no spells.`);
+    }
+    stamp(c, 'ac'); save(c); renderSheet();
+  }
+}
 /* ---------- armor class ---------- */
 // How the AC is worked out, in a few words ("Unarmored Defense (10 + Dex + Con) · includes +1 temp")
 function acHow(c) {
@@ -1044,7 +1107,7 @@ const sheetCtx = {
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
   isPlayer: () => !isDm(),
-  levelUp, shortRest, longRest, openScores, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
+  levelUp, shortRest, longRest, openScores, pickEquipment, useEquipment, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
   // send a change right away (a turn button), once the save has landed
   syncSoon: () => setTimeout(async () => { await flush(); sync.syncNow({ quiet: true }); }, 300),
   liveSend: (key, req) => sync.live().then(L => L?.cput(key, 'req', req)),

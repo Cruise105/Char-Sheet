@@ -5,7 +5,7 @@ import { uid } from './model.js';
 
 export const TYPES = [
   ['race', 'Races', 'Race'], ['class', 'Classes', 'Class'], ['subclass', 'Subclasses', 'Subclass'],
-  ['background', 'Backgrounds', 'Background'], ['feat', 'Feats', 'Feat'], ['option', 'Class options', 'Class option'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'], ['boon', 'Boons', 'Boon'],
+  ['background', 'Backgrounds', 'Background'], ['item', 'Equipment', 'Item'], ['feat', 'Feats', 'Feat'], ['option', 'Class options', 'Class option'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'], ['boon', 'Boons', 'Boon'],
 ];
 export const typeName = t => (TYPES.find(x => x[0] === t) || [])[2] || t;
 

@@ -76,6 +76,20 @@ export function entryHtml(e) {
     add('Lists', [...(e.classes || []), ...(e.subclasses || [])].map(id => L.get(id)?.name).filter(Boolean).map(esc).join(', '));
   }
   if (e.type === 'boon') { add('Given to', e.given === 'party' ? 'The whole party' : (Array.isArray(e.given) ? e.given.map(id => ctx.chars?.().find(x => x.id === id)?.name).filter(Boolean).map(esc).join(', ') : '')); add('At each dawn', Number(e.dawnTemp) ? `${esc(e.dawnTemp)} temporary HP` : ''); }
+  if (e.type === 'item') {
+    add('Kind', esc(e.sub || ({ gear: 'Adventuring gear', armor: 'Armor', weapon: 'Weapon', tool: 'Tool', mount: 'Mount or vehicle' })[e.cat] || ''));
+    add('Cost', esc(e.cost)); add('Weight', Number(e.wt) ? `${esc(e.wt)} lb` : '');
+    const a = e.cat === 'armor' && e.armor;
+    if (a) {
+      add('Armor Class', a.kind === 'shield' ? `+${esc(a.base)}` : `${esc(a.base)}${a.dexCap === '' || a.dexCap == null ? ' + Dex modifier' : Number(a.dexCap) ? ` + Dex modifier (max ${esc(a.dexCap)})` : ''}`);
+      add('Strength', a.str ? `Str ${esc(a.str)}` : ''); add('Stealth', a.stealthDis ? 'Disadvantage' : '');
+    }
+    const w = e.cat === 'weapon' && e.weapon;
+    if (w) {
+      add('Damage', [esc(w.dmg), esc(w.type)].filter(Boolean).join(' ') + (w.versatile ? ` (${esc(w.versatile)} two-handed)` : ''));
+      add('Properties', esc(w.props)); add('Range', w.range ? `${esc(w.range)} ft` : '');
+    }
+  }
   if (e.type === 'language') { add('Type', esc(e.kind)); add('Script', esc(e.script)); add('Typical speakers', esc(e.speakers)); }
   const list = (title, items, lvl) => items?.length ? `<h3>${title}</h3>${items.map(f => `<section class="lfeat"><h4>${lvl ? `<span class="lv">${f.lvl}</span>` : ''}${esc(f.name)}</h4>${para(f.text)}</section>`).join('')}` : '';
   return `
@@ -143,6 +157,11 @@ const FIELDS = {
     ['feature.name', 'Feature name'], ['feature.text', 'Feature text', 'area'], ['feat', 'Assigned feat', 'featSel'], ['equipment', 'Equipment', 'area'], ['desc', 'Description', 'area'], ['tables', 'Tables: random rolls (d6, d100…), by level, or plain', 'xtables'], ['note', 'Table Rules note', 'area']],
   feat: [['name', 'Name'], ['src', 'Book and page'], ['prereq', 'Prerequisite'], ['desc', 'Full text', 'area'], ['tables', 'Tables: random rolls (d6, d100…), by level, or plain', 'xtables'], ['note', 'Table Rules note', 'area']],
   boon: [['name', 'Name'], ['given', 'Given to', 'given'], ['dawnTemp', 'Temp HP at each dawn (0 for none)', 'num'], ['desc', 'Full text', 'area'], ['tables', 'Tables: random rolls (d6, d100…), by level, or plain', 'xtables'], ['note', 'Table Rules note', 'area']],
+  item: [['name', 'Name'], ['cat', 'Kind', 'itemCat'], ['sub', 'Group', 'text', 'Martial Melee, Light armor, Standard Gear'], ['src', 'Book and page'], ['cost', 'Cost', 'text', '15 gp'], ['wt', 'Weight (lb)', 'num'],
+    ['armor.kind', 'Armor type', 'armorKind'], ['armor.base', "Base AC (a shield: its bonus)", 'num'], ['armor.dexCap', 'Max Dex bonus (blank for no limit, 0 for none)', 'num'], ['armor.str', 'Strength needed', 'num'], ['armor.stealthDis', 'Disadvantage on Stealth', 'bool'],
+    ['weapon.kind', 'Weapon type', 'weapKind'], ['weapon.ranged', 'Ranged weapon', 'bool'], ['weapon.dmg', 'Damage dice', 'text', '1d8'], ['weapon.type', 'Damage type', 'text', 'slashing'],
+    ['weapon.versatile', 'Two-handed damage (Versatile)', 'text', '1d10'], ['weapon.range', 'Range (ranged or thrown)', 'text', '80/320'], ['weapon.props', 'Properties', 'text', 'Finesse, Light, Thrown'], ['weapon.monk', 'Monk weapon', 'bool'],
+    ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
   language: [['name', 'Name'], ['kind', 'Type', 'langKind'], ['script', 'Script'], ['speakers', 'Typical speakers'], ['src', 'Book and page'], ['desc', 'Description', 'area'], ['note', 'Table Rules note', 'area']],
 };
 
@@ -180,6 +199,9 @@ function editorHtml(d) {
         + '<p class="hint wide">Level: total picks from that level on. "2: 2, 5: 3" means 2 at level 2 and 3 from level 5. A subclass\'s count adds to its class\'s.</p>';
       case 'classMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('class').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)}</span></label>`).join('')}</fieldset>`;
       case 'subMulti': return `<fieldset class="hf wide checks"><legend class="lbl">${label}</legend>${L.all('subclass').map(x => `<label class="chk"><input type="checkbox" data-fset="${path}" value="${x.id}" ${(v || []).includes(x.id) ? 'checked' : ''}><span>${esc(x.name)} <small>${esc(L.get(x.parent)?.name || '')}</small></span></label>`).join('')}<span class="hint">Spells on a subclass list count as always prepared.</span></fieldset>`;
+      case 'itemCat': return `<label class="hf">${lab}<select class="f" data-f="${path}" data-rerender>${opt([['gear', 'Adventuring gear'], ['armor', 'Armor or shield'], ['weapon', 'Weapon'], ['tool', 'Tool'], ['mount', 'Mount or vehicle']], v || 'gear')}</select></label>`;
+      case 'armorKind': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['light', 'Light'], ['medium', 'Medium'], ['heavy', 'Heavy'], ['shield', 'Shield']], v || 'light')}</select></label>`;
+      case 'weapKind': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['simple', 'Simple'], ['martial', 'Martial']], v || 'simple')}</select></label>`;
       case 'langKind': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['Standard', 'Standard'], ['Exotic', 'Exotic'], ['Secret', 'Secret']], v)}</select></label>`;
       case 'raceParent': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'Not a subrace'], ...L.all('race').filter(r => !r.parent && r.id !== d.id).map(r => [r.id, r.name])], v)}</select></label>`;
       case 'classSel': return `<label class="hf">${lab}<select class="f" data-f="${path}">${opt([['', 'Choose a class'], ...L.all('class').map(r => [r.id, r.name])], v)}</select></label>`;
@@ -212,7 +234,7 @@ function editorHtml(d) {
       <div class="edhead"><h2>${d.id ? 'Edit' : 'New'} ${esc(L.typeName(d.type).toLowerCase())}</h2>
         <div class="row"><button class="btn ghost" type="button" data-lcancel>Cancel</button><button class="btn primary" type="button" data-lsave>Save</button></div></div>
       ${d.builtIn ? '<p class="hint">Saving makes your own copy of this SRD entry. "Restore SRD version" puts the original back.</p>' : ''}
-      <div class="edgrid">${(FIELDS[d.type] || []).map(([p, l, k, ph]) => f(p, l, k, ph)).join('')}</div>
+      <div class="edgrid">${(FIELDS[d.type] || []).filter(([p]) => d.type !== 'item' || (!p.startsWith('armor.') || d.cat === 'armor') && (!p.startsWith('weapon.') || d.cat === 'weapon')).map(([p, l, k, ph]) => f(p, l, k, ph)).join('')}</div>
     </form>`;
 }
 // Class table editor: one column per table column, one row per level. Blank cells carry down (shown faintly).
@@ -335,6 +357,8 @@ function onInput(e) {
     setPath(d, el.dataset.f, el.value); return keepScroll(render);
   }
   if (el.dataset.ctcell != null) { setPath(d, el.dataset.f, el.value); if (e.type === 'change') refreshCarry(el); return; }
+  // an item's kind decides which fields show (armor or weapon numbers)
+  if (el.dataset.rerender != null && el.dataset.f) { if (e.type !== 'change') return; setPath(d, el.dataset.f, el.value); return keepScroll(render); }
   if (el.dataset.f && el.dataset.numlist != null) setPath(d, el.dataset.f, el.value.split(/[^0-9]+/).filter(Boolean).map(Number));
   else if (el.dataset.f) setPath(d, el.dataset.f, el.dataset.num != null ? (el.value === '' ? '' : Number(el.value)) : el.value);
   else if (el.dataset.fbool) setPath(d, el.dataset.fbool, el.checked);
