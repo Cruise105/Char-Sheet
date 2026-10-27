@@ -248,9 +248,9 @@ function levelUp() {
       ${isAsi() ? `<div class="lusec"><h3>Ability Score Improvement or feat</h3>
         <div class="seg"><button type="button" data-lu-asi="asi" aria-pressed="${st.asi === 'asi'}">Ability scores</button><button type="button" data-lu-asi="feat" aria-pressed="${st.asi === 'feat'}">Feat</button></div>
         ${st.asi === 'asi' ? `<p class="hint">Pick the same ability twice for +2.</p><div class="row">
-          <label class="hf"><span class="lbl">+1 to</span><select class="f" data-lu="asiA">${R.ABILS.map(([k, n]) => `<option value="${k}" ${st.asiA === k ? 'selected' : ''}>${n} (${R.score(c, k)})</option>`).join('')}</select></label>
-          <label class="hf"><span class="lbl">+1 to</span><select class="f" data-lu="asiB">${R.ABILS.map(([k, n]) => `<option value="${k}" ${st.asiB === k ? 'selected' : ''}>${n} (${R.score(c, k)})</option>`).join('')}</select></label></div>
-          ${['asiA', 'asiB'].some(x => R.score(c, st[x]) + (st.asiA === st.asiB ? 2 : 1) > 20) ? '<p class="warn">That would take a score past 20.</p>' : ''}`
+          <label class="hf"><span class="lbl">+1 to</span><select class="f" data-lu="asiA">${R.ABILS.map(([k, n]) => `<option value="${k}" ${st.asiA === k ? 'selected' : ''}>${n} (${R.baseScore(c, k)})</option>`).join('')}</select></label>
+          <label class="hf"><span class="lbl">+1 to</span><select class="f" data-lu="asiB">${R.ABILS.map(([k, n]) => `<option value="${k}" ${st.asiB === k ? 'selected' : ''}>${n} (${R.baseScore(c, k)})</option>`).join('')}</select></label></div>
+          ${['asiA', 'asiB'].some(x => R.baseScore(c, st[x]) + (st.asiA === st.asiB ? 2 : 1) > 20) ? '<p class="warn">That would take a score past 20.</p>' : ''}`
         : `<input class="f" data-lu="feat" list="dl-feats" value="${esc(st.feat)}" placeholder="Feat name" autocomplete="off"><datalist id="dl-feats">${L.all('feat').map(f => `<option value="${esc(f.name)}"></option>`).join('')}</datalist>
           ${L.findByName('feat', st.feat)?.prereq ? `<p class="hint">Prerequisite: ${esc(L.findByName('feat', st.feat).prereq)}</p>` : ''}`}
       </div>` : ''}
@@ -759,7 +759,9 @@ function openAbility(a) {
           <input class="f n" data-adj="${i}" data-f="v" inputmode="numeric" value="${esc(x.v)}" aria-label="Amount">
           <button class="x" type="button" data-adjdel="${i}" aria-label="Remove">×</button>
         </div>`).join('') || '<p class="empty">No increases yet.</p>'}</div>
-      <button class="linkbtn" type="button" data-adjadd>Add an increase</button>`;
+      <button class="linkbtn" type="button" data-adjadd>Add an increase</button>
+      ${(() => { const fx = [...R.fxFor(c, 'abil', a), ...R.fxFor(c, 'abilSet', a)]; return fx.length ? `<span class="lbl">From items, diseases and boons (applied automatically)</span>
+      <div class="adjlist">${fx.map(e => `<div class="srow rorow"><span>${esc(e.src)}</span><b>${e.k === 'abilSet' ? `becomes ${esc(e.v)} if lower` : R.sign(Number(e.v) || 0)}</b></div>`).join('')}</div>` : ''; })()}`;
   };
   draw();
   const touch = () => { stamp(c, `abil.${a}`); save(c); dlg.querySelector('.abilsum').innerHTML = `<b>${R.score(c, a)}</b><span>${R.sign(R.amod(c, a))}</span>`; };

@@ -247,7 +247,8 @@ export async function runBridge(io) {
     }
     // Boons the DM gave this character (or the whole party)
     const mine = boons.filter(b => b.given === 'party' || (Array.isArray(b.given) && b.given.includes(c.id)));
-    const boonList = mine.map(b => ({ id: b.id, name: b.name, text: b.desc || '', dawnTemp: Number(b.dawnTemp) || 0 }));
+    // with what each does to the numbers (read from its text by the suite core), so the sheet applies it
+    const boonList = mine.map(b => ({ id: b.id, name: b.name, text: b.desc || '', dawnTemp: Number(b.dawnTemp) || 0, fx: io.views?.boonFx ? io.views.boonFx(b) : [] }));
     put('boons', boonList);
     // boons reach the player's sheet at once over the live link (only when they changed)
     if (io.live && c.liveKey) {

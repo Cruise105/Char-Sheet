@@ -859,3 +859,9 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 /* typed text: indented lines */
 .tx{margin:0 0 .6em}
 .txl{min-height:1.2em}
+
+/* effects from items, diseases and boons */
+.fxlist{display:grid;gap:4px;margin:2px 0 8px}
+.fxrow{display:flex;flex-wrap:wrap;gap:2px 10px}
+.fxrow b{font-weight:700}
+.fxrow span{color:var(--muted)}

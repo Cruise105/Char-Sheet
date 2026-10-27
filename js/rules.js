@@ -31,9 +31,31 @@ const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 export const mod = score => Math.floor((num(score) - 10) / 2);
 export const sign = n => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
 
-export function score(c, a) {
+/* ---------- effects: what magic items (attuned, or not needing it), diseases and boons do to the numbers ----------
+   Each effect arrives with its source from the DM's apps ({ k, on, v, txt }); see core/effects.js for the kinds. */
+const fxCache = new WeakMap();
+export function activeFx(c) {
+  const hit = fxCache.get(c);
+  if (hit && hit.mi === c.magicItems && hit.sn === c.sn && hit.b === c.boons) return hit.fx;
+  const fx = [];
+  for (const m of c.magicItems || []) if (!m.needsAttune || m.attuned) for (const e of m.fx || []) fx.push({ ...e, src: m.name, item: m.name });
+  for (const d of c.sn?.diseases || []) for (const e of d.fx || []) fx.push({ ...e, src: d.name });
+  for (const b of c.boons || []) for (const e of b.fx || []) fx.push({ ...e, src: b.name });
+  fxCache.set(c, { mi: c.magicItems, sn: c.sn, b: c.boons, fx });
+  return fx;
+}
+const fxSum = (c, k, on) => activeFx(c).filter(e => e.k === k && (on == null || e.on === on || e.on === 'all')).reduce((t, e) => t + num(e.v), 0);
+// The effects behind one number, for "where does this come from" lines ("Chickenpox −2")
+export const fxFor = (c, k, on) => activeFx(c).filter(e => e.k === k && (on == null || e.on === on || e.on === 'all'));
+
+export function baseScore(c, a) {
   const ab = c.abil?.[a] || {};
   return num(ab.base) + (ab.adj || []).reduce((t, x) => t + num(x.v), 0);
+}
+export function score(c, a) {
+  let s = baseScore(c, a) + fxSum(c, 'abil', a);
+  for (const e of fxFor(c, 'abilSet', a)) s = Math.max(s, num(e.v)); // "Your Strength score is 19" never lowers it
+  return s;
 }
 export const amod = (c, a) => (a && ABIL_SHORT[a] ? mod(score(c, a)) : 0);
 
@@ -46,17 +68,17 @@ export function prof(c) {
   return Math.ceil(totalLevel(c) / 4) + 1;
 }
 
-export const save = (c, a) => amod(c, a) + (c.saves?.[a] ? prof(c) : 0);
+export const save = (c, a) => amod(c, a) + (c.saves?.[a] ? prof(c) : 0) + fxSum(c, 'save', a);
 
 export function skill(c, key) {
   const def = SKILLS.find(s => s[0] === key);
   const rank = num(c.skills?.[key]);
   const p = prof(c);
   let bonus = rank === 2 ? p * 2 : rank === 1 ? p : (c.jack ? Math.floor(p / 2) : 0);
-  return amod(c, def[2]) + bonus;
+  return amod(c, def[2]) + bonus + fxSum(c, 'check', 'all');
 }
 export const passivePerception = c => 10 + skill(c, 'perception');
-export const initiative = c => amod(c, 'dex') + num(c.init?.misc) + (c.jack ? Math.floor(prof(c) / 2) : 0);
+export const initiative = c => amod(c, 'dex') + num(c.init?.misc) + (c.jack ? Math.floor(prof(c) / 2) : 0) + fxSum(c, 'check', 'all');
 
 export function armorClass(c) {
   const a = c.ac || {};
@@ -69,12 +91,21 @@ export function armorClass(c) {
   }
   // a shield counts only while it's in hand (the sheet's Shield switch; on unless turned off)
   const shield = num(a.shield), on = shield !== 0 && a.shieldOff !== true;
-  const total = base + (on ? shield : 0) + num(a.misc);
+  const total = base + (on ? shield : 0) + num(a.misc) + fxSum(c, 'ac');
   return { total, withTemp: total + num(a.temp), shield, shieldOn: on, other: shield ? total + num(a.temp) + (on ? -shield : shield) : null };
 }
 
-export const saveDc = (c, a) => (a ? 8 + prof(c) + amod(c, a) : null);
-export const spellAttack = (c, a) => (a ? prof(c) + amod(c, a) : null);
+// kind: 'spell' for spells, 'ki' for class feature DCs (Ki and the like)
+export const saveDc = (c, a, kind = 'spell') => (a ? 8 + prof(c) + amod(c, a) + fxSum(c, 'dc', kind) : null);
+export const spellAttack = (c, a) => (a ? prof(c) + amod(c, a) + fxSum(c, 'spellatk') : null);
+// effects that only count for attacks made with that item ("+1 bonus to attack and damage rolls made with this weapon")
+const baseName = s => String(s || '').toLowerCase().replace(/\s*,?\s*[+]\d+\b/g, '').replace(/\s*\([^)]*\)/g, '').trim();
+function itemFx(c, k, atk) {
+  const an = baseName(atk.name);
+  if (!an) return 0;
+  return activeFx(c).filter(e => e.k === k && e.on === 'self' && e.item).filter(e => { const n = baseName(e.item); return n && (an.includes(n) || n.includes(an)); })
+    .reduce((t, e) => t + num(e.v), 0) + activeFx(c).filter(e => e.k === k && e.on === 'all').reduce((t, e) => t + num(e.v), 0);
+}
 
 // Attacks: ability can be str, dex, finesse (better of the two), spell (the spellcasting ability), or none
 export function attackAbil(c, atk) {
@@ -83,11 +114,11 @@ export function attackAbil(c, atk) {
   return atk.abil || '';
 }
 export function attackBonus(c, atk) {
-  return amod(c, attackAbil(c, atk)) + (atk.prof ? prof(c) : 0) + num(atk.bonus);
+  return amod(c, attackAbil(c, atk)) + (atk.prof ? prof(c) : 0) + num(atk.bonus) + itemFx(c, 'atk', atk);
 }
 export function damageText(c, atk) {
   const dice = (atk.dmg || '').trim();
-  const m = atk.addMod ? amod(c, attackAbil(c, atk)) : 0;
+  const m = (atk.addMod ? amod(c, attackAbil(c, atk)) : 0) + itemFx(c, 'dmg', atk);
   const parts = [];
   if (dice) parts.push(m ? `${dice} ${m > 0 ? '+' : '−'} ${Math.abs(m)}` : dice);
   else if (atk.addMod) parts.push(String(m));

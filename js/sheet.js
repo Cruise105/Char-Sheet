@@ -379,8 +379,12 @@ function combatBarInner(c) {
 // What the DM's apps send to this sheet: conditions from the Bestiary's combat tracker, Session Notes (deaths,
 // Favor of Fate, diseases, survival) and boons
 function dmPanel(c) {
-  const sn = c.sn, boons = c.boons || [], conds = (c.conditions || []).filter(x => x?.name);
-  if (!sn && !boons.length && !conds.length) return '<div class="dmempty"></div>';
+  const sn = c.sn, boons = c.boons || [], conds = (c.conditions || []).filter(x => x?.name), fx = R.activeFx(c);
+  if (!sn && !boons.length && !conds.length && !fx.length) return '<div class="dmempty"></div>';
+  // what items, diseases and boons are doing to the numbers right now, by source
+  const bySrc = new Map();
+  for (const e of fx) { if (!bySrc.has(e.src)) bySrc.set(e.src, []); bySrc.get(e.src).push(e.txt || ''); }
+  const fxList = [...bySrc].map(([src, lines]) => `<div class="fxrow"><b>${esc(src)}</b><span>${lines.filter(Boolean).map(esc).join('; ')}</span></div>`).join('');
   const STAGE = n => ['', 'Fine', 'Fine', 'Fine', 'Hindered', 'Exhausting', 'Exhausting', 'Critical'][Math.max(0, Math.min(7, Number(n) || 0))] || '';
   const surv = sn?.survival ? `<div class="survrow">${['hunger', 'thirst', 'fatigue'].map(k => `<span><small>${k[0].toUpperCase() + k.slice(1)}</small><b>${esc(sn.survival[k])}</b></span>`).join('')}</div>` : '';
   // Only what's affecting the character right now: no stages to come, no DC, no save tally
@@ -389,6 +393,7 @@ function dmPanel(c) {
   const cnd = conds.map(x => `<details class="dis cond"><summary><b>${esc(x.name)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}</summary>${x.text ? fmt(x.text) : ''}</details>`).join('');
   const bn = boons.map(b => `<details class="dis boon"><summary><b>${esc(b.name)}</b>${b.dawnTemp ? `<small>${b.dawnTemp} temp HP at dawn</small>` : ''}</summary>${fmt(b.text)}</details>`).join('');
   return panel('From your DM', `
+    ${fxList ? `<span class="lbl">Effects on your numbers (already applied)</span><div class="fxlist">${fxList}</div>` : ''}
     ${cnd ? `<span class="lbl">Conditions</span>${cnd}` : ''}
     ${sn ? `<div class="dmrow"><span class="lbl">Favor of Fate</span><b class="${sn.favorSpent ? 'spent' : 'fresh'}">${sn.favorSpent ? 'Spent' : 'Available'}</b>
       <span class="lbl">Deaths</span><b>${esc(sn.deaths)}</b></div>` : ''}
@@ -831,7 +836,7 @@ export function updateCalcs(root, c) {
       case 'actemp': { const t = Number(c.ac.temp) || 0; out = t ? `<small>includes ${R.sign(t)} temp</small>` : ''; el.innerHTML = out; continue; }
       case 'spelldc': out = c.spell.abil ? R.saveDc(c, c.spell.abil) : '—'; break;
       case 'spellatk': out = c.spell.abil ? R.sign(R.spellAttack(c, c.spell.abil)) : '—'; break;
-      case 'abdc': out = c.abilityDc.abil ? R.saveDc(c, c.abilityDc.abil) : '—'; break;
+      case 'abdc': out = c.abilityDc.abil ? R.saveDc(c, c.abilityDc.abil, 'ki') : '—'; break;
       case 'atkbonus': { const atk = c.attacks[a]; out = atk ? R.sign(R.attackBonus(c, atk)) : ''; break; }
       case 'atkdmg': { const atk = c.attacks[a]; out = atk ? R.damageText(c, atk) : ''; break; }
       case 'attuned': { const n = (c.attuned || []).filter(x => x.name).length + (c.magicItems || []).filter(x => x.attuned).length + INF.heldHere(c).filter(x => x.attuned).length, max = Number(c.attuneMax) || 3; out = `${n} of ${max}`; el.classList.toggle('over', n > max); break; }
