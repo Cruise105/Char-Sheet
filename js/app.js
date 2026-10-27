@@ -644,11 +644,20 @@ function liveFollow(c) {
       }),
       // channels from the DM's other apps: Session Notes, Magic Items, boons, combat conditions, and later ones
       each(key, 'ch', (name, ch) => {
-        const c = cur(); if (!c || !ch?.fields || (ch.t || 0) <= (follow.chT[name] || 0)) return;
+        const c = cur(); if (!c || !ch || (ch.t || 0) <= (follow.chT[name] || 0)) return;
+        let fields = null;
+        try { fields = typeof ch.json === 'string' ? JSON.parse(ch.json) : ch.fields; } catch { fields = ch.fields; }
+        if (!fields) return;
         follow.chT[name] = ch.t;
+        // each field carries the channel's time, so it and the Drive copy agree on which is newer
+        const le = c.edits || (c.edits = {});
         let changed = 0;
-        for (const [f, v] of Object.entries(ch.fields)) if (JSON.stringify(c[f] ?? null) !== JSON.stringify(v ?? null)) { c[f] = v; changed++; }
-        if (changed) redrawSoon();
+        for (const [f, v] of Object.entries(fields)) {
+          if ((le[f] || 0) > ch.t) continue; // the sheet already has something newer for this field
+          if (JSON.stringify(c[f] ?? null) !== JSON.stringify(v ?? null)) { c[f] = v ?? null; changed++; }
+          le[f] = ch.t;
+        }
+        if (changed) { db.put(c); redrawSoon(); }
       }),
     ];
     follow.stop = () => stops.forEach(s => s());
