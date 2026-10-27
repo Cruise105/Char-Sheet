@@ -605,6 +605,9 @@ function startAuto() {
   // show up fast (one small request per sheet; a full sync only when something changed)
   setInterval(async () => {
     if (!ss.connected || syncing || !navigator.onLine || !tokenValid() || document.visibilityState !== 'visible') return;
+    // Not on the DM's device: there a full sync also runs the DM's pass over every app, far too heavy to repeat
+    // every 1.5 seconds (and the live link already brings the fight here instantly)
+    if (role() === 'dm') return;
     const chars = (await db.all()).filter(c => ss.links[c.id] && c.combat?.on).slice(0, 6);
     for (const c of chars) {
       const l = ss.links[c.id];

@@ -612,11 +612,14 @@ function liveFollow(c) {
   sync.live().then(L => {
     if (!L || follow.id !== id || follow.key !== key) return;
     const cur = () => (state.cur?.id === id ? state.cur : null);
+    // one entry at a time; an older core without that falls back to hearing the whole list
+    const each = typeof L.cwatchEach === 'function' ? L.cwatchEach
+      : (k, p, cb) => L.cwatch(k, p, all => Object.entries(all || {}).forEach(([n, v]) => cb(n, v)));
     const stops = [
       // where the fight stands for this character (combat tracker)
       L.cwatch(key, 'view', v => { setLiveView(id, v); if (cur()) refreshCombatBar($('#page'), cur()); }),
       // HP changes from the combat tracker (or this character's other devices)
-      L.cwatchEach(key, 'ops', (_, op) => {
+      each(key, 'ops', (_, op) => {
         const c = cur(); if (!c || !op?.id) return;
         follow.known.add(op.id);
         if ((c.hpOps || []).some(o => o.id === op.id) || op.t <= (c.hpBase?.t || 0)) return;
@@ -625,7 +628,7 @@ function liveFollow(c) {
         db.put(c); liveStats(c); redrawSoon();
       }),
       // any other field of this sheet changed on another device (the player's or the DM's) or by the tracker
-      L.cwatchEach(key, 'sheet', (enc, rec) => {
+      each(key, 'sheet', (enc, rec) => {
         const c = cur(); if (!c || !rec) return;
         const le = c.edits || (c.edits = {});
         const path = L.decPath(enc), t = Number(rec.t) || 0;
@@ -638,7 +641,7 @@ function liveFollow(c) {
         db.put(c); liveStats(c); redrawSoon();
       }),
       // channels from the DM's other apps: Session Notes, Magic Items, boons, combat conditions, and later ones
-      L.cwatchEach(key, 'ch', (name, ch) => {
+      each(key, 'ch', (name, ch) => {
         const c = cur(); if (!c || !ch?.fields || (ch.t || 0) <= (follow.chT[name] || 0)) return;
         follow.chT[name] = ch.t;
         let changed = 0;
@@ -660,7 +663,7 @@ function liveSendOps(c) {
     for (const op of c.hpOps || []) {
       if (follow.known.has(op.id)) continue;
       follow.known.add(op.id);
-      if (Date.now() - (op.t || 0) > 15000) continue;
+      if (op.by === 'bestiary' || Date.now() - (op.t || 0) > 15000) continue; // the tracker sent its own
       L.cput(follow.key, `ops/${op.id}`, op);
     }
     for (const [path, t] of Object.entries(c.edits || {})) {
