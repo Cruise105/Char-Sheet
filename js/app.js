@@ -21,10 +21,12 @@ const state = { chars: [], cur: null, page: 'sheet', settings: { role: 'player',
 // DM mode needs both: DM chosen in Settings, and this device signed in to the DM's Google account
 const isDm = () => state.settings.role === 'dm' && state.dmOk;
 async function checkEmail(email) {
-  state.dmOk = await isDmEmail(email);
+  // DM of the table chosen in the launcher; before any table exists, the account this app was set up for
+  const tr = sync.tableRole();
+  state.dmOk = tr === 'dm' || (tr !== 'player' && await isDmEmail(email));
   if (state.settings.role === 'dm' && email && !state.dmOk) {
     state.settings.role = 'player'; saveSettings();
-    toast('Dungeon Master mode is only for your DM\'s Google account. This device stays in Player mode.');
+    toast(sync.tableRole() === 'player' ? 'You\'re a player at this table, so this device stays in Player mode.' : 'Dungeon Master mode is for the DM of a table (create one in the launcher). This device stays in Player mode.');
     refreshRoleUi();
   }
   return state.dmOk;
@@ -838,6 +840,14 @@ async function shareDialog(id) {
   dlg.querySelector('.who').textContent = c.name || 'this character';
   const input = dlg.querySelector('input');
   input.value = c.playerEmail || '';
+  // your approved players at the table, to pick from
+  let dl = dlg.querySelector('#playerList');
+  if (!dl) { dl = document.createElement('datalist'); dl.id = 'playerList'; dlg.append(dl); input.setAttribute('list', 'playerList'); }
+  dl.innerHTML = '';
+  sync.tablePlayers().then(list => {
+    dl.innerHTML = list.map(p => `<option value="${esc(p.email)}">${esc(p.name)}</option>`).join('');
+    if (list.length && !input.value) input.placeholder = 'Pick a player from your table, or type an email';
+  }).catch(() => {});
   const status = dlg.querySelector('.status');
   status.textContent = '';
   dlg.querySelector('.current').textContent = '';
@@ -1015,7 +1025,7 @@ async function start() {
     if (r) {
       state.settings.role = r.dataset.role; saveSettings();
       refreshRoleUi();
-      if (r.dataset.role === 'dm' && !state.dmOk) toast(sync.currentEmail() ? 'Dungeon Master mode is only for your DM\'s Google account.' : 'Connect Google Drive with your DM account to turn on Dungeon Master mode.');
+      if (r.dataset.role === 'dm' && !state.dmOk) toast(sync.currentEmail() ? 'Dungeon Master mode is for the DM of a table: create one in the launcher.' : 'Connect Google Drive with your DM account to turn on Dungeon Master mode.');
       if (state.cur) renderSheet();
       sync.renderStatus();
       renderTableRules();

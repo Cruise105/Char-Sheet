@@ -248,6 +248,12 @@ async function syncTableSettings() {
 }
 // The suite's campaigns (DM's device), for tagging characters and the campaign filter
 export const campaignList = () => core?.campaigns?.() || [];
+// The table chosen in the launcher: this device's role there ('dm', 'player' or ''), and its approved players
+export const tableRole = () => core?.tableRole?.() || '';
+export async function tablePlayers() {
+  const T = await core?.tables?.(); if (!T || !tokenValid()) return [];
+  return T.playerEmails(tok.value);
+}
 // The live link for fights (Firebase), or null if it can't load
 export const live = () => Promise.resolve(core?.live?.() || null).catch(() => null);
 // Why campaigns aren't showing, if they aren't (for the Linked apps settings)
