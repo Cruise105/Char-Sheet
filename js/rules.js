@@ -99,7 +99,10 @@ export function armorClass(c) {
       return { base: num(a.base || 10) + Math.min(dex, cap), how: a.armorName || 'Armor' };
     }
     let best = { base: 10 + dex + (a.unarmoredAbil ? amod(c, a.unarmoredAbil) : 0), how: a.unarmoredAbil ? `10 + Dex + ${ABIL_SHORT[a.unarmoredAbil]}` : '10 + Dex' };
-    for (const o of F.unarmoredOptions(c, x => score(c, x))) if (!(o.noShield && withShield) && o.base > best.base) best = { base: o.base, how: o.name };
+    // a typed-in base with no armor named: never lower the AC below what was typed
+    if (a.mode !== 'unarmored' && num(a.base || 10) + dex > best.base) best = { base: num(a.base || 10) + dex, how: `${num(a.base || 10)} + Dex` };
+    // features win a tie, so the sheet says where the number comes from
+    for (const o of F.unarmoredOptions(c, x => score(c, x))) if (!(o.noShield && withShield) && o.base >= best.base) best = { base: o.base, how: o.name };
     return best;
   };
   const feat = F.acBonuses(c), featV = feat.reduce((t, x) => t + x.v, 0);

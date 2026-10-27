@@ -49,10 +49,10 @@ function tableNum(c, cls, col) {
 const stepAt = (lvl, steps) => { let v = 0; for (const [at, n] of steps) if (lvl >= at) v = n; return v; };
 
 /* ---------- armor ---------- */
-/** Wearing armor? (the default "armor" with no name and AC 10 is no armor at all) */
+/** Wearing armor? Only when the armor has a name or a Max Dex: a nameless "armor" is a typed-in AC, not armor */
 export function wearingArmor(c) {
   const a = c.ac || {};
-  return a.mode !== 'unarmored' && !!(String(a.armorName || '').trim() || (a.base !== '' && a.base != null && num(a.base) !== 10) || (a.maxDex !== '' && a.maxDex != null));
+  return a.mode !== 'unarmored' && !!(String(a.armorName || '').trim() || (a.maxDex !== '' && a.maxDex != null));
 }
 /** Heavy armor: no Dexterity bonus at all */
 export const heavyArmor = c => wearingArmor(c) && c.ac?.maxDex !== '' && c.ac?.maxDex != null && num(c.ac.maxDex) === 0;
@@ -93,7 +93,7 @@ export function speed(c, score, itemBonus = 0) {
   const unarmored = !wearingArmor(c) && !shieldInHand(c);
   const monk = classLevel(c, 'Monk'), barb = classLevel(c, 'Barbarian');
   if (monk >= 2 && unarmored && has(c, 'Unarmored Movement')) {
-    const v = tableNum(c, 'Monk', 'Unarmored Movement') ?? stepAt(monk, [[2, 10], [6, 15], [10, 20], [14, 25], [18, 30]]);
+    const v = Math.max(tableNum(c, 'Monk', 'Unarmored Movement') || 0, stepAt(monk, [[2, 10], [6, 15], [10, 20], [14, 25], [18, 30]]));
     if (v) parts.push({ v, name: 'Unarmored Movement' });
   }
   if (barb >= 5 && !heavyArmor(c) && has(c, 'Fast Movement')) parts.push({ v: 10, name: 'Fast Movement' });
