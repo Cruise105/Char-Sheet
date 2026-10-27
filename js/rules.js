@@ -38,13 +38,18 @@ export const sign = n => (n >= 0 ? `+${n}` : `−${Math.abs(n)}`);
    Each effect arrives with its source from the DM's apps ({ k, on, v, txt }); see core/effects.js for the kinds. */
 const fxCache = new WeakMap();
 export function activeFx(c) {
-  const hit = fxCache.get(c);
-  if (hit && hit.mi === c.magicItems && hit.sn === c.sn && hit.b === c.boons) return hit.fx;
+  const hit = fxCache.get(c), worn = `${c.ac?.armorFrom}|${c.ac?.shieldFrom}|${c.ac?.shield}|${c.ac?.shieldOff}|${c.ac?.mode}`;
+  if (hit && hit.mi === c.magicItems && hit.sn === c.sn && hit.b === c.boons && hit.worn === worn) return hit.fx;
   const fx = [];
-  for (const m of c.magicItems || []) if (!m.needsAttune || m.attuned) for (const e of m.fx || []) fx.push({ ...e, src: m.name, item: m.name });
+  for (const m of c.magicItems || []) {
+    if (m.needsAttune && !m.attuned) continue;
+    // magic armor and shields only work while worn or held (the sheet's Wear / Use this shield)
+    if (m.baseKind === 'armor' && !(m.base === 'Shield' ? c.ac?.shieldFrom === `mi:${m.cid}` && Number(c.ac?.shield) && c.ac?.shieldOff !== true : c.ac?.armorFrom === `mi:${m.cid}` && c.ac?.mode !== 'unarmored')) continue;
+    for (const e of m.fx || []) fx.push({ ...e, src: m.name, item: m.name, cid: m.cid });
+  }
   for (const d of c.sn?.diseases || []) for (const e of d.fx || []) fx.push({ ...e, src: d.name });
   for (const b of c.boons || []) for (const e of b.fx || []) fx.push({ ...e, src: b.name });
-  fxCache.set(c, { mi: c.magicItems, sn: c.sn, b: c.boons, fx });
+  fxCache.set(c, { mi: c.magicItems, sn: c.sn, b: c.boons, worn, fx });
   return fx;
 }
 const fxSum = (c, k, on) => activeFx(c).filter(e => e.k === k && (on == null || e.on === on || e.on === 'all')).reduce((t, e) => t + num(e.v), 0);
@@ -124,7 +129,11 @@ const baseName = s => String(s || '').toLowerCase().replace(/\s*,?\s*[+]\d+\b/g,
 function itemFx(c, k, atk) {
   const an = baseName(atk.name);
   if (!an) return 0;
-  return activeFx(c).filter(e => e.k === k && e.on === 'self' && e.item).filter(e => { const n = baseName(e.item); return n && (an.includes(n) || n.includes(an)); })
+  // an attack made from a magic item belongs to that item alone; otherwise go by the names ("Longsword" and "Longsword, +1")
+  return activeFx(c).filter(e => e.k === k && e.on === 'self' && e.item).filter(e => {
+    if (atk.miCid) return atk.miCid === e.cid;
+    if ((c.attacks || []).some(x => x.miCid && x.miCid === e.cid)) return false;
+    const n = baseName(e.item); return n && (an.includes(n) || n.includes(an)); })
     .reduce((t, e) => t + num(e.v), 0) + activeFx(c).filter(e => e.k === k && e.on === 'all').reduce((t, e) => t + num(e.v), 0);
 }
 

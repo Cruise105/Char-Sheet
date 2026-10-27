@@ -897,6 +897,23 @@ function addWeaponAttack(c, it, row) {
   c.attacks = [...(c.attacks || []), { id: uid(), name: it.name, abil, prof: weaponProf(c, it), bonus: 0, dmg: w.dmg || '', addMod: !!w.dmg, type: w.type || '', notes, ranged: !!w.ranged, eqRow: row.id }];
   stamp(c, 'attacks');
 }
+// Magic weapons and armor: the base item's numbers from the equipment list, under the magic item's name
+function useMagicGear(act, m) {
+  const c = state.cur, base = L.findByName('item', m.base); if (!base) return;
+  if (act === 'miattack') { addWeaponAttack(c, { ...base, name: m.name }, { id: '' }); c.attacks[c.attacks.length - 1].miCid = m.cid; delete c.attacks[c.attacks.length - 1].eqRow; stamp(c, 'attacks'); save(c); renderSheet(); toast(`${m.name} is in your attacks.`); return; }
+  const a = c.ac, key = `mi:${m.cid}`;
+  if (m.base === 'Shield') {
+    if (a.shieldFrom === key && Number(a.shield)) { a.shield = 0; a.shieldFrom = ''; toast('Shield put away.'); }
+    else { a.shield = Number(base.armor?.base) || 2; a.shieldFrom = key; a.shieldOff = false; toast(`Using ${m.name}.`); }
+  } else if (a.armorFrom === key && a.mode !== 'unarmored') {
+    Object.assign(a, { mode: 'unarmored', armorName: '', base: 10, maxDex: '', str: '', stealthDis: false, armorFrom: '' }); toast(`${m.name} taken off.`);
+  } else {
+    const x = base.armor || {}, mithral = /mithral/i.test(m.name); // mithral: no Strength requirement or Stealth disadvantage
+    Object.assign(a, { mode: 'armor', armorName: m.name, base: Number(x.base) || 10, maxDex: x.dexCap === '' || x.dexCap == null ? '' : Number(x.dexCap), str: mithral ? '' : x.str || '', stealthDis: mithral ? false : !!x.stealthDis, armorFrom: key });
+    toast(`Wearing ${m.name}.`);
+  }
+  stamp(c, 'ac'); save(c); renderSheet();
+}
 function useEquipment(act, row) {
   const c = state.cur, it = L.get(row.eqId); if (!it) return;
   const a = c.ac;
@@ -1107,7 +1124,7 @@ const sheetCtx = {
   themeChanged, closeLook, openAbility, openAc,
   picked, viewEntry,
   isPlayer: () => !isDm(),
-  levelUp, shortRest, longRest, openScores, pickEquipment, useEquipment, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
+  levelUp, shortRest, longRest, openScores, pickEquipment, useEquipment, useMagicGear, cast: castSpell, spellFilter: 'mine', pickOption, addCreature, infuse: infuseDialog,
   // send a change right away (a turn button), once the save has landed
   syncSoon: () => setTimeout(async () => { await flush(); sync.syncNow({ quiet: true }); }, 300),
   liveSend: (key, req) => sync.live().then(L => L?.cput(key, 'req', req)),

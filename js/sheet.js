@@ -273,8 +273,8 @@ function equipment(c) {
       <button class="linkbtn" type="button" data-act="ac">Edit</button>
     </div>
     ${simpleList(c, 'consumables', 'Consumables', [['name', 'Consumable', 'f'], ['n', 'Left', 'n']])}
-    ${(c.magicItems || []).length ? `<div class="miblock"><span class="lbl">Magic items from your DM</span>${c.magicItems.map(m => `<details class="mi"><summary><b>${esc(m.name)}</b>${m.attuned ? '<span class="attb">Attuned</span>' : ''}</summary>
-      <p class="sub">${esc([m.type, m.attune].filter(Boolean).join(' · '))}</p>${fmt(m.desc)}</details>`).join('')}</div>` : ''}
+    ${(c.magicItems || []).length ? `<div class="miblock"><span class="lbl">Magic items from your DM</span>${c.magicItems.map(m => `<details class="mi"><summary><b>${esc(m.name)}</b>${m.attuned ? '<span class="attb">Attuned</span>' : ''}${miState(c, m)}</summary>
+      <p class="sub">${esc([m.type, m.base && m.base !== m.name ? m.base : '', m.attune].filter(Boolean).join(' · '))}</p>${miActs(c, m)}${fmt(m.desc)}</details>`).join('')}</div>` : ''}
     ${infusedBlock(c)}
     <div class="attune">
       <div class="lh"><span class="lbl">Attuned magic items</span><span class="count">${calc('attuned')}</span></div>
@@ -744,6 +744,25 @@ function pageCharacter(c) {
 
 /* ---------- page: inventory ---------- */
 // Armor and weapons from the equipment list: wear the armor, hold the shield, make an attack for the weapon
+// A magic weapon, armor or shield: make its attack, wear it, hold it
+const miWorn = (c, m) => m.base === 'Shield' ? c.ac?.shieldFrom === `mi:${m.cid}` && Number(c.ac?.shield) > 0 : c.ac?.armorFrom === `mi:${m.cid}` && c.ac?.mode !== 'unarmored';
+function miState(c, m) {
+  if (m.baseKind === 'armor') return miWorn(c, m) ? `<span class="attb">${m.base === 'Shield' ? 'In hand' : 'Worn'}</span>` : '';
+  return '';
+}
+function miActs(c, m) {
+  if (!m.base) return '';
+  const known = L.findByName('item', m.base);
+  if (m.baseKind === 'weapon') {
+    if ((c.attacks || []).some(a => a.miCid === m.cid)) return '<p class="eqnote">In your attacks.</p>';
+    return known ? `<button class="eqbtn" type="button" data-act="miattack" data-cid="${esc(m.cid)}">Make an attack</button>` : '';
+  }
+  if (m.baseKind === 'armor' && known) {
+    const on = miWorn(c, m);
+    return `<button class="eqbtn ${on ? 'on' : ''}" type="button" data-act="miwear" data-cid="${esc(m.cid)}">${m.base === 'Shield' ? (on ? 'Using this shield' : 'Use this shield') : (on ? 'Wearing · take off' : 'Wear')}</button>`;
+  }
+  return '';
+}
 function eqActs(c, k, i, r) {
   const e = r.eqId ? L.get(r.eqId) : null; if (!e) return '';
   const a = c.ac || {};
@@ -1147,6 +1166,7 @@ function act(b, c, root) {
     case 'abil': return ctx.openAbility(d.a);
     case 'scores': return ctx.openScores();
     case 'eqpick': return ctx.pickEquipment(d.cat);
+    case 'miattack': case 'miwear': { const m = (c.magicItems || []).find(x => x.cid === d.cid); if (m) ctx.useMagicGear(d.act, m); return; }
     case 'eqwear': case 'eqshield': case 'eqattack': { const r = c.inv[d.cat]?.[Number(d.i)]; if (r) ctx.useEquipment(d.act, r); return; }
     case 'libview': return ctx.viewEntry(d.id);
     case 'levelup': return ctx.levelUp();
