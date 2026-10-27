@@ -454,6 +454,8 @@ function shortRest() {
     if (e.target.closest('[data-sr-done]')) {
       let n = 0;
       for (const f of c.limited || []) if (f.rec === 'Short rest' && Number(f.left) !== Number(f.total)) { f.left = f.total; n++; }
+      // 2024 Rage: one use comes back on a short rest
+      if (R.F.is2024() && R.F.canRage(c) && Number(c.rage?.used) > 0) { c.rage = { ...c.rage, used: Number(c.rage.used) - 1 }; stamp(c, 'rage'); n++; }
       M.restoreShort(c);
       stamp(c, 'limited'); stamp(c, 'magic'); save(c);
       $('#actDlg').close();
@@ -788,7 +790,7 @@ function openAbility(a) {
   };
   dlg.onchange = dlg.oninput;
   dlg.onclick = e => {
-    if (e.target.closest('[data-scores]')) { dlg.close(); return openScores(); }
+    if (e.target.closest('[data-scores]')) { dlg.close(); return openScores({ methods: true }); }
     if (e.target.closest('[data-adjadd]')) { c.abil[a].adj.push({ src: player() ? 'Training' : 'Racial', note: '', v: 1, id: uid() }); touch(); draw(); dlg.querySelector('.adjlist .srow:last-child input.n')?.focus(); }
     const del = e.target.closest('[data-adjdel]');
     if (del && !lockedAdj(c.abil[a].adj[Number(del.dataset.adjdel)])) { c.abil[a].adj.splice(Number(del.dataset.adjdel), 1); touch(); draw(); }
@@ -807,21 +809,37 @@ const d6 = () => { const b = new Uint32Array(1); crypto.getRandomValues(b); retu
 // 4d6, the lowest die set aside
 function rollScore() { const dice = [d6(), d6(), d6(), d6()]; const low = dice.indexOf(Math.min(...dice)); return { dice, low, total: dice.reduce((t, x, i) => t + (i === low ? 0 : x), 0) }; }
 const allowedMethods = () => { const m = String(L.tableSettings().abilMethods || 'roll,array,pointbuy').split(',').filter(x => METHOD_NAMES[x]); return m.length ? m : ['roll', 'array', 'pointbuy']; };
-function openScores() {
+// 2024: the background raises three abilities, +2 and +1 or +1 to each (never above 20)
+export function bgIncrease(c) {
+  if (L.edition() !== '2024') return null;
+  const bg = L.get(c.bgId); return bg?.abilScores?.length ? bg : null;
+}
+export const bgIncreaseDone = c => Object.values(c.abil || {}).some(a => (a.adj || []).some(x => x.bg24));
+function openScores({ methods = false } = {}) {
   const c = state.cur, ok = allowedMethods();
-  c.abilGen = c.abilGen || { done: false };
+  const scoresSet = !!(c.abilGen ? c.abilGen.done : true);
+  // the scores are already set: only the background's increases, unless the DM asked to set all six again
+  const onlyBg = scoresSet && !(methods && isDm());
+  c.abilGen = c.abilGen || { done: true };
   const keys = R.ABILS.map(([k]) => k);
-  const st = { method: ok.includes(c.abilGen.method) ? c.abilGen.method : (c.abilGen.rolls && ok.includes('roll') ? 'roll' : ok[0]), pick: {}, pb: Object.fromEntries(keys.map(k => [k, 8])) };
-  const adj = k => (c.abil[k].adj || []).reduce((t, x) => t + (Number(x.v) || 0), 0);
+  const bg = bgIncrease(c);
+  const had = {}; for (const k of keys) for (const x of c.abil[k].adj || []) if (x.bg24) had[k] = Number(x.v) || 0;
+  const hv = Object.entries(had);
+  const st = { method: ok.includes(c.abilGen.method) ? c.abilGen.method : (c.abilGen.rolls && ok.includes('roll') ? 'roll' : ok[0]), pick: {}, pb: Object.fromEntries(keys.map(k => [k, 8])),
+    bgMode: hv.length === 3 ? '111' : '21', two: hv.find(([, v]) => v === 2)?.[0] || '', one: hv.find(([, v]) => v === 1 && hv.length < 3)?.[0] || '' };
+  const bgV = k => (!bg ? 0 : st.bgMode === '111' ? (bg.abilScores.includes(k) ? 1 : 0) : k === st.two ? 2 : k === st.one ? 1 : 0);
+  const bgOk = () => !bg || st.bgMode === '111' || (st.two && st.one && st.two !== st.one);
+  const adj = k => (c.abil[k].adj || []).filter(x => !x.bg24).reduce((t, x) => t + (Number(x.v) || 0), 0) + bgV(k);
   const pool = () => (st.method === 'roll' ? (c.abilGen.rolls || []).map(r => r.total) : st.method === 'array' ? ARRAY : []);
   const base = k => (st.method === 'pointbuy' ? st.pb[k] : st.pick[k] == null ? null : pool()[st.pick[k]]);
   const spent = () => keys.reduce((t, k) => t + PB_COST[st.pb[k]], 0);
-  const complete = () => (st.method === 'pointbuy' ? spent() <= PB_POINTS : pool().length === 6 && keys.every(k => st.pick[k] != null));
+  const complete = () => bgOk() && (onlyBg || (st.method === 'pointbuy' ? spent() <= PB_POINTS : pool().length === 6 && keys.every(k => st.pick[k] != null)));
+  const cur = k => Number(c.abil[k].base) || 0;
   const draw = () => {
     const p = pool(), used = new Set(Object.values(st.pick));
     const rows = R.ABILS.map(([k, n]) => {
-      const b = base(k), a = adj(k), fin = b == null ? '—' : b + a;
-      const ctrl = st.method === 'pointbuy'
+      const b = onlyBg ? cur(k) : base(k), a = adj(k), fin = b == null ? '—' : b + a;
+      const ctrl = onlyBg ? `<b class="pbv">${b}</b>` : st.method === 'pointbuy'
         ? `<button class="step" type="button" data-pb="${k}" data-d="-1" ${st.pb[k] <= 8 ? 'disabled' : ''} aria-label="Lower ${n}">−</button><b class="pbv">${st.pb[k]}</b><button class="step" type="button" data-pb="${k}" data-d="1" ${st.pb[k] >= 15 || PB_COST[st.pb[k] + 1] - PB_COST[st.pb[k]] > PB_POINTS - spent() ? 'disabled' : ''} aria-label="Raise ${n}">+</button>`
         : `<select class="f" data-pick="${k}" aria-label="${n}" ${p.length ? '' : 'disabled'}><option value="">Choose</option>${p.map((v, i) => `<option value="${i}" ${st.pick[k] === i ? 'selected' : ''} ${used.has(i) && st.pick[k] !== i ? 'disabled' : ''}>${v}</option>`).join('')}</select>`;
       return `<div class="scrow"><span class="scn">${n}</span><span class="scc">${ctrl}</span><span class="sca">${a ? R.sign(a) : ''}</span><b class="scf">${fin}</b><small class="scm">${b == null ? '' : R.sign(R.mod(b + a))}</small></div>`;
@@ -834,12 +852,17 @@ function openScores() {
         : `<p class="hint">Roll 4d6 six times; the lowest die of each roll is set aside. The rolls are kept on the sheet, so they count.</p><button class="btn primary" type="button" data-roll>Roll the dice</button>`)
       : st.method === 'array' ? '<p class="hint">Put each of 15, 14, 13, 12, 10 and 8 on an ability.</p>'
       : `<p class="hint">Every score starts at 8. Raising one costs points (14 costs 7, 15 costs 9); 15 is the highest you can buy.</p><p class="pbleft ${spent() > PB_POINTS ? 'over' : ''}"><b>${PB_POINTS - spent()}</b> of ${PB_POINTS} points left</p>`;
-    return `<h2>Ability scores</h2>${tabs}${how}
-      <div class="scgrid"><div class="scrow head"><span></span><span>Base</span><span>Race</span><span>Score</span><span></span></div>${rows}</div>
+    const bgBox = bg ? `<div class="bgasi"><span class="lbl">${esc(bg.name)} background</span><p class="hint">${esc(bg.abilNote)}</p>
+      <div class="seg" role="group" aria-label="How to raise them"><button type="button" data-bgm="21" aria-pressed="${st.bgMode === '21'}">+2 and +1</button><button type="button" data-bgm="111" aria-pressed="${st.bgMode === '111'}">+1 to all three</button></div>
+      ${st.bgMode === '21' ? `<div class="row"><label class="mini">+2 to <select class="f" data-bg2><option value="">Choose</option>${bg.abilScores.map(a => `<option value="${a}" ${st.two === a ? 'selected' : ''}>${R.ABIL_SHORT[a]}</option>`).join('')}</select></label>
+        <label class="mini">+1 to <select class="f" data-bg1><option value="">Choose</option>${bg.abilScores.filter(a => a !== st.two).map(a => `<option value="${a}" ${st.one === a ? 'selected' : ''}>${R.ABIL_SHORT[a]}</option>`).join('')}</select></label></div>` : ''}</div>` : '';
+    return `<h2>${onlyBg ? 'Background increases' : 'Ability scores'}</h2>${onlyBg ? '' : tabs + how}${bgBox}
+      <div class="scgrid"><div class="scrow head"><span></span><span>Base</span><span>${R.F.is2024() ? 'Bonus' : 'Race'}</span><span>Score</span><span></span></div>${rows}</div>
       <div class="row end"><button class="btn ghost" type="button" data-close>Later</button><button class="btn primary" type="button" data-apply ${complete() ? '' : 'disabled'}>Use these scores</button></div>`;
   };
   actDialog(draw, (e, paint) => {
     const m = e.target.closest('[data-m]'); if (m) { st.method = m.dataset.m; st.pick = {}; return paint(); }
+    const bm = e.target.closest('[data-bgm]'); if (bm) { st.bgMode = bm.dataset.bgm; return paint(); }
     if (e.target.closest('[data-roll]') || e.target.closest('[data-reroll]')) {
       if (c.abilGen.rolls && !isDm()) return;
       c.abilGen = { ...c.abilGen, rolls: Array.from({ length: 6 }, rollScore), rolledAt: Date.now() }; st.pick = {};
@@ -848,11 +871,22 @@ function openScores() {
     const pb = e.target.closest('[data-pb]');
     if (pb) { const k = pb.dataset.pb, d = Number(pb.dataset.d), v = st.pb[k] + d; if (v >= 8 && v <= 15 && (d < 0 || spent() - PB_COST[st.pb[k]] + PB_COST[v] <= PB_POINTS)) st.pb[k] = v; return paint(); }
     if (e.target.closest('[data-apply]') && complete()) {
-      for (const k of keys) { c.abil[k].base = base(k); stamp(c, `abil.${k}`); }
-      c.abilGen = { ...c.abilGen, method: st.method, done: true, at: Date.now() };
+      for (const k of keys) {
+        if (!onlyBg) c.abil[k].base = base(k);
+        if (bg) {
+          c.abil[k].adj = (c.abil[k].adj || []).filter(x => !x.bg24);
+          const v = bgV(k); if (v) c.abil[k].adj.push({ id: uid(), src: 'Background', note: bg.name, v, bg24: true });
+        }
+        stamp(c, `abil.${k}`);
+      }
+      if (!onlyBg) c.abilGen = { ...c.abilGen, method: st.method, done: true, at: Date.now() };
       stamp(c, 'abilGen'); save(c); $('#actDlg').close(); toast('Ability scores set.');
     }
-  }, (e, paint) => { const s = e.target.closest('[data-pick]'); if (s) { st.pick[s.dataset.pick] = s.value === '' ? null : Number(s.value); paint(); } });
+  }, (e, paint) => {
+    const s = e.target.closest('[data-pick]'); if (s) { st.pick[s.dataset.pick] = s.value === '' ? null : Number(s.value); paint(); }
+    if (e.target.matches('[data-bg2]')) { st.two = e.target.value; if (st.one === st.two) st.one = ''; paint(); }
+    if (e.target.matches('[data-bg1]')) { st.one = e.target.value; paint(); }
+  });
 }
 
 /* ---------- the equipment list: add gear to the inventory; armor sets AC when worn, weapons become attacks ---------- */
@@ -1082,10 +1116,11 @@ function renderTableRules() {
     box.innerHTML = `<div class="trrow"><span>Spellcasting</span><div class="seg" role="group" aria-label="Spellcasting"><button type="button" data-ts="spellMode" data-v="points" aria-pressed="${t.spellMode === 'points'}">Spell points</button><button type="button" data-ts="spellMode" data-v="slots" aria-pressed="${t.spellMode === 'slots'}">Spell slots</button></div></div>
       <div class="trrow"><span>Leveling</span><div class="seg" role="group" aria-label="Leveling"><button type="button" data-ts="leveling" data-v="xp" aria-pressed="${t.leveling === 'xp'}">Experience points</button><button type="button" data-ts="leveling" data-v="milestone" aria-pressed="${t.leveling === 'milestone'}">Milestone</button></div></div>
       <div class="trrow"><span>Initiative</span><div class="seg" role="group" aria-label="Initiative"><button type="button" data-ts="initiative" data-v="active" aria-pressed="${t.initiative === 'active'}">Active Initiative</button><button type="button" data-ts="initiative" data-v="standard" aria-pressed="${t.initiative === 'standard'}">Standard</button></div></div>
+      <div class="trrow"><span>Rules</span><div class="seg" role="group" aria-label="Edition of the rules"><button type="button" data-ts="edition" data-v="2014" aria-pressed="${t.edition !== '2024'}">2014 (SRD 5.1)</button><button type="button" data-ts="edition" data-v="2024" aria-pressed="${t.edition === '2024'}">2024 (SRD 5.2)</button></div></div>
       <div class="trrow"><span>Ability scores</span><div class="seg" role="group" aria-label="Ways to set ability scores">${['roll', 'array', 'pointbuy'].map(m => `<button type="button" data-tsm="${m}" aria-pressed="${allowedMethods().includes(m)}">${m === 'roll' ? 'Rolling' : m === 'array' ? 'Standard array' : 'Point buy'}</button>`).join('')}</div></div>
-      <p class="hint">These apply to every sheet at the table. Players get the change with the Table Library. Ability scores: pick every way new characters may use (at least one).</p>`;
+      <p class="hint">These apply to every sheet at the table. Players get the change with the Table Library. Ability scores: pick every way new characters may use (at least one). Rules: the Library and the pickers show that edition's classes, species, backgrounds, feats, spells and equipment; sheets already made keep what they have.</p>`;
   } else {
-    box.innerHTML = `<p>Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'}, ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'} and ${t.leveling === 'milestone' ? 'milestone leveling' : 'experience points'}. New characters set ability scores by ${allowedMethods().map(m => ({ roll: 'rolling', array: 'the standard array', pointbuy: 'point buy' })[m]).join(' or ')}.</p>`;
+    box.innerHTML = `<p>Your table plays the ${t.edition === '2024' ? '2024' : '2014'} rules. Your DM has set ${t.spellMode === 'points' ? 'spell points' : 'spell slots'}, ${t.initiative === 'active' ? 'Active Initiative' : 'standard initiative'} and ${t.leveling === 'milestone' ? 'milestone leveling' : 'experience points'}. New characters set ability scores by ${allowedMethods().map(m => ({ roll: 'rolling', array: 'the standard array', pointbuy: 'point buy' })[m]).join(' or ')}.</p>`;
   }
 }
 // DM: which Session Notes character and which magic item character each sheet belongs to
@@ -1133,7 +1168,7 @@ const sheetCtx = {
 async function start() {
   await loadSettings();
   await L.loadLibrary();
-  R.F.useLibrary(L.get); // class tables and option names, for features that change the numbers
+  R.F.useLibrary(L.get, L.edition); // class tables, option names and the edition, for features that change the numbers
   initSheet(sheetCtx);
   initLibrary($('#libview'), { toast, isDm: () => isDm(), libraryEdited: () => {}, chars: () => state.chars.map(c => ({ id: c.id, name: c.name })), magicItems: () => B.magicItemList() });
   $('#libBtn').addEventListener('click', () => openLibraryView());

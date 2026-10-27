@@ -78,7 +78,7 @@ export function prof(c) {
   return Math.ceil(totalLevel(c) / 4) + 1;
 }
 
-export const save = (c, a) => amod(c, a) + (c.saves?.[a] || F.allSaves(c) ? prof(c) : 0) + fxSum(c, 'save', a) + (F.saveBonus(c, x => score(c, x))?.v || 0);
+export const save = (c, a) => amod(c, a) + (c.saves?.[a] || F.allSaves(c) ? prof(c) : 0) + fxSum(c, 'save', a) + (F.saveBonus(c, x => score(c, x))?.v || 0) + F.d20Penalty(c);
 
 export function skill(c, key) {
   const def = SKILLS.find(s => s[0] === key);
@@ -87,10 +87,10 @@ export function skill(c, key) {
   // not proficient: Jack of All Trades (half, rounded down) or Remarkable Athlete on Str/Dex/Con (half, rounded up)
   const half = Math.max(F.jack(c) ? Math.floor(p / 2) : 0, F.athlete(c) && ['str', 'dex', 'con'].includes(def[2]) ? Math.ceil(p / 2) : 0);
   let bonus = rank === 2 ? p * 2 : rank === 1 ? p : half;
-  return amod(c, def[2]) + bonus + fxSum(c, 'check', 'all');
+  return amod(c, def[2]) + bonus + fxSum(c, 'check', 'all') + F.d20Penalty(c);
 }
 export const passivePerception = c => 10 + skill(c, 'perception');
-export const initiative = c => amod(c, 'dex') + num(c.init?.misc) + Math.max(F.jack(c) ? Math.floor(prof(c) / 2) : 0, F.athlete(c) ? Math.ceil(prof(c) / 2) : 0) + fxSum(c, 'check', 'all');
+export const initiative = c => amod(c, 'dex') + num(c.init?.misc) + Math.max(F.jack(c) ? Math.floor(prof(c) / 2) : 0, F.athlete(c) ? Math.ceil(prof(c) / 2) : 0) + fxSum(c, 'check', 'all') + F.d20Penalty(c);
 
 export function armorClass(c) {
   const a = c.ac || {};
@@ -123,7 +123,7 @@ export const saveDc = (c, a, kind = 'spell') => (a ? 8 + prof(c) + amod(c, a) + 
 /** Walking speed after features, armor and exhaustion: { walk, typed, parts, text } */
 export const speedInfo = c => F.speed(c, x => score(c, x), fxSum(c, 'speed'));
 
-export const spellAttack = (c, a) => (a ? prof(c) + amod(c, a) + fxSum(c, 'spellatk') : null);
+export const spellAttack = (c, a) => (a ? prof(c) + amod(c, a) + fxSum(c, 'spellatk') + F.d20Penalty(c) : null);
 // effects that only count for attacks made with that item ("+1 bonus to attack and damage rolls made with this weapon")
 const baseName = s => String(s || '').toLowerCase().replace(/\s*,?\s*[+]\d+\b/g, '').replace(/\s*\([^)]*\)/g, '').trim();
 function itemFx(c, k, atk) {
@@ -144,7 +144,7 @@ export function attackAbil(c, atk) {
   return atk.abil || '';
 }
 export function attackBonus(c, atk) {
-  return amod(c, attackAbil(c, atk)) + (atk.prof ? prof(c) : 0) + num(atk.bonus) + itemFx(c, 'atk', atk) + (atk.ranged && F.archery(c) ? 2 : 0);
+  return amod(c, attackAbil(c, atk)) + (atk.prof ? prof(c) : 0) + num(atk.bonus) + itemFx(c, 'atk', atk) + (atk.ranged && F.archery(c) ? 2 : 0) + F.d20Penalty(c);
 }
 export function damageText(c, atk) {
   const dice = (atk.dmg || '').trim();

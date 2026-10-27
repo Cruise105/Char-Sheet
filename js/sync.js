@@ -233,7 +233,7 @@ async function loadCoreExtras() {
 }
 // Table Rules (spell points or slots, initiative, leveling) are the suite's: set them in any app and every app
 // follows. The Table Library carries them to the players; the newest choice wins, in either direction.
-const TABLE_KEYS = ['spellMode', 'initiative', 'leveling'];
+const TABLE_KEYS = ['spellMode', 'initiative', 'leveling', 'edition'];
 async function syncTableSettings() {
   if (!core?.tableSettings || !core.saveSuite) return;
   const ts = core.tableSettings(), lib = tableSettings(), libAt = Number(lib.updated) || 0;

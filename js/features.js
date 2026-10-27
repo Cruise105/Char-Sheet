@@ -9,9 +9,11 @@
 // Nothing here is stored: it's worked out from the sheet each time, so it follows level-ups and changes.
 // This file stays free of other imports so the Bestiary can load the rules too; the app hands it the Library.
 
-let lookup = () => null;
-/** The Character Sheet hands over its Library lookup (class tables, class option names). */
-export function useLibrary(get) { if (typeof get === 'function') lookup = get; }
+let lookup = () => null, editionOf = () => '2014';
+/** The Character Sheet hands over its Library lookup (class tables, class option names) and the table's edition. */
+export function useLibrary(get, edition) { if (typeof get === 'function') lookup = get; if (typeof edition === 'function') editionOf = edition; }
+/** Is the table playing the 2024 rules? */
+export const is2024 = () => editionOf() === '2024';
 
 const num = v => { const n = Number(v); return Number.isFinite(n) ? n : 0; };
 const norm = s => String(s || '').toLowerCase().replace(/\s*\([^)]*\)/g, '').replace(/[^a-z' ]/g, ' ').replace(/\s+/g, ' ').trim();
@@ -103,7 +105,8 @@ export function speed(c, score, itemBonus = 0) {
   if (heavyArmor(c) && need && score('str') < need && !/dwarf/i.test(String(c.race || ''))) parts.push({ v: -10, name: `Heavy armor (needs Str ${need})` });
   let walk = Math.max(0, typed + parts.reduce((t, p) => t + p.v, 0));
   const exh = num(c.exhaustion);
-  if (exh >= 5) { walk = 0; parts.push({ v: 0, name: 'Exhaustion: speed 0' }); }
+  if (is2024()) { if (exh) { walk = Math.max(0, walk - 5 * exh); parts.push({ v: -5 * exh, name: `Exhaustion ${exh}` }); } } // 2024: −5 ft per level
+  else if (exh >= 5) { walk = 0; parts.push({ v: 0, name: 'Exhaustion: speed 0' }); }
   else if (exh >= 2) { walk = Math.floor(walk / 2); parts.push({ v: 0, name: 'Exhaustion: speed halved' }); }
   const text = wi >= 0 && walk !== typed ? bits.map((b, i) => (i === wi ? b.replace(/\d+/, String(walk)) : b)).join(', ') : raw;
   return { walk, typed, parts, text };
@@ -115,8 +118,10 @@ export const raging = c => !!c.rage?.on && canRage(c);
 /** Rages per long rest (Infinity at 20) */
 export function ragesMax(c) {
   const lvl = classLevel(c, 'Barbarian');
-  if (lvl >= 20) return Infinity;
-  return tableNum(c, 'Barbarian', 'Rages') ?? stepAt(lvl, [[1, 2], [3, 3], [6, 4], [12, 5], [17, 6]]);
+  const t = tableNum(c, 'Barbarian', 'Rages'); // 2014's table says "Unlimited" at 20, which has no number
+  if (t != null) return t;
+  if (lvl >= 20 && !is2024()) return Infinity;
+  return stepAt(lvl, [[1, 2], [3, 3], [6, 4], [12, 5], [17, 6]]);
 }
 export const rageDamage = c => tableNum(c, 'Barbarian', 'Rage Damage') ?? stepAt(classLevel(c, 'Barbarian'), [[1, 2], [9, 3], [16, 4]]);
 
@@ -127,18 +132,21 @@ export function saveBonus(c, score) {
   return null;
 }
 /** Proficient in every saving throw (Diamond Soul) */
-export const allSaves = c => classLevel(c, 'Monk') >= 14 && has(c, 'Diamond Soul');
+export const allSaves = c => classLevel(c, 'Monk') >= 14 && (has(c, 'Diamond Soul') || has(c, 'Disciplined Survivor'));
 /** Jack of All Trades */
 export const jack = c => !!c.jack || (classLevel(c, 'Bard') >= 2 && has(c, 'Jack of All Trades'));
 /** Remarkable Athlete: half proficiency (rounded up) on Str, Dex and Con checks you aren't proficient in */
-export const athlete = c => subLevel(c, 'Champion') >= 7 && has(c, 'Remarkable Athlete');
+export const athlete = c => !is2024() && subLevel(c, 'Champion') >= 7 && has(c, 'Remarkable Athlete'); // 2024's version does something else
 /** Score raises from features: Primal Champion (+4 Str and Con, to at most 24) */
 export function scoreRaise(c, a) {
-  if ((a === 'str' || a === 'con') && classLevel(c, 'Barbarian') >= 20 && has(c, 'Primal Champion')) return { v: 4, max: 24, name: 'Primal Champion' };
+  if ((a === 'str' || a === 'con') && classLevel(c, 'Barbarian') >= 20 && has(c, 'Primal Champion')) return { v: 4, max: is2024() ? 25 : 24, name: 'Primal Champion' };
   return null;
 }
 /** Archery fighting style: +2 to ranged weapon attacks */
 export const archery = c => has(c, 'Archery');
+
+/** 2024 exhaustion: −2 per level to every d20 test (ability checks, attack rolls, saving throws) */
+export const d20Penalty = c => (is2024() ? -2 * num(c.exhaustion) : 0);
 
 /** Plain-words lines for what features are doing right now, for the sheet: [{ name, txt }] */
 export function summary(c, score) {
@@ -149,6 +157,7 @@ export function summary(c, score) {
   if (athlete(c)) out.push({ name: 'Remarkable Athlete', txt: 'half proficiency on Strength, Dexterity and Constitution checks you aren\'t proficient in' });
   if (classLevel(c, 'Barbarian') >= 7 && has(c, 'Feral Instinct')) out.push({ name: 'Feral Instinct', txt: 'advantage on initiative' });
   if (classLevel(c, 'Barbarian') >= 2 && has(c, 'Danger Sense')) out.push({ name: 'Danger Sense', txt: 'advantage on Dexterity saves against effects you can see (not blinded, deafened or incapacitated)' });
+  if (d20Penalty(c)) out.push({ name: `Exhaustion ${num(c.exhaustion)}`, txt: `${d20Penalty(c)} to ability checks, attack rolls and saving throws` });
   if (archery(c)) out.push({ name: 'Archery', txt: '+2 to attack rolls with ranged weapons (attacks marked Ranged)' });
   return out;
 }

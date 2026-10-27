@@ -7,24 +7,26 @@ export const TYPES = [
   ['race', 'Races', 'Race'], ['class', 'Classes', 'Class'], ['subclass', 'Subclasses', 'Subclass'],
   ['background', 'Backgrounds', 'Background'], ['item', 'Equipment', 'Item'], ['feat', 'Feats', 'Feat'], ['option', 'Class options', 'Class option'], ['spell', 'Spells', 'Spell'], ['language', 'Languages', 'Language'], ['boon', 'Boons', 'Boon'],
 ];
-export const typeName = t => (TYPES.find(x => x[0] === t) || [])[2] || t;
+// 2024 calls races "species"
+const word = (t, i) => (t === 'race' && edition() === '2024' ? ['', 'Species', 'Species'][i] : (TYPES.find(x => x[0] === t) || [])[i]);
+export const typeName = t => word(t, 2) || t;
+export const typePlural = t => word(t, 1) || t;
 
 let srd = new Map();
 // custom: { entries: {id: entry}, deleted: {id: time}, updated }
 // settings: the table-wide switches the DM controls (synced to players with the library)
 // Rules as written to start with; a table switches on its own rules (spell points, Active Initiative…) in Table Rules
 // abilMethods: how new characters may set their ability scores (rolling, the standard array, point buy)
-const DEFAULT_SETTINGS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp', abilMethods: 'roll,array,pointbuy', updated: 0 };
+// edition: which rules the table plays, '2014' (SRD 5.1) or '2024' (SRD 5.2); the Library shows that edition's entries
+const DEFAULT_SETTINGS = { spellMode: 'slots', initiative: 'standard', leveling: 'xp', abilMethods: 'roll,array,pointbuy', edition: '2014', updated: 0 };
 let custom = { entries: {}, deleted: {}, updated: 0, settings: { ...DEFAULT_SETTINGS } };
 let merged = new Map();
 const listeners = new Set();
 
 export async function loadLibrary() {
-  try {
-    const r = await fetch('data/srd.json');
-    const data = await r.json();
-    srd = new Map(data.entries.map(e => [e.id, { ...e, builtIn: true }]));
-  } catch { srd = new Map(); }
+  // both editions' SRD entries stay loaded, so a sheet made with either keeps everything it links to
+  const [a, b] = await Promise.all(['data/srd.json', 'data/srd2024.json'].map(f => fetch(f).then(r => r.json()).catch(() => ({ entries: [] }))));
+  srd = new Map([...a.entries.map(e => [e.id, { ...e, ed: '2014', builtIn: true }]), ...b.entries.map(e => [e.id, { ...e, ed: '2024', builtIn: true }])]);
   const saved = await db.getMeta('library');
   if (saved) custom = { entries: {}, deleted: {}, updated: 0, ...saved, settings: { ...DEFAULT_SETTINGS, ...(saved.settings || {}) } };
   rebuild();
@@ -32,14 +34,18 @@ export async function loadLibrary() {
 function rebuild() {
   merged = new Map(srd);
   // an edited SRD entry keeps the SRD's value for any field it doesn't have (fields added in later updates)
-  for (const [id, e] of Object.entries(custom.entries)) merged.set(id, { ...(srd.get(id) || {}), ...e, builtIn: false, overridesSrd: srd.has(id) });
+  for (const [id, e] of Object.entries(custom.entries)) merged.set(id, { ...(srd.get(id) || {}), ...e, ...(srd.get(id)?.ed ? { ed: srd.get(id).ed } : {}), builtIn: false, overridesSrd: srd.has(id) });
   for (const l of listeners) l();
 }
 export const onLibraryChange = fn => listeners.add(fn);
 
 export const get = id => merged.get(id) || null;
-export function all(type) {
-  return [...merged.values()].filter(e => !type || e.type === type).sort((a, b) => a.name.localeCompare(b.name));
+/** The table's edition: '2014' or '2024'. */
+export const edition = () => (tableSettings().edition === '2024' ? '2024' : '2014');
+// Entries of the table's edition, plus the DM's own (which belong to no edition)
+const inEdition = e => !e.ed || e.ed === edition();
+export function all(type, { anyEdition = false } = {}) {
+  return [...merged.values()].filter(e => (!type || e.type === type) && (anyEdition || inEdition(e))).sort((a, b) => a.name.localeCompare(b.name));
 }
 // Races show subraces as "Hill Dwarf"; the picker label includes the parent so players can find them
 export function label(e) {

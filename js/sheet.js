@@ -92,7 +92,7 @@ function header(c) {
     <div class="headgrid">
       <div class="hf wide"><span class="lbl">Class &amp; level</span><div data-list="classes">${classes}</div>
         ${isPlayer() ? '' : '<button class="linkbtn" type="button" data-act="rowadd" data-list="classes">Add a class (multiclass)</button>'}</div>
-      <div class="hf"><span class="lbl">Race</span>${pickInput('race', c.race, 'Pick or type', 'dl-race', c.raceId)}</div>
+      <div class="hf"><span class="lbl">${R.F.is2024() ? 'Species' : 'Race'}</span>${pickInput('race', c.race, 'Pick or type', 'dl-race', c.raceId)}</div>
       <div class="hf"><span class="lbl">Background</span>${pickInput('background', c.background, 'Pick or type', 'dl-bg', c.bgId)}</div>
       <label class="hf"><span class="lbl">Alignment</span>${txt(c, 'alignment')}</label>
       <label class="hf"><span class="lbl">Player name</span>${txt(c, 'player')}</label>
@@ -130,7 +130,9 @@ function datalists(c) {
 
 function abilities(c) {
   const todo = c.abilGen && !c.abilGen.done;
-  return `${todo ? `<div class="scorescall"><button class="btn primary" type="button" data-act="scores">Set your ability scores</button><small>Roll, use the standard array or point buy, whichever your table allows.</small></div>` : ''}<section class="panel abilities" aria-label="Ability scores">
+  // 2024: the background's ability increases, once a background is picked
+  const bg = !todo && L.edition() === '2024' && L.get(c.bgId)?.abilScores?.length && !Object.values(c.abil || {}).some(a => (a.adj || []).some(x => x.bg24)) ? L.get(c.bgId) : null;
+  return `${todo ? `<div class="scorescall"><button class="btn primary" type="button" data-act="scores">Set your ability scores</button><small>Roll, use the standard array or point buy, whichever your table allows${L.edition() === '2024' ? ', then your background\'s increases' : ''}.</small></div>` : bg ? `<div class="scorescall"><button class="btn primary" type="button" data-act="scores">Background increases</button><small>${esc(bg.name)}: +2 and +1, or +1 to each of ${bg.abilScores.map(a => R.ABIL_SHORT[a]).join(', ')}.</small></div>` : ''}<section class="panel abilities" aria-label="Ability scores">
     ${R.ABILS.map(([k, n]) => `
       <button class="abil" type="button" data-act="abil" data-a="${k}" aria-label="${n}: edit score and sources">
         <span class="an">${n}</span>
@@ -206,7 +208,7 @@ function combat(c) {
         <div class="ds"><small>Failures</small>${pips('f', c.death.f, 'Failure')}</div></div>
       <div class="stat"><span class="lbl">Exhaustion</span>
         ${sel(c, 'exhaustion', [0, 1, 2, 3, 4, 5, 6].map(n => [n, n === 0 ? 'None' : `Level ${n}`]), 'data-type="num" data-rerender')}
-        <small class="exh">${esc(EXHAUSTION[Number(c.exhaustion) || 0])}</small></div>
+        <small class="exh">${esc(exhaustionText(c))}</small></div>
     </div>
     <div class="hf"><span class="lbl">Vision</span>${txtL(c, 'vision', isPlayer() ? 'Normal' : 'Darkvision 60 ft')}</div>
   </section>`;
@@ -233,6 +235,12 @@ function featFxHtml(c) {
   return `<span class="lbl">Features at work</span>${lines.map(l => `<div class="fxrow"><b>${esc(l.name)}</b><span>${esc(l.txt)}</span></div>`).join('')}`;
 }
 // SRD 5.1 exhaustion levels (each level includes the ones before it)
+// 2024 (SRD 5.2): every level is −2 to d20 tests and −5 ft of speed; 6 levels is death
+function exhaustionText(c) {
+  const n = Number(c.exhaustion) || 0;
+  if (!R.F.is2024()) return EXHAUSTION[n] || '';
+  return n >= 6 ? 'Death' : n ? `−${2 * n} to d20 tests, −${5 * n} ft speed` : '';
+}
 const EXHAUSTION = ['', 'Disadvantage on ability checks', 'Speed halved', 'Disadvantage on attack rolls and saving throws', 'Hit point maximum halved', 'Speed reduced to 0', 'Death'];
 
 function attacks(c) {
@@ -512,7 +520,7 @@ function sectionHtml(c) {
     bgfeat: isPlayer()
       ? panel('Background feature', c.bgFeature?.name || c.bgFeature?.text ? `<details class="feat"><summary><span>${esc(c.bgFeature.name || 'Feature')}</span></summary><div class="ftext">${fmt(c.bgFeature.text)}</div></details>` : '<p class="empty">None yet.</p>')
       : panel('Background feature', `${txt(c, 'bgFeature.name', 'Feature name')}${area(c, 'bgFeature.text', 'Full text', 3)}`),
-    racial: featureList(c, 'racial', 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…', locked: true }),
+    racial: featureList(c, 'racial', R.F.is2024() ? 'Species traits' : 'Racial traits', { one: 'a trait', empty: 'Darkvision, ancestry traits…', locked: true }),
     classfeat: featureList(c, 'classFeat', 'Class features', { one: 'a feature', locked: true, top: classTableStrip(c) }),
     options: optionsPanel(c),
     infusions: infusionsPanel(c),

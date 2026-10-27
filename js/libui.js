@@ -117,17 +117,17 @@ function render() {
   const sel = st.sel && L.get(st.sel)?.type === st.type ? L.get(st.sel) : null;
   root.innerHTML = `
     <aside class="libside">
-      <div class="seg libtypes" role="group" aria-label="Entry type">${L.TYPES.map(([k, n]) => `<button type="button" data-ltype="${k}" aria-pressed="${st.type === k}">${n}</button>`).join('')}</div>
-      <input class="f" type="search" data-lq value="${esc(st.q)}" placeholder="Search ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}" aria-label="Search">
+      <div class="seg libtypes" role="group" aria-label="Entry type">${L.TYPES.map(([k]) => `<button type="button" data-ltype="${k}" aria-pressed="${st.type === k}">${L.typePlural(k)}</button>`).join('')}</div>
+      <input class="f" type="search" data-lq value="${esc(st.q)}" placeholder="Search ${L.typePlural(st.type).toLowerCase()}" aria-label="Search">
       ${dm ? `<button class="btn primary" type="button" data-lnew>New ${L.typeName(st.type).toLowerCase()}</button>` : ''}
       <ul class="liblist">${items.map(e => `<li><button type="button" data-lsel="${e.id}" aria-current="${e.id === st.sel}">
         <span>${esc(e.name)}${e.parent && e.type === 'race' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'subclass' ? ` <small>${esc(L.get(e.parent)?.name || '')}</small>` : ''}${e.type === 'option' ? ` <small>${esc(e.group || '')}</small>` : ''}${e.type === 'spell' ? ` <small>${e.level ? `Lv ${e.level}` : 'Cantrip'}</small>` : ''}</span>
         <small class="srcb">${e.builtIn ? 'SRD' : esc(e.src || (e.overridesSrd ? 'SRD, edited' : 'Yours'))}</small></button></li>`).join('') || '<li class="empty">Nothing here yet.</li>'}</ul>
     </aside>
-    <section class="libmain">${st.draft || sel ? `<button class="linkbtn libback" type="button" data-lback>All ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()}</button>` : ''}${st.draft ? editorHtml(st.draft) : sel ? `
+    <section class="libmain">${st.draft || sel ? `<button class="linkbtn libback" type="button" data-lback>All ${L.typePlural(st.type).toLowerCase()}</button>` : ''}${st.draft ? editorHtml(st.draft) : sel ? `
       ${dm ? `<div class="row libacts"><button class="btn" type="button" data-ledit>Edit</button><button class="btn" type="button" data-ldup>Duplicate</button>
         ${sel.builtIn ? '' : sel.overridesSrd ? '<button class="btn" type="button" data-ldel>Restore SRD version</button>' : '<button class="btn danger" type="button" data-ldel>Delete</button>'}</div>` : ''}
-      ${entryHtml(sel)}` : `<div class="libempty"><p>${items.length ? 'Choose an entry to read it.' : dm ? `No ${L.TYPES.find(t => t[0] === st.type)[1].toLowerCase()} yet. Add one with the button on the left.` : 'Nothing here yet.'}</p></div>`}</section>`;
+      ${entryHtml(sel)}` : `<div class="libempty"><p>${items.length ? 'Choose an entry to read it.' : dm ? `No ${L.typePlural(st.type).toLowerCase()} yet. Add one with the button on the left.` : 'Nothing here yet.'}</p></div>`}</section>`;
   root.dataset.mode = st.draft || sel ? 'entry' : 'list';
 }
 

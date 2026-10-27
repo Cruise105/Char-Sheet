@@ -901,3 +901,5 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .eqbtn{display:inline-block;margin-top:3px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);background:transparent;color:var(--muted);font:500 .72rem/1.4 var(--body);cursor:pointer}
 .eqbtn.on{color:var(--accent);border-color:var(--accent)}
 .eqnote{display:block;margin-top:3px;font-size:.72rem;color:var(--muted)}
+.bgasi{display:grid;gap:6px;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:10px}
+.bgasi .row{display:flex;flex-wrap:wrap;gap:10px}
