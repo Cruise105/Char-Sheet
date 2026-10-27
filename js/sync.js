@@ -251,8 +251,49 @@ export const campaignList = () => core?.campaigns?.() || [];
 // The table chosen in the launcher: this device's role there ('dm', 'player' or ''), and its approved players
 export const tableRole = () => core?.tableRole?.() || '';
 export async function tablePlayers() {
-  const T = await core?.tables?.(); if (!T || !tokenValid()) return [];
+  const T = await core?.tables?.(); if (!T) throw new Error("Couldn't load your table.");
+  if (T.role() !== 'dm') throw new Error('Pick your table in the launcher to see its players here.');
+  if (!tokenValid()) await ensureToken(false);
+  if (!tokenValid()) throw new Error('Sign in to Google first (Settings).');
   return T.playerEmails(tok.value);
+}
+// DM: tell the table which sheet each player has, so their app offers it to them (no searching their Drive)
+let assignedAt = 0;
+async function publishAssignments(force = false) {
+  if (!force && Date.now() - assignedAt < 10 * 60 * 1000) return;
+  const T = await core?.tables?.(); if (!T || T.role() !== 'dm' || !tokenValid()) return;
+  const shares = [];
+  for (const c of await db.all()) { const l = ss.links[c.id]; if (l?.fileId && c.playerEmail) shares.push({ email: c.playerEmail, charId: c.id, file: l.fileId, name: c.name || '' }); }
+  try { await T.assignSheets(tok.value, T.current().id, shares, ss.lib?.fileId || ''); assignedAt = Date.now(); } catch (e) { console.warn('table sheets', e); }
+}
+/** Player: sheets (and the Table Library) your DM shared that this device hasn't opened yet: { sheets, lib } or null */
+export async function pendingShared() {
+  const T = await core?.tables?.(); const cur = T?.current();
+  if (!T || cur?.role !== 'player') return null;
+  if (!tokenValid()) return null; // (tokenValid also takes the launcher's sign-in)
+  const m = await T.mySheets(tok.value, cur.id).catch(() => null); if (!m) return null;
+  const linked = new Set(Object.values(ss.links).map(l => l.fileId));
+  const out = { sheets: m.sheets.filter(s => s.file && !linked.has(s.file)), lib: m.lib && m.lib !== ss.lib?.fileId ? m.lib : '' };
+  return out.sheets.length || out.lib ? out : null;
+}
+/** Player: open what the DM shared, with Google's picker showing only those files. Returns how many were opened. */
+export async function openPending(p) {
+  await ensureToken(true);
+  const want = [...p.sheets.map(s => s.file), ...(p.lib ? [p.lib] : [])];
+  const ids = await pick(want);
+  if (!ids?.length) return 0;
+  let n = 0;
+  for (const id of ids) {
+    const data = await download(id);
+    if (data?.app === 'charsheet-library') { ss.lib = { fileId: id, modified: '', hash: '' }; await replaceCustom(data); n++; continue; }
+    if (data?.app !== 'charsheet') continue;
+    const local = await db.get(data.id);
+    const c = merge(local, data).merged; await db.put(c);
+    ss.links[c.id] = { fileId: id, modified: '', hash: '' }; n++;
+  }
+  ss.connected = true; await saveState();
+  await syncNow({ quiet: true }); startAuto();
+  return n;
 }
 // The live link for fights (Firebase), or null if it can't load
 export const live = () => Promise.resolve(core?.live?.() || null).catch(() => null);
@@ -357,6 +398,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       }
       if (await syncLibrary(true)) names.push('the library');
       try { await writeParty(bridgeIO()); } catch (e) { if (e.auth) throw e; }
+      publishAssignments();
     } else {
       try { if (await syncLibrary(false)) names.push('the library'); } catch (e) { if (e.auth) throw e; }
       for (const [cid, l] of Object.entries(ss.links)) {
@@ -412,6 +454,8 @@ export async function shareWithPlayer(c, email) {
       body: JSON.stringify({ type: 'user', role: 'reader', emailAddress: email }),
     });
   } catch (e) { if (e.auth) throw e; }
+  // the table remembers it, so the player's app offers this sheet without them searching for it
+  await publishAssignments(true);
   ss.connected = true;
   await saveState();
   startAuto();
@@ -435,15 +479,17 @@ export async function sharedWith(c) {
 }
 
 /* ---------- Player: open the sheet the DM shared ---------- */
-async function pick() {
+async function pick(only = null) {
   if (!PICKER_API_KEY) throw new Error('The file picker needs its API key first. Your DM adds it once (README, "One-time Google setup").');
   await loadScript('https://apis.google.com/js/api.js', () => window.gapi);
   await new Promise(res => gapi.load('picker', res));
   return new Promise(resolve => {
     const view = new google.picker.DocsView(google.picker.ViewId.DOCS)
       .setMimeTypes('application/json').setIncludeFolders(false).setOwnedByMe(false);
+    // just the files the DM shared with this player
+    if (only?.length && view.setFileIds) view.setFileIds(only.join(','));
     const p = new google.picker.PickerBuilder()
-      .setTitle('Choose your character sheet and the Table Library')
+      .setTitle(only?.length ? 'Tap each file, then Select' : 'Choose your character sheet and the Table Library')
       .enableFeature(google.picker.Feature.MULTISELECT_ENABLED)
       .addView(view)
       .setOAuthToken(tok.value).setDeveloperKey(PICKER_API_KEY).setAppId(APP_ID)

@@ -146,12 +146,30 @@ async function showHome() {
     return;
   }
   $('#newBtn2').hidden = state.chars.length > 0;
+  if (!dm) sharedBanner();
   $('#homeEmpty').innerHTML = dm
     ? '<p>No characters yet. Make one here, or connect Google Drive in Settings to pull in the sheets already in your Character Sheets folder.</p>'
     : '<p>No characters yet. Make a new one, or if your DM already shared your sheet, connect Google Drive in Settings and open it.</p>';
   applyRed();
 }
 
+// A player: sheets the DM shared that this device hasn't opened yet, offered right here
+async function sharedBanner(tries = 0) {
+  let box = $('#sharedBox');
+  if (!box) { box = document.createElement('div'); box.id = 'sharedBox'; box.className = 'sharedbox'; $('#charList').before(box); }
+  const p = await sync.pendingShared().catch(() => null);
+  if (app.dataset.view !== 'home') return;
+  if (!p && tries < 4) setTimeout(() => { if (app.dataset.view === 'home') sharedBanner(tries + 1); }, 4000); // signing in can take a moment
+  if (!p) { box.hidden = true; return; }
+  const names = p.sheets.map(s => s.name || 'a character');
+  box.hidden = false;
+  box.innerHTML = `<p><b>Your DM shared ${names.length ? esc(names.join(' and ')) : 'the Table Library'} with you.</b> ${names.length && p.lib ? 'The Table Library comes with it. ' : ''}Google asks you to pick shared files once: tap Open, then tap ${names.length + (p.lib ? 1 : 0) > 1 ? 'each file' : 'the file'} and Select.</p>
+    <button class="btn primary" type="button" id="openShared">Open ${names.length === 1 ? esc(names[0]) : 'them'}</button>`;
+  $('#openShared').onclick = async () => {
+    try { const n = await sync.openPending(p); if (n) { toast('Opened. It stays in step with your DM from now on.'); showHome(); } }
+    catch (err) { toast(err.message); }
+  };
+}
 async function newChar() {
   const c = newCharacter('');
   c.edits = {};
@@ -1029,14 +1047,15 @@ async function shareDialog(id) {
   dlg.querySelector('.who').textContent = c.name || 'this character';
   const input = dlg.querySelector('input');
   input.value = c.playerEmail || '';
-  // your approved players at the table, to pick from
-  let dl = dlg.querySelector('#playerList');
-  if (!dl) { dl = document.createElement('datalist'); dl.id = 'playerList'; dlg.append(dl); input.setAttribute('list', 'playerList'); }
-  dl.innerHTML = '';
+  // your approved players at the table: tap one instead of typing their email
+  let box = dlg.querySelector('.tplayers');
+  if (!box) { box = document.createElement('div'); box.className = 'tplayers'; input.closest('label').before(box); }
+  box.innerHTML = '<p class="hint">Looking up the players at your table…</p>';
+  box.onclick = e => { const b = e.target.closest('[data-tp]'); if (!b) return; input.value = b.dataset.tp; box.querySelectorAll('[data-tp]').forEach(x => x.setAttribute('aria-pressed', String(x === b))); };
   sync.tablePlayers().then(list => {
-    dl.innerHTML = list.map(p => `<option value="${esc(p.email)}">${esc(p.name)}</option>`).join('');
-    if (list.length && !input.value) input.placeholder = 'Pick a player from your table, or type an email';
-  }).catch(() => {});
+    box.innerHTML = list.length ? `<span class="lbl">Players at your table</span><div class="tpbtns">${list.map(p => `<button type="button" class="btn small" data-tp="${esc(p.email)}" aria-pressed="${input.value.toLowerCase() === p.email.toLowerCase()}">${esc(p.name || p.email)}<small>${esc(p.email)}</small></button>`).join('')}</div>`
+      : '<p class="hint">No players have joined your table yet. Send them an invite link from the launcher, or type an email below.</p>';
+  }).catch(err => { box.innerHTML = `<p class="hint">${esc(err.message)}</p>`; });
   const status = dlg.querySelector('.status');
   status.textContent = '';
   dlg.querySelector('.current').textContent = '';

@@ -903,3 +903,11 @@ html[data-red="1"] .syncbtn .dot{background:#fff}
 .eqnote{display:block;margin-top:3px;font-size:.72rem;color:var(--muted)}
 .bgasi{display:grid;gap:6px;margin:10px 0;padding:10px;border:1px solid var(--line);border-radius:10px}
 .bgasi .row{display:flex;flex-wrap:wrap;gap:10px}
+/* sharing: the table's players, and what the DM shared with a player */
+.tplayers{margin:6px 0}
+.tpbtns{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.tpbtns .btn{display:grid;text-align:left;line-height:1.2}
+.tpbtns .btn small{color:var(--muted);font-size:.72rem}
+.tpbtns .btn[aria-pressed="true"]{border-color:var(--accent);color:var(--accent)}
+.sharedbox{margin:0 0 12px;padding:12px 14px;border:1px solid var(--accent);border-radius:12px;background:var(--raise)}
+.sharedbox p{margin:0 0 8px}
