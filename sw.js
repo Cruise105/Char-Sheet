@@ -1,6 +1,6 @@
 // Offline support: the app's files are cached on first visit, then served from the device.
 // When you publish an update, bump VERSION so devices pick up the new files on their next launch.
-const VERSION = 'charsheet-v63';
+const VERSION = 'charsheet-v64';
 const FILES = [
   './', './index.html', './styles.css', './manifest.webmanifest',
   './js/app.js', './js/text.js', './js/db.js', './js/model.js', './js/rules.js', './js/features.js', './js/sheet.js', './js/theme.js', './js/sync.js', './js/config.js', './js/library.js', './js/autofill.js', './js/libui.js', './js/magic.js', './js/bridge.js', './js/dm.js', './js/options.js', './js/ink.js', './js/tables.js', './js/creatures.js', './js/infuse.js', './data/srd.json', './data/srd2024.json',

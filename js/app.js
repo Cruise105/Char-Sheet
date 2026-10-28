@@ -17,6 +17,7 @@ import { fmt, tabIndent } from './text.js';
 
 const $ = s => document.querySelector(s);
 const app = $('#app');
+let homeSentCheck = false;
 const state = { chars: [], cur: null, page: 'sheet', settings: { role: 'player', red: false }, dmOk: false };
 // DM mode needs both: DM chosen in Settings, and this device signed in to the DM's Google account
 const isDm = () => state.settings.role === 'dm' && state.dmOk;
@@ -118,6 +119,8 @@ async function showHome() {
     <option value=""${c.campaignId ? '' : ' selected'}>No campaign</option>
     ${camps.map(k => `<option value="${esc(k.id)}"${c.campaignId === k.id ? ' selected' : ''}>${esc(k.name || 'Unnamed campaign')}</option>`).join('')}</select>`;
   const list = $('#charList');
+  const ts = sync.tableStatus(), atTable = !dm && sync.tableRole() === 'player' && (!ts || ts === 'approved');
+  if (atTable && !homeSentCheck) { homeSentCheck = true; const before = [...state.chars].map(c => sync.isSent(c.id)).join(); sync.refreshSent().then(() => { homeSentCheck = false; if (app.dataset.view === 'home' && [...state.chars].map(c => sync.isSent(c.id)).join() !== before) showHome(); }); }
   list.innerHTML = shown.map(c => {
     const cls = (c.classes || []).filter(k => k.name).map(k => `${k.name}${k.sub ? ` (${k.sub})` : ''} ${k.level}`).join(' / ');
     const linked = sync.linkOf(c.id);
@@ -131,7 +134,7 @@ async function showHome() {
         </span>
       </button>
       <div class="cardacts">
-        ${dm ? `<button class="btn small" type="button" data-share="${c.id}">Share with player</button>` : (linked ? '' : `<button class="btn small" type="button" data-link="${c.id}">Link to Drive</button>`)}
+        ${dm ? `<button class="btn small" type="button" data-share="${c.id}">Share with player</button>` : linked ? '' : atTable ? (sync.isSent(c.id) ? '<span class="tag">Sent. Waiting for your DM</span>' : `<button class="btn small primary" type="button" data-send="${c.id}">Send to my DM</button>`) : `<button class="btn small" type="button" data-link="${c.id}">Link to Drive</button>`}
         <button class="btn small" type="button" data-export="${c.id}">Save a copy</button>
         <button class="btn small danger" type="button" data-del="${c.id}">Delete</button>
         ${camps.length ? campSel(c) : ''}
@@ -153,6 +156,18 @@ async function showHome() {
     ? '<p>No characters yet. Make one here, or connect Google Drive in Settings to pull in the sheets already in your Character Sheets folder.</p>'
     : '<p>No characters yet. Make a new one, or if your DM already shared your sheet, connect Google Drive in Settings and open it.</p>';
   applyRed();
+}
+
+// A player sends a character they made to the DM, whose app keeps it in their Drive and shares it back
+async function sendToDm(id, btn) {
+  await flush();
+  const c = await db.get(id); if (!c) return;
+  if (!String(c.name || '').trim()) { toast('Give your character a name first.'); return; }
+  if (!confirm(`Send ${c.name} to your DM? They keep the sheet in their Google Drive and share it back to you, so you both can see it. You can keep playing it here meanwhile.`)) return;
+  btn.disabled = true; btn.textContent = 'Sending…';
+  try { await sync.sendToDm(c); toast(`Sent ${c.name}. It shows up for your DM the next time their Character Sheet syncs, then comes back to you to open.`); }
+  catch (err) { toast(err.message); }
+  showHome();
 }
 
 // A player: sheets the DM shared that this device hasn't opened yet, offered right here
@@ -1238,6 +1253,7 @@ async function start() {
     if (t.dataset.open) openCharacter(t.dataset.open);
     if (t.dataset.share) shareDialog(t.dataset.share);
     if (t.dataset.link) linkDialog(t.dataset.link);
+    if (t.dataset.send) sendToDm(t.dataset.send, t);
     if (t.dataset.export) exportOne(t.dataset.export);
     if (t.dataset.del) deleteChar(t.dataset.del);
   });

@@ -250,6 +250,7 @@ async function syncTableSettings() {
 export const campaignList = () => core?.campaigns?.() || [];
 // The table chosen in the launcher: this device's role there ('dm', 'player' or ''), and its approved players
 export const tableRole = () => core?.tableRole?.() || '';
+export const tableStatus = () => core?.currentTable?.()?.status || '';
 export async function tablePlayers() {
   const T = await core?.tables?.(); if (!T) throw new Error("Couldn't load your table.");
   if (T.role() !== 'dm') throw new Error('Pick your table in the launcher to see its players here.');
@@ -265,6 +266,60 @@ async function publishAssignments(force = false) {
   const shares = [];
   for (const c of await db.all()) { const l = ss.links[c.id]; if (l?.fileId && c.playerEmail) shares.push({ email: c.playerEmail, charId: c.id, file: l.fileId, name: c.name || '' }); }
   try { await T.assignSheets(tok.value, T.current().id, shares, ss.lib?.fileId || ''); assignedAt = Date.now(); } catch (e) { console.warn('table sheets', e); }
+}
+/* ---------- a player's new character goes to the DM, who keeps it ---------- */
+// DM: pick up characters players sent; each is saved on this device (and so in your folder on this pass)
+async function takeIncoming() {
+  const T = await core?.tables?.(); const cur = T?.current();
+  if (!T || cur?.role !== 'dm') return [];
+  let list; try { list = await T.incomingSheets(tok.value, cur.id); } catch (e) { console.warn('incoming sheets', e); return []; }
+  const out = [];
+  for (const x of list) {
+    let data = null; try { data = JSON.parse(x.json); } catch { /* not a sheet */ }
+    if (!x.email || data?.app !== 'charsheet' || data.id !== x.charId) { await T.clearIncoming(tok.value, cur.id, x.uid, x.charId).catch(() => {}); continue; }
+    if (!(await db.get(data.id))) {
+      const c = upgrade(data);
+      c.playerEmail = x.email; if (!c.player) c.player = x.player || '';
+      c.liveKey = ''; if (!c.campaignId) c.campaignId = core.currentCampaign?.()?.id || '';
+      delete ss.dropped?.[c.id];
+      await db.put(c);
+    }
+    out.push({ ...x, id: data.id, name: data.name || x.name });
+  }
+  return out;
+}
+// DM: share each one back to its player (they edit it, you own it) and tell the table, then clear the queue
+async function shareIncoming(fresh) {
+  const T = await core?.tables?.(); const cur = T?.current(); if (!T) return;
+  for (const x of fresh) {
+    const l = ss.links[x.id]; if (!l?.fileId) continue;
+    try {
+      await api(`${API}/files/${l.fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'user', role: 'writer', emailAddress: x.email }) });
+      if (ss.lib?.fileId) await api(`${API}/files/${ss.lib.fileId}/permissions?sendNotificationEmail=false&fields=id`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'user', role: 'reader', emailAddress: x.email }) }).catch(e => { if (e.auth) throw e; });
+      await T.clearIncoming(tok.value, cur.id, x.uid, x.charId);
+    } catch (e) { if (e.auth) throw e; console.warn('share back', e); }
+  }
+  await publishAssignments(true);
+}
+// Player: send a character you made to your DM
+export async function sendToDm(c) {
+  const T = await core?.tables?.(); const cur = T?.current();
+  if (!T || cur?.role !== 'player') throw new Error('Join your DM\'s table in the launcher first.');
+  if (cur.status && cur.status !== 'approved') throw new Error("Your DM hasn't let you into the table yet.");
+  if (!navigator.onLine) throw new Error("You're offline. Sending needs a connection.");
+  if (!tokenValid()) await ensureToken(true);
+  await T.sendSheet(tok.value, cur.id, { ...c, liveKey: '' });
+  sentIds.add(c.id);
+}
+// Player: which of your characters are waiting for your DM's app (checked now and then)
+let sentIds = new Set(), sentAt = 0;
+export const isSent = id => sentIds.has(id);
+export async function refreshSent() {
+  const T = await core?.tables?.(); const cur = T?.current();
+  if (!T || cur?.role !== 'player' || !tokenValid()) return sentIds;
+  if (Date.now() - sentAt < 15000) return sentIds;
+  try { sentIds = new Set(await T.sentSheets(tok.value, cur.id)); sentAt = Date.now(); } catch { /* */ }
+  return sentIds;
 }
 /** Player: sheets (and the Table Library) your DM shared that this device hasn't opened yet: { sheets, lib } or null */
 export async function pendingShared() {
@@ -390,12 +445,16 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       const live = new Set(files.map(f => f.id));
       ss.dropped = ss.dropped || {};
       for (const [cid, l] of Object.entries(ss.links)) if (!live.has(l.fileId)) { delete ss.links[cid]; ss.dropped[cid] = true; }
+      // characters players made and sent to you: they join your folder like any other
+      const fresh = await takeIncoming();
+      for (const x of fresh) names.push(`${x.name || 'a character'} (from ${x.player || x.email})`);
       // every other character on the DM's device goes in the folder, shared with a player or not
       for (const c of await db.all()) {
         if (ss.links[c.id] || ss.dropped[c.id]) continue;
         const res = await writeFile(c, { name: fileName(c), parent: ss.folderId });
         ss.links[c.id] = { fileId: res.id, modified: res.modifiedTime, hash: hashOf(c), name: c.name };
       }
+      if (fresh.length) await shareIncoming(fresh);
       if (await syncLibrary(true)) names.push('the library');
       try { await writeParty(bridgeIO()); } catch (e) { if (e.auth) throw e; }
       publishAssignments();
