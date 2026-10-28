@@ -24,6 +24,7 @@ async function checkEmail(email) {
   // DM of the table chosen in the launcher; before any table exists, the account this app was set up for
   const tr = sync.tableRole();
   state.dmOk = tr === 'dm' || (tr !== 'player' && await isDmEmail(email));
+  if (state.settings.autoRole && tr) { state.settings.role = tr === 'dm' ? 'dm' : 'player'; delete state.settings.autoRole; saveSettings(); refreshRoleUi(); }
   if (state.settings.role === 'dm' && email && !state.dmOk) {
     state.settings.role = 'player'; saveSettings();
     toast(sync.tableRole() === 'player' ? 'You\'re a player at this table, so this device stays in Player mode.' : 'Dungeon Master mode is for the DM of a table (create one in the launcher). This device stays in Player mode.');
@@ -74,6 +75,7 @@ async function flush() { if (saveTimer && state.cur) { clearTimeout(saveTimer); 
 async function loadSettings() {
   const s = await db.getMeta('settings');
   if (s) Object.assign(state.settings, s);
+  else state.settings.autoRole = true; // a brand-new device: take the role from the table chosen in the launcher
   applyRed();
 }
 function saveSettings() { db.setMeta('settings', { ...state.settings }); }
@@ -1234,7 +1236,7 @@ async function start() {
   sd.addEventListener('click', e => {
     const r = e.target.closest('[data-role]');
     if (r) {
-      state.settings.role = r.dataset.role; saveSettings();
+      state.settings.role = r.dataset.role; delete state.settings.autoRole; saveSettings();
       refreshRoleUi();
       if (r.dataset.role === 'dm' && !state.dmOk) toast(sync.currentEmail() ? 'Dungeon Master mode is for the DM of a table: create one in the launcher.' : 'Connect Google Drive with your DM account to turn on Dungeon Master mode.');
       if (state.cur) renderSheet();
