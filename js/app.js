@@ -204,8 +204,18 @@ function viewEntry(id) {
   dlg.showModal();
 }
 // A race, class, subclass, background or level changed: fill the sheet from the library
-function picked() {
+// chosen: a race, background or first class a player just picked for themselves (they get one go at it)
+function picked(chosen = '') {
   const c = state.cur; if (!c) return;
+  if (chosen && player()) {
+    resolvePicks(c);
+    const idOf = { race: () => c.raceId, background: () => c.bgId, 'classes.0.name': () => c.classes?.[0]?.clsId }[chosen];
+    const name = getPath(c, chosen);
+    const what = { race: R.F.is2024() ? 'species' : 'race', background: 'background', 'classes.0.name': 'class' }[chosen];
+    const undo = () => { setPath(c, chosen, ''); stamp(c, chosen); save(c); renderSheet(); };
+    if (!idOf?.()) { undo(); if (name) toast(`Pick a ${what} from the list. Ask your DM to add it to the Library if it isn't there.`); return; }
+    if (!confirm(`Choose ${name} as your ${what}? Once it's chosen, only your DM can change it.`)) { undo(); return; }
+  }
   const before = JSON.stringify([c.raceId, c.bgId, c.classes.map(k => [k.clsId, k.subId, k.level])]);
   resolvePicks(c);
   const after = JSON.stringify([c.raceId, c.bgId, c.classes.map(k => [k.clsId, k.subId, k.level])]);

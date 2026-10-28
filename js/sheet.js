@@ -116,10 +116,15 @@ export function readyToLevel(c) {
   const next = R.XP_TABLE[R.totalLevel(c)];
   return next != null && (Number(c.xp) || 0) >= next && R.totalLevel(c) < 20;
 }
+const CHOOSE_ONCE = ['race', 'background', 'classes.0.name'];
 // A text box that suggests library entries; the info button opens the full entry
 function pickInput(path, value, ph, list, id) {
   const info = id ? `<button class="info" type="button" data-act="libview" data-id="${id}" aria-label="Read ${esc(value)}">i</button>` : '';
-  if (isPlayer()) return `<span class="pick">${ro(value, ph === 'Pick or type' ? 'Your DM sets this' : ph)}${info}</span>`;
+  // A player picks their own race, background and first class, once: while it's empty it's a list to choose from,
+  // and once chosen it's locked (the DM can still change it)
+  const choose = isPlayer() && !value && CHOOSE_ONCE.includes(path);
+  if (isPlayer() && !choose) return `<span class="pick">${ro(value, ph === 'Pick or type' ? 'Your DM sets this' : ph)}${info}</span>`;
+  if (choose) return `<span class="pick"><input class="f" data-k="${path}" data-pick data-choose list="${list}" value="" placeholder="Choose from the list" autocomplete="off" spellcheck="false"></span>`;
   return `<span class="pick"><input class="f" data-k="${path}" data-pick list="${list}" value="${esc(value)}" placeholder="${esc(ph)}" autocomplete="off" spellcheck="false">${id ? `<button class="info" type="button" data-act="libview" data-id="${id}" aria-label="Read ${esc(value)}">i</button>` : ''}</span>`;
 }
 function datalists(c) {
@@ -953,6 +958,7 @@ export function bindSheet(root, getChar) {
     }
     if (!el.dataset.k || el.type === 'checkbox' || el.tagName === 'SELECT') return;
     if (el.dataset.k === 'hp.cur' || el.dataset.k === 'hp.temp') return; // saved on change, as an adjustment
+    if (el.hasAttribute('data-choose')) return; // a player's one-time pick is saved when they choose, not as they type
     const c = getChar();
     let v = el.value;
     if (el.dataset.type === 'num') v = v.trim() === '' ? '' : (Number.isFinite(Number(v)) ? Number(v) : v);
@@ -982,13 +988,13 @@ export function bindSheet(root, getChar) {
     }
     let v = el.type === 'checkbox' ? el.checked : el.value;
     if (el.dataset.type === 'num' && el.type !== 'checkbox') v = Number(v);
-    if (el.type === 'checkbox' || el.tagName === 'SELECT') {
+    if (el.type === 'checkbox' || el.tagName === 'SELECT' || el.hasAttribute('data-choose')) {
       setPath(c, el.dataset.k, v);
       stamp(c, stampPathFor(el, el.dataset.k));
     }
     updateCalcs(root, c);
     ctx.save(c);
-    if (el.hasAttribute('data-pick')) return ctx.picked();
+    if (el.hasAttribute('data-pick')) return ctx.picked(el.hasAttribute('data-choose') ? el.dataset.k : '');
     if (el.hasAttribute('data-rerender')) ctx.rerender();
   });
   root.addEventListener('click', e => {
