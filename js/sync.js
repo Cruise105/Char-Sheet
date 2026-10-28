@@ -635,7 +635,12 @@ export async function initSync(helpers) {
     if (k === 'disconnect') disconnect();
     if (k === 'open') { try { const id = await openShared(); if (id) ctx.openCharacter(id); } catch (err) { ctx.toast(err.message); } }
   });
-  if (!ss.connected) return;
+  if (!ss.connected) {
+    // Signed in through the launcher already? Connect Drive here on its own, so nobody has to hunt for the button.
+    if (!tokenValid() && core?.refreshNow) { try { await core.refreshNow(); } catch { /* */ } }
+    if (tokenValid()) await syncNow({ interactive: true, quiet: true });
+    return;
+  }
   syncNow({ quiet: true });
   startAuto();
 }
