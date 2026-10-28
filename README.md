@@ -8,7 +8,7 @@ Customizable D&D 5e (2014) character sheets for your table. Runs in Chrome, inst
 2. Unzip `charsheet.zip` on your PC.
 3. In the new repository, click **Add file** → **Upload files**. Drag in **everything** from inside the unzipped folder, including the `js`, `fonts` and `icons` folders. Click **Commit changes**.
 4. Repository **Settings** → **Pages** → Branch **main**, **/ (root)** → **Save**.
-5. A minute later it's live at `https://cruise105.github.io/charsheet/`.
+5. A minute later it's live at `https://thedmsperspective.github.io/charsheet/`.
 
 ## One-time Google setup (about 10 minutes)
 
@@ -16,7 +16,7 @@ This uses the same Google Cloud project and sign-in key as your Bestiary and Ses
 
 1. **Turn on the file picker.** In Google Cloud Console, open your project → **APIs & Services** → **Library**. Search for **Google Picker API** and click **Enable**.
 2. **Make an API key for the picker.** **APIs & Services** → **Credentials** → **Create credentials** → **API key**. Then click the new key to restrict it:
-   - Application restrictions: **Websites**, and add `https://cruise105.github.io/*`
+   - Application restrictions: **Websites**, and add `https://thedmsperspective.github.io/*`
    - API restrictions: **Restrict key** → tick **Google Picker API**
    - Save, then copy the key.
    Open `js/config.js`, paste the key between the quotes on the `PICKER_API_KEY` line, and upload that one file to the repository again.
@@ -40,7 +40,7 @@ DM mode only turns on when the device is signed in to your Google account. On an
 
 ## Your wife's tablet (a player)
 
-1. Open `https://cruise105.github.io/charsheet/` in Chrome → **⋮** → **Add to home screen** → **Install**.
+1. Open `https://thedmsperspective.github.io/charsheet/` in Chrome → **⋮** → **Add to home screen** → **Install**.
 2. **Settings** → **Player** → **Connect Google Drive**.
 
 Then one of these:

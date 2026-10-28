@@ -355,7 +355,7 @@ export async function syncNow({ interactive = false, quiet = false } = {}) {
       await ensureFolder();
       // the suite's campaign list and current campaign, so characters can be tagged and the party filtered
       suiteNote = '';
-      if (!core) suiteNote = "Couldn't load the suite core from cruise105.github.io/core/, so campaigns aren't available yet.";
+      if (!core) suiteNote = "Couldn't load the suite core from the launcher's /core/, so campaigns aren't available yet.";
       else if (!core.loadSuite) suiteNote = `This device has an older copy of the suite core (version ${core.VERSION || 1}). Close and reopen the app to pick up the new one.`;
       else {
         try {
