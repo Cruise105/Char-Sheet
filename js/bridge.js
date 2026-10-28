@@ -22,9 +22,26 @@ export const sources = { sn: null, mi: null, seed: null, read: 0, error: '', miC
 // item app's data.js on the same site
 const LIB_FILE = 'omnithel-items-library.json';
 let libIo = null;
+// The 2024 rules' SRD items (the magic item app's data2024.js), added to whichever list is in use
+async function fetchSeedFile(name) {
+  for (const path of [`../Magic-Items/${name}`, `../magic-items/${name}`]) {
+    let r = null; try { r = await fetch(path, { cache: 'no-cache' }); } catch { r = null; }
+    if (r?.ok) { const t = await r.text(); return JSON.parse(t.slice(t.indexOf('=') + 1).trim().replace(/;\s*$/, '')); }
+  }
+  return null;
+}
+async function withSrd2024(map) {
+  try { const s = await fetchSeedFile('data2024.js'); for (const i of s?.items || []) if (!map.has(i.id)) map.set(i.id, i); } catch { /* the 2014 list still works */ }
+  return map;
+}
 async function loadSeed(io = libIo) {
   if (io) libIo = io;
   if (sources.seed) return sources.seed;
+  const seed = await loadSeedOnly();
+  if (seed) await withSrd2024(seed);
+  return seed;
+}
+async function loadSeedOnly() {
   if (libIo) {
     try {
       const lib = await libIo.readAppdata(LIB_FILE);
