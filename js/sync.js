@@ -265,7 +265,8 @@ async function publishAssignments(force = false) {
   const T = await core?.tables?.(); if (!T || T.role() !== 'dm' || !tokenValid()) return;
   const shares = [];
   for (const c of await db.all()) { const l = ss.links[c.id]; if (l?.fileId && c.playerEmail) shares.push({ email: c.playerEmail, charId: c.id, file: l.fileId, name: c.name || '' }); }
-  try { await T.assignSheets(tok.value, T.current().id, shares, ss.lib?.fileId || ''); assignedAt = Date.now(); } catch (e) { console.warn('table sheets', e); }
+  const gone = Object.keys(ss.dropped || {}).filter(id => !ss.links[id]);
+  try { await T.assignSheets(tok.value, T.current().id, shares, ss.lib?.fileId || '', gone); assignedAt = Date.now(); } catch (e) { console.warn('table sheets', e); }
 }
 /* ---------- a player's new character goes to the DM, who keeps it ---------- */
 // DM: pick up characters players sent; each is saved on this device (and so in your folder on this pass)
@@ -328,7 +329,8 @@ export async function pendingShared() {
   if (!tokenValid()) return null; // (tokenValid also takes the launcher's sign-in)
   const m = await T.mySheets(tok.value, cur.id).catch(() => null); if (!m) return null;
   const linked = new Set(Object.values(ss.links).map(l => l.fileId));
-  const out = { sheets: m.sheets.filter(s => s.file && !linked.has(s.file)), lib: m.lib && m.lib !== ss.lib?.fileId ? m.lib : '' };
+  const dismissed = new Set(ss.dismissed || []);
+  const out = { sheets: m.sheets.filter(s => s.file && !linked.has(s.file) && !dismissed.has(s.file)), lib: m.lib && m.lib !== ss.lib?.fileId ? m.lib : '' };
   return out.sheets.length || out.lib ? out : null;
 }
 /** Player: open what the DM shared, with Google's picker showing only those files. Returns how many were opened. */
@@ -632,6 +634,7 @@ export async function trashSheet(id) {
   try {
     if (!navigator.onLine || !(await ensureToken(true))) return false;
     await api(`${API}/files/${l.fileId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ trashed: true }) });
+    await publishAssignments(true); // and the table stops offering it to the player
     return true;
   } catch { return false; }
 }
@@ -643,6 +646,12 @@ export async function bestiaryMonsters() {
   return b.ok ? b.list : null;
 }
 export async function forget(id) { if (ss.links[id]) { delete ss.links[id]; await saveState(); } }
+// Player: deleted a sheet your DM shared? Don't offer it again (unless the DM shares it anew)
+export async function dismiss(id) {
+  const l = ss.links[id];
+  if (l?.fileId) ss.dismissed = [...new Set([...(ss.dismissed || []), l.fileId])].slice(-200);
+  delete ss.links[id]; await saveState();
+}
 
 /* ---------- status ---------- */
 function setStatus(s) { status = s; renderStatus(); }
